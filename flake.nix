@@ -38,7 +38,10 @@
               rustfmt
             ];
 
-            buildInputs = [];
+            buildInputs = [
+              openssl
+              pkg-config
+            ];
           };
         }
     );
