@@ -46,7 +46,10 @@ impl Default for State {
     }
 }
 
-pub fn run(mut terminal: DefaultTerminal, app_state: &mut App) -> Result<()> {
+pub fn run(
+    mut terminal: DefaultTerminal,
+    app_state: &mut App,
+) -> Result<()> {
     loop {
         terminal.draw(|f| render(f, app_state))?;
 
@@ -72,16 +75,24 @@ fn render(frame: &mut Frame, app_state: &App) {
     }
 }
 
-fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
+fn center(
+    area: Rect,
+    horizontal: Constraint,
+    vertical: Constraint,
+) -> Rect {
     let [area] = Layout::horizontal([horizontal])
         .flex(Flex::Center)
         .areas(area);
-    let [area] = Layout::vertical([vertical]).flex(Flex::Center).areas(area);
+    let [area] =
+        Layout::vertical([vertical]).flex(Flex::Center).areas(area);
     area
 }
 
 fn draw_warmup(frame: &mut Frame) {
-    let text = Text::from(vec![Line::from("gai"), Line::from("warming up...")]);
+    let text = Text::from(vec![
+        Line::from("gai"),
+        Line::from("warming up..."),
+    ]);
     let area = center(
         frame.area(),
         Constraint::Length(text.width() as u16),
@@ -94,15 +105,21 @@ fn draw_warmup(frame: &mut Frame) {
 fn draw_running(frame: &mut Frame) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints(vec![
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
         .split(frame.area());
 
     frame.render_widget(
-        Paragraph::new("something").block(Block::new().title("gai").borders(Borders::ALL)),
+        Paragraph::new("something")
+            .block(Block::new().title("gai").borders(Borders::ALL)),
         layout[0],
     );
     frame.render_widget(
-        Paragraph::new("foo").block(Block::new().title("status").borders(Borders::ALL)),
+        Paragraph::new("foo").block(
+            Block::new().title("status").borders(Borders::ALL),
+        ),
         layout[1],
     );
 }
