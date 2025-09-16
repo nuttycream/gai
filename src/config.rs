@@ -1,7 +1,12 @@
+use std::{error::Error, fs, io::ErrorKind};
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Config {
+    /// send out the request upon launching
+    /// gai
+    pub auto_request: bool,
     pub ai_config: AIConfig,
     pub ignore_config: IgnoreConfig,
 }
@@ -20,10 +25,19 @@ pub struct IgnoreConfig {
 }
 
 impl Config {
-    pub fn init() -> Self {
-        Config {
-            ai_config: AIConfig::default(),
-            ignore_config: IgnoreConfig::default(),
-        }
+    pub fn init(path: &str) -> Result<Self, Box<dyn Error>> {
+        let cfg_str = match fs::read_to_string(path) {
+            Ok(contents) => contents,
+            Err(e) if e.kind() == ErrorKind::NotFound => {
+                let def = Config::default();
+                let def_toml = toml::to_string_pretty(&def)?;
+                fs::write(path, &def_toml)?;
+                def_toml
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+        let cfg: Config = toml::from_str(&cfg_str)?;
+        Ok(cfg)
     }
 }

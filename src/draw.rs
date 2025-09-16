@@ -1,4 +1,5 @@
-use color_eyre::{Result, eyre::Ok};
+use std::error::Error;
+
 use crossterm::event::{self, Event};
 use ratatui::{
     DefaultTerminal, Frame,
@@ -49,7 +50,7 @@ impl Default for State {
 pub fn run(
     mut terminal: DefaultTerminal,
     app_state: &mut App,
-) -> Result<()> {
+) -> Result<(), Box<dyn Error>> {
     loop {
         terminal.draw(|f| render(f, app_state))?;
 
