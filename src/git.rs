@@ -18,11 +18,12 @@ pub struct GitState {
     pub file: HashMap<String, Status>,
 }
 
+#[derive(Debug)]
 pub enum Status {
     /// change includes
     /// modified, deleted,
     /// typechanged, renamed
-    Changed,
+    Changed(String),
 
     /// files that haven't been
     /// added Status::WT_NEW
@@ -46,10 +47,47 @@ impl GitState {
         })
     }
 
-    pub fn get_status(&mut self) -> Result<()> {
+    pub fn status(&mut self) -> Result<()> {
         let statuses = self.repo.statuses(Some(&mut self.options))?;
 
-        for entry in statuses.iter() {}
+        for entry in statuses.iter() {
+            // With `Status::OPT_INCLUDE_UNMODIFIED` (not used in this example)
+            // `index_to_workdir` may not be `None` even if there are no differences,
+            // in which case it will be a `Delta::Unmodified`.
+            if entry.status() == git2::Status::CURRENT
+                || entry.index_to_workdir().is_none()
+            {
+                continue;
+            }
+
+            let status = match entry.status() {
+                s if s.contains(git2::Status::WT_MODIFIED) => {
+                    Status::Changed("modified".to_string())
+                }
+                s if s.contains(git2::Status::WT_DELETED) => {
+                    Status::Changed("deleted".to_string())
+                }
+                s if s.contains(git2::Status::WT_RENAMED) => {
+                    Status::Changed("renamed".to_string())
+                }
+                s if s.contains(git2::Status::WT_TYPECHANGE) => {
+                    Status::Changed("typechange".to_string())
+                }
+                s if s.contains(git2::Status::WT_NEW) => {
+                    Status::Untracked
+                }
+                _ => continue,
+            };
+
+            // used when comparing the two files, but I think we can just use the
+            // entry path in this scenario no?
+            // let old_path = entry.head_to_index().unwrap().old_file().path();
+            // let new_path = entry.head_to_index().unwrap().new_file().path();
+
+            let path = entry.path().unwrap().to_string();
+
+            self.file.insert(path, status);
+        }
 
         Ok(())
     }
