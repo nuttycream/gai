@@ -1,0 +1,6 @@
+auto_request = false
+
+[ai_config]
+
+[ignore_config]
+files_to_ignore = ["Cargo.lock"]

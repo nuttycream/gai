@@ -1,5 +1,4 @@
-use color_eyre::Result;
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, error::Error, path::Path};
 
 use git2::{Repository, StatusOptions};
 
@@ -34,7 +33,7 @@ impl GitState {
     /// this could fail on an unitialized directory
     /// for now, im not gonna handle those and we
     /// just straight up panic if we failed to open
-    pub fn new(repo_path: &Path) -> Result<Self> {
+    pub fn new(repo_path: &Path) -> Result<Self, Box<dyn Error>> {
         let repo = Repository::open(repo_path)?;
         let mut options = StatusOptions::new();
 
@@ -47,7 +46,10 @@ impl GitState {
         })
     }
 
-    pub fn status(&mut self, to_ignore: &[String]) -> Result<()> {
+    pub fn status(
+        &mut self,
+        to_ignore: &[String],
+    ) -> Result<(), Box<dyn Error>> {
         let statuses = self.repo.statuses(Some(&mut self.options))?;
 
         for entry in statuses.iter() {
@@ -62,16 +64,16 @@ impl GitState {
 
             let status = match entry.status() {
                 s if s.contains(git2::Status::WT_MODIFIED) => {
-                    Status::Changed("modified".to_string())
+                    Status::Changed("modified".to_owned())
                 }
                 s if s.contains(git2::Status::WT_DELETED) => {
-                    Status::Changed("deleted".to_string())
+                    Status::Changed("deleted".to_owned())
                 }
                 s if s.contains(git2::Status::WT_RENAMED) => {
-                    Status::Changed("renamed".to_string())
+                    Status::Changed("renamed".to_owned())
                 }
                 s if s.contains(git2::Status::WT_TYPECHANGE) => {
-                    Status::Changed("typechange".to_string())
+                    Status::Changed("typechange".to_owned())
                 }
                 s if s.contains(git2::Status::WT_NEW) => {
                     Status::Untracked
