@@ -3,7 +3,7 @@ pub mod draw;
 pub mod git;
 pub mod request;
 
-use std::{error::Error, path::Path};
+use std::{env, error::Error, path::Path};
 
 use crate::{
     config::Config,
@@ -29,6 +29,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     input.add_data("test")?;
     rb.add_input(input)?;
 
+    let recv = ureq::post("https://api.openai.com/v1/responses")
+        .header("Content-Type", "application/json")
+        .header(
+            "Authorization",
+            format!(
+                "Bearer {}",
+                env::var("OPENAI").expect("no env var found")
+            ),
+        );
+
+    println!("recv: {:?}", recv);
     println!("rb: {:?}", rb);
 
     //let mut state = App::default();
