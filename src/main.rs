@@ -1,16 +1,19 @@
+pub mod config;
 pub mod draw;
 pub mod git;
 
-use std::path::Path;
+use std::{fs, path::Path};
 
-use crate::git::GitState;
+use crate::{config::Config, git::GitState};
 use color_eyre::{Result, eyre::Ok};
 
 fn main() -> Result<()> {
     color_eyre::install()?;
 
+    let cfg = Config::init();
+
     let mut git_state = GitState::new(Path::new("."))?;
-    git_state.status()?;
+    git_state.status(&cfg.ignore_config.files_to_ignore)?;
 
     // let terminal = ratatui::init();
     //let result = run(terminal, &mut state);
@@ -19,6 +22,8 @@ fn main() -> Result<()> {
 
     for (path, status) in git_state.file {
         println!("Path: {}, Status: {:?}", path, status);
+        let file_string = fs::read_to_string(path)?;
+        println!("file_string: {}", file_string);
     }
 
     Ok(())

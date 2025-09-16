@@ -47,7 +47,7 @@ impl GitState {
         })
     }
 
-    pub fn status(&mut self) -> Result<()> {
+    pub fn status(&mut self, to_ignore: &[String]) -> Result<()> {
         let statuses = self.repo.statuses(Some(&mut self.options))?;
 
         for entry in statuses.iter() {
@@ -83,6 +83,13 @@ impl GitState {
             // entry path in this scenario no?
             // let old_path = entry.head_to_index().unwrap().old_file().path();
             // let new_path = entry.head_to_index().unwrap().new_file().path();
+
+            if to_ignore
+                .iter()
+                .any(|f| entry.path().unwrap().ends_with(f))
+            {
+                continue;
+            }
 
             let path = entry.path().unwrap().to_string();
 
