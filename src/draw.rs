@@ -8,6 +8,8 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+use crate::utils::GaiLogo;
+
 #[derive(Default)]
 pub struct App {
     pub state: State,
@@ -86,17 +88,16 @@ fn center(
 }
 
 fn draw_warmup(frame: &mut Frame) {
-    let text = Text::from(vec![
-        Line::from("gai"),
-        Line::from("warming up..."),
-    ]);
-    let area = center(
-        frame.area(),
-        Constraint::Length(text.width() as u16),
-        Constraint::Length(text.height() as u16),
-    );
+    let text = Text::from(vec![Line::from("warming up...")]);
 
-    frame.render_widget(text, area);
+    let [logo_area, text_area] = Layout::vertical([
+        Constraint::Fill(1),
+        Constraint::Length(1),
+    ])
+    .areas(frame.area());
+
+    frame.render_widget(GaiLogo::new(), logo_area);
+    frame.render_widget(text, text_area);
 }
 
 fn draw_running(frame: &mut Frame) {

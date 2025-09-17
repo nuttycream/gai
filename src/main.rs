@@ -2,11 +2,13 @@ pub mod config;
 pub mod draw;
 pub mod git;
 pub mod request;
+pub mod utils;
 
 use std::{env, error::Error, path::Path};
 
 use crate::{
     config::Config,
+    draw::{App, run},
     git::GitState,
     request::{InputData, RequestBody},
 };
@@ -42,12 +44,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("recv: {:?}", recv);
     println!("rb: {:?}", rb);
 
-    //let mut state = App::default();
-    //let terminal = ratatui::init();
-    //let result = run(terminal, &mut state);
+    let mut state = App::default();
+    let terminal = ratatui::init();
+    let result = run(terminal, &mut state);
 
     ratatui::restore();
 
-    Ok(())
-    //result
+    result
 }
