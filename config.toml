@@ -1,6 +1,19 @@
 auto_request = false
+api_key_file = ""
+files_to_ignore = [
+    "Cargo.lock",
+    "package-lock.json",
+]
 
-[ai_config]
+[ai]
+prompt = "You're a big shot engineer with high ambitions, can you generate with your infinite wisdom, a spectacular commit message for the following git diffs."
 
-[ignore_config]
-files_to_ignore = ["Cargo.lock"]
+[ai.chatgpt]
+enable = true
+api_key_name = "OPENAI"
+max_tokens = 100
+
+[ai.claude]
+enable = true
+api_key_name = "CLAUDE"
+max_tokens = 100
