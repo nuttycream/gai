@@ -7,20 +7,14 @@ pub mod utils;
 
 use std::{env, error::Error, fs, path::Path};
 
-use crate::{
-    config::Config,
-    draw::{App, run},
-    git::GitState,
-    provider::AiProvider,
-};
 use dotenv::dotenv;
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
 
-    let cfg = Config::init("config.toml")?;
+    let cfg = config::Config::init("config.toml")?;
 
-    let mut git_state = GitState::new(Path::new("."))?;
+    let mut git_state = git::GitState::new(Path::new("."))?;
     git_state.status(&cfg.files_to_ignore)?;
 
     let mut diffs = Vec::new();
@@ -37,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rb = ai.build_request(&diffs);
     println!("rb: {:?}", rb);
 
-    /*
+    if cfg.auto_request {
         let recv = ureq::post("https://api.openai.com/v1/responses")
             .header("Content-Type", "application/json")
             .header("Authorization", &format!("Bearer {}", api_key))
@@ -46,11 +40,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             .read_to_string();
 
         println!("recv: {:?}", recv);
-    */
+    }
 
-    let mut state = App::default();
+    let mut state = draw::App::default();
     let terminal = ratatui::init();
-    let result = run(terminal, &mut state);
+    let result = draw::run(terminal, &mut state);
 
     ratatui::restore();
 
