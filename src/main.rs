@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let api_key = env::var("OPENAI").expect("no env var found");
 
-    let ai = AiProvider::new();
+    let ai = cfg.ai;
 
     let rb = ai.build_request(&diffs);
     println!("rb: {:?}", rb);
