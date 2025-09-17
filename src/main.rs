@@ -12,7 +12,6 @@ use crate::{
     draw::{App, run},
     git::GitState,
     provider::AiProvider,
-    request::{InputData, RequestBuilder},
 };
 use dotenv::dotenv;
 
@@ -38,16 +37,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rb = ai.build_request(&diffs);
     println!("rb: {:?}", rb);
 
-    /*
     let recv = ureq::post("https://api.openai.com/v1/responses")
-    .header("Content-Type", "application/json")
-    .header("Authorization", &format!("Bearer {}", api_key))
-    .send_json(&rb)?
-    .body_mut()
-    .read_to_string();
+        .header("Content-Type", "application/json")
+        .header("Authorization", &format!("Bearer {}", api_key))
+        .send_json(&rb)?
+        .body_mut()
+        .read_to_string();
 
     println!("recv: {:?}", recv);
-    */
 
     let mut state = App::default();
     let terminal = ratatui::init();

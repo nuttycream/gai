@@ -9,6 +9,9 @@ pub struct RequestBuilder {
     /// max response tokens
     //pub max_tokens: u32,
 
+    /// the proompt
+    instructions: String,
+
     /// prompt + data
     pub input: Vec<InputData>,
 }
@@ -54,10 +57,11 @@ impl InputData {
 
 impl RequestBuilder {
     /// todo: pass cfg here
-    pub fn new(model: &str) -> Self {
+    pub fn new(model: &str, instructions: &str) -> Self {
         Self {
             model: model.to_owned(),
             //max_tokens: 1000,
+            instructions: instructions.to_owned(),
             input: Default::default(),
         }
     }
