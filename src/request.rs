@@ -46,12 +46,8 @@ impl InputData {
         }
     }
 
-    pub fn add_data(
-        &mut self,
-        text: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn add_data(&mut self, text: &str) {
         self.content.push(Content::data(text));
-        Ok(())
     }
 }
 
@@ -66,11 +62,7 @@ impl RequestBuilder {
         }
     }
 
-    pub fn add_input(
-        &mut self,
-        input: InputData,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn add_input(&mut self, input: InputData) {
         self.input.push(input);
-        Ok(())
     }
 }

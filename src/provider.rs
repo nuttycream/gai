@@ -48,8 +48,8 @@ impl AiProvider {
         let mut rb = RequestBuilder::new("gpt-5-nano", &self.prompt);
         for diff in diffs {
             let mut input = InputData::new();
-            input.add_data(&diff).unwrap();
-            rb.add_input(input).unwrap();
+            input.add_data(&diff);
+            rb.add_input(input);
         }
 
         rb
