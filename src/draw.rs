@@ -1,4 +1,4 @@
-use std::{default, error::Error};
+use std::{error::Error, thread, time};
 
 use crossterm::event::{self, Event};
 use ratatui::{
@@ -49,6 +49,7 @@ pub fn run(
     mut terminal: DefaultTerminal,
     app_state: &mut App,
 ) -> Result<(), Box<dyn Error>> {
+    let mut warmed_up = false;
     loop {
         terminal.draw(|f| render(f, app_state))?;
 
@@ -59,6 +60,8 @@ pub fn run(
                 _ => {}
             }
         }
+
+        if !warmed_up {}
     }
 }
 

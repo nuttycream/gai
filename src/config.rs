@@ -2,19 +2,17 @@ use std::{error::Error, fs, io::ErrorKind};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Serialize, Deserialize)]
-pub struct Config {
-    /// send out the request upon launching
-    /// gai
-    pub auto_request: bool,
-    pub ai_config: AIConfig,
-    pub ignore_config: IgnoreConfig,
-}
-#[derive(Default, Serialize, Deserialize)]
-pub struct AIConfig {}
+use crate::provider::AiProvider;
 
-#[derive(Default, Serialize, Deserialize)]
-pub struct IgnoreConfig {
+#[derive(Serialize, Deserialize)]
+pub struct Config {
+    /// send out the request
+    /// upon launching gai
+    pub auto_request: bool,
+
+    pub ai: AiProvider,
+    pub api_key_file: String,
+
     /// files that gai will ignore
     /// this is separate from .gitignore
     /// you can use this to add specific files
@@ -25,11 +23,23 @@ pub struct IgnoreConfig {
 }
 
 impl Config {
+    pub fn new() -> Self {
+        Config {
+            auto_request: false,
+            ai: AiProvider::new(),
+            api_key_file: "".to_owned(),
+            files_to_ignore: vec![
+                "Cargo.lock".to_owned(),
+                "package-lock.json".to_owned(),
+            ],
+        }
+    }
+
     pub fn init(path: &str) -> Result<Self, Box<dyn Error>> {
         let cfg_str = match fs::read_to_string(path) {
             Ok(contents) => contents,
             Err(e) if e.kind() == ErrorKind::NotFound => {
-                let def = Config::default();
+                let def = Config::new();
                 let def_toml = toml::to_string_pretty(&def)?;
                 fs::write(path, &def_toml)?;
                 def_toml

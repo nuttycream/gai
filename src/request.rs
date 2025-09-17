@@ -3,11 +3,11 @@ use std::error::Error;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
-pub struct RequestBody {
+pub struct RequestBuilder {
     pub model: String,
 
     /// max response tokens
-    pub max_tokens: u32,
+    //pub max_tokens: u32,
 
     /// prompt + data
     pub input: Vec<InputData>,
@@ -29,7 +29,7 @@ pub struct Content {
 impl Content {
     pub fn data(text: &str) -> Self {
         Self {
-            content_type: "input_type".to_string(),
+            content_type: "input_text".to_string(),
             text: text.to_owned(),
         }
     }
@@ -52,12 +52,12 @@ impl InputData {
     }
 }
 
-impl RequestBody {
+impl RequestBuilder {
     /// todo: pass cfg here
-    pub fn new() -> Self {
+    pub fn new(model: &str) -> Self {
         Self {
-            model: "gpt-5-nano-2025-08-07".to_owned(),
-            max_tokens: 1000,
+            model: model.to_owned(),
+            //max_tokens: 1000,
             input: Default::default(),
         }
     }
