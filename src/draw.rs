@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{default, error::Error};
 
 use crossterm::event::{self, Event};
 use ratatui::{
@@ -13,12 +13,14 @@ pub struct App {
     pub state: State,
 }
 
+#[derive(Default)]
 pub enum State {
     /// initializing gai:
     /// checks for existing repo
     /// does a diff check
     /// and gathers the data
     /// for the user to send
+    #[default]
     Warmup,
 
     /// state where gai is sending
@@ -39,12 +41,6 @@ pub enum State {
 pub enum PendingType {
     Sending,
     Receiving,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self::Warmup
-    }
 }
 
 pub fn run(
