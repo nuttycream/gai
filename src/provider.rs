@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::request::{InputData, RequestBuilder};
@@ -8,6 +10,7 @@ pub struct AiProvider {
     pub claude: AiConfig,
 
     pub prompt: String,
+    pub git_message_convention: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -19,13 +22,25 @@ pub struct AiConfig {
 
 impl AiProvider {
     pub fn new() -> Self {
+        let mut git_message_convention = HashMap::new();
+
+        git_message_convention
+            .insert("feat".to_owned(), "feat".to_owned());
+        git_message_convention
+            .insert("fix".to_owned(), "fix".to_owned());
+        git_message_convention
+            .insert("refactor".to_owned(), "refactor".to_owned());
+
         AiProvider {
             chatgpt: AiConfig::new("OPENAI"),
             claude: AiConfig::new("CLAUDE"),
 
             prompt: "You're a big shot engineer with high ambitions, \
                 can you generate with your infinite wisdom, a spectacular \
-                commit message for the following git diffs.".to_owned()
+                commit message for the following git diffs.".to_owned(),
+
+            git_message_convention,
+
         }
     }
 

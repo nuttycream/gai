@@ -17,3 +17,8 @@ max_tokens = 100
 enable = true
 api_key_name = "CLAUDE"
 max_tokens = 100
+
+[ai.git_message_convention]
+feat = "feat"
+refactor = "refactor"
+fix = "fix"
