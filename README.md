@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://github.com/nuttycream/gai/blob/main/docs/logo.svg" />
+</p>
+
 # gai
 
 gai, pronounced guy, is a git + AI powered TUI that automatically generates
