@@ -1,67 +1,66 @@
-use std::{error::Error, thread, time};
+use std::{
+    error::Error,
+    time::{Duration, Instant},
+};
 
-use crossterm::event::{self, Event};
+use crossterm::event::{self, Event, KeyCode, poll};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Direction, Flex, Layout, Rect},
-    text::{Line, Text},
-    widgets::{Block, Borders, Paragraph},
+    style::{Modifier, Style, palette::tailwind::SLATE},
+    widgets::{Block, Borders, ListState, Paragraph},
 };
 
-use crate::utils::GaiLogo;
+use crate::{
+    app::{App, State},
+    utils::GaiLogo,
+};
+
+const SELECTED_STYLE: Style =
+    Style::new().bg(SLATE.c800).add_modifier(Modifier::BOLD);
 
 #[derive(Default)]
-pub struct App {
-    pub state: State,
+pub struct UI {
+    file_paths: Vec<String>,
+    file_path_state: ListState,
+
+    file_contents: Vec<String>,
+    current_file: String,
 }
 
-#[derive(Default)]
-pub enum State {
-    /// initializing gai:
-    /// checks for existing repo
-    /// does a diff check
-    /// and gathers the data
-    /// for the user to send
-    #[default]
-    Warmup,
+impl UI {
+    pub fn run(
+        &mut self,
+        mut terminal: DefaultTerminal,
+        app_state: &mut App,
+    ) -> Result<(), Box<dyn Error>> {
+        let warmup = Instant::now();
 
-    /// state where gai is sending
-    /// a request or waiting to
-    /// receive the response.
-    /// This is usually one continous
-    /// moment.
-    Pending(PendingType),
+        loop {
+            terminal.draw(|f| render(f, app_state))?;
 
-    /// state where the user can
-    /// either: see what to send
-    /// to the AI provider
-    /// or what the AI provider has
-    /// sent back
-    Running,
-}
+            if matches!(app_state.state, State::Warmup)
+                && warmup.elapsed() >= Duration::from_secs(2)
+            {
+                app_state.state = State::Running;
+            }
 
-pub enum PendingType {
-    Sending,
-    Receiving,
-}
-
-pub fn run(
-    mut terminal: DefaultTerminal,
-    app_state: &mut App,
-) -> Result<(), Box<dyn Error>> {
-    let mut warmed_up = false;
-    loop {
-        terminal.draw(|f| render(f, app_state))?;
-
-        if let Event::Key(key) = event::read()? {
-            match key.code {
-                event::KeyCode::Esc => break Ok(()),
-                event::KeyCode::Char('q' | 'Q') => break Ok(()),
-                _ => {}
+            if poll(Duration::from_millis(50))? {
+                if let Event::Key(key) = event::read()? {
+                    match key.code {
+                        KeyCode::Esc => break Ok(()),
+                        KeyCode::Char('q' | 'Q') => break Ok(()),
+                        KeyCode::Char('j') | KeyCode::Down => {
+                            self.file_path_state.select_next();
+                        }
+                        KeyCode::Char('k') | KeyCode::Up => {
+                            self.file_path_state.select_previous();
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
-
-        if !warmed_up {}
     }
 }
 
@@ -76,7 +75,6 @@ fn render(frame: &mut Frame, app_state: &App) {
         }
     }
 }
-
 fn center(
     area: Rect,
     horizontal: Constraint,
@@ -91,35 +89,33 @@ fn center(
 }
 
 fn draw_warmup(frame: &mut Frame) {
-    let text = Text::from(vec![Line::from("warming up...")]);
+    let area = center(
+        frame.area(),
+        Constraint::Length(32),
+        Constraint::Length(32),
+    );
 
-    let [logo_area, text_area] = Layout::vertical([
-        Constraint::Fill(1),
-        Constraint::Length(1),
-    ])
-    .areas(frame.area());
-
-    frame.render_widget(GaiLogo::new(), logo_area);
-    frame.render_widget(text, text_area);
+    frame.render_widget(GaiLogo::new(), area);
 }
 
 fn draw_running(frame: &mut Frame) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![
-            Constraint::Percentage(50),
-            Constraint::Percentage(50),
+            Constraint::Percentage(25),
+            Constraint::Percentage(75),
         ])
+        .margin(10)
         .split(frame.area());
 
     frame.render_widget(
         Paragraph::new("something")
-            .block(Block::new().title("gai").borders(Borders::ALL)),
+            .block(Block::new().title("files").borders(Borders::ALL)),
         layout[0],
     );
     frame.render_widget(
         Paragraph::new("foo").block(
-            Block::new().title("status").borders(Borders::ALL),
+            Block::new().title("content").borders(Borders::ALL),
         ),
         layout[1],
     );
