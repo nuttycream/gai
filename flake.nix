@@ -33,6 +33,7 @@
           devShells.default = mkShell {
             name = "gai";
             packages = with pkgs; [
+              bacon
               rust-bin.stable.latest.minimal
               rust-analyzer
               rustfmt
