@@ -41,4 +41,18 @@ impl App {
     pub fn load_diffs(&mut self, files: HashMap<String, String>) {
         self.diffs = files.to_owned();
     }
+
+    pub fn get_file_paths(&self) -> Vec<String> {
+        let mut paths: Vec<String> =
+            self.diffs.keys().cloned().collect();
+        paths.sort();
+        paths
+    }
+
+    pub fn get_diff_content(&self, path: &str) -> String {
+        self.diffs
+            .get(path)
+            .cloned()
+            .unwrap_or_else(|| String::from("no diff found"))
+    }
 }

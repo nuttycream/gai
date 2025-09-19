@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let cfg = config::Config::init("config.toml")?;
 
-    let mut git_state = git::GitState::new(Path::new("."))?;
+    let mut git_state = git::state::GitState::new(Path::new("."))?;
     git_state.status(&cfg.files_to_ignore)?;
 
     let mut diffs = HashMap::new();
