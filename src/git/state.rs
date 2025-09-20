@@ -93,7 +93,7 @@ impl GitState {
                 continue;
             }
 
-            let path = entry.path().unwrap().to_string();
+            let path = entry.path().unwrap().to_owned();
 
             self.file.insert(path, status);
         }

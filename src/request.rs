@@ -32,7 +32,7 @@ pub struct Content {
 impl Content {
     pub fn data(text: &str) -> Self {
         Self {
-            content_type: "input_text".to_string(),
+            content_type: "input_text".to_owned(),
             text: text.to_owned(),
         }
     }
