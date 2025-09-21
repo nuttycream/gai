@@ -10,7 +10,7 @@ use std::{collections::HashMap, env, error::Error, fs, path::Path};
 
 use dotenv::dotenv;
 
-use crate::draw::UI;
+use crate::{draw::UI, git::diff::GitDiff};
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
@@ -27,13 +27,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         diffs.insert(path, diff);
     }
 
+    let mut git_diff = GitDiff::new();
+    let _ = git_diff.create_diffs(&git_state.repo);
+
     let api_key = env::var("OPENAI").expect("no env var found");
 
     let ai = cfg.ai;
 
     let string_to = diffs.values().cloned().collect::<Vec<String>>();
     let rb = ai.build_request(&string_to);
-    println!("rb: {:?}", rb);
+    //println!("rb: {:?}", rb);
 
     if cfg.auto_request {
         let recv = ureq::post("https://api.openai.com/v1/responses")
