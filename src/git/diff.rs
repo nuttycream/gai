@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use git2::{DiffLine, DiffOptions, Repository};
+use git2::{DiffHunk, DiffLine, DiffOptions, Repository};
 
 /// an abstracted ver
 /// of the lowlevel impl
@@ -17,18 +17,15 @@ pub struct HunkDiff {
     /// @@ -12,8 +12,9 @@
     /// since raw line numbers
     /// may be inconsistent
-    pub diffy: HashMap<String, Vec<LineDiff>>,
-}
+    pub header: String,
 
-#[derive(Debug)]
-pub struct LineDiff {
-    //pub diffy_v2: HashMap<DiffType, String>,
-    pub diff_type: DiffType,
-    pub content: String,
+    /// use difftype as the key,
+    /// with a list of lines
+    pub line_diffs: HashMap<DiffType, Vec<String>>,
 }
 
 /// taken from diffline::origin
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Eq, Hash, PartialEq)]
 pub enum DiffType {
     #[default]
     Unchanged,
@@ -59,18 +56,18 @@ impl GitDiff {
             repo.diff_tree_to_workdir(Some(&head), Some(&mut opts))?;
 
         diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
-            let path =
-                delta.new_file().path().unwrap().to_str().unwrap();
+            let path = delta
+                .new_file()
+                .path()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned();
 
-            if self.diffs.contains_key(path) {
-                process_file_diff(
-                    self.diffs.get_mut(path).unwrap(),
-                    &hunk,
-                    &line,
-                );
-            } else {
-                self.diffs.insert(path.to_owned(), Vec::new());
-            }
+            let diff_hunks =
+                self.diffs.entry(path).or_insert_with(Vec::new);
+
+            process_file_diff(diff_hunks, &hunk, &line);
 
             true
         })?;
@@ -80,23 +77,16 @@ impl GitDiff {
         Ok(())
     }
 }
+
 fn process_file_diff(
     diff_hunks: &mut Vec<HunkDiff>,
-    hunk: &Option<git2::DiffHunk>,
+    hunk: &Option<DiffHunk>,
     line: &DiffLine,
 ) {
-    let mut hunks = Vec::new();
-    let mut curr_hunk: Option<HunkDiff> = None;
-
     if let Some(h) = hunk {
-        if let Some(taken) = curr_hunk.take() {
-            hunks.push(taken);
-        }
-
         let header = str::from_utf8(h.header())
             .unwrap_or("not a valid utf8 header from hunk")
             .to_owned();
-
         let content = str::from_utf8(line.content())
             .unwrap_or("not a valid utf8 line from hunk")
             .to_owned();
@@ -105,28 +95,25 @@ fn process_file_diff(
             '+' => DiffType::Additions,
             '-' => DiffType::Deletions,
             ' ' => DiffType::Unchanged,
-            _ => DiffType::Unchanged,
+            _ => return,
         };
 
-        let line_diff = LineDiff { diff_type, content };
-
-        let find_hunk = diff_hunks
-            .iter_mut()
-            .find(|hunk| hunk.diffy.contains_key(&header));
+        let find_hunk =
+            diff_hunks.iter_mut().find(|hunk| hunk.header == header);
 
         match find_hunk {
-            Some(hunk) => {
-                if let Some(lines) = hunk.diffy.get_mut(&header) {
-                    lines.push(line_diff);
-                }
+            Some(existing_hunk) => {
+                existing_hunk
+                    .line_diffs
+                    .entry(diff_type)
+                    .or_insert_with(Vec::new)
+                    .push(content);
             }
             None => {
-                let mut new_hunk = HunkDiff {
-                    diffy: HashMap::new(),
-                };
+                let mut line_diffs = HashMap::new();
+                line_diffs.insert(diff_type, vec![content]);
 
-                new_hunk.diffy.insert(header, vec![line_diff]);
-
+                let new_hunk = HunkDiff { header, line_diffs };
                 diff_hunks.push(new_hunk);
             }
         }
