@@ -44,7 +44,7 @@ impl GitDiff {
     pub fn create_diffs(
         &mut self,
         repo: &Repository,
-    ) -> Result<(), git2::Error> {
+    ) -> Result<String, git2::Error> {
         // start this puppy up
         let mut opts = DiffOptions::new();
         opts.include_untracked(true)
@@ -72,9 +72,7 @@ impl GitDiff {
             true
         })?;
 
-        println!("{:#?}", self.diffs);
-
-        Ok(())
+        Ok(format!("{:#?}", self.diffs))
     }
 }
 

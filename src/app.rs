@@ -4,6 +4,7 @@ use std::collections::HashMap;
 pub struct App {
     pub state: State,
 
+    pub response: String,
     pub diffs: HashMap<String, String>,
 }
 
@@ -40,6 +41,10 @@ pub enum PendingType {
 impl App {
     pub fn load_diffs(&mut self, files: HashMap<String, String>) {
         self.diffs = files.to_owned();
+    }
+
+    pub fn load_recv(&mut self, recv: &str) {
+        self.response = recv.to_owned();
     }
 
     pub fn get_file_paths(&self) -> Vec<String> {
