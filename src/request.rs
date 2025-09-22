@@ -1,6 +1,8 @@
-use std::error::Error;
-
+use schemars::schema_for;
 use serde::Serialize;
+use serde_json::json;
+
+use crate::response::Response;
 
 #[derive(Debug, Serialize)]
 pub struct RequestBuilder {

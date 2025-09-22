@@ -4,6 +4,7 @@ pub mod draw;
 pub mod git;
 pub mod provider;
 pub mod request;
+pub mod response;
 pub mod utils;
 
 use std::{collections::HashMap, env, error::Error, fs, path::Path};
