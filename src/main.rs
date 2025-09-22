@@ -38,8 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ai = &cfg.ai;
 
-    let string_to = diffs.values().cloned().collect::<Vec<String>>();
-    let rb = ai.build_request(&string_to);
+    let rb = ai.build_request(diffs.to_owned());
     //println!("rb: {:?}", rb);
 
     let mut recv = String::new();

@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use schemars::schema_for;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::response::Response;
@@ -11,60 +13,44 @@ pub struct RequestBuilder {
     /// max response tokens
     //pub max_tokens: u32,
 
-    /// the proompt
-    instructions: String,
-
-    /// prompt + data
+    /// prompt
     pub input: Vec<InputData>,
+
+    pub text: String,
 }
 
 #[derive(Default, Debug, Serialize)]
 pub struct InputData {
     pub role: String,
-    pub content: Vec<Content>,
-}
-
-#[derive(Default, Debug, Serialize)]
-pub struct Content {
-    #[serde(rename = "type")]
-    pub content_type: String,
-    pub text: String,
-}
-
-impl Content {
-    pub fn data(text: &str) -> Self {
-        Self {
-            content_type: "input_text".to_owned(),
-            text: text.to_owned(),
-        }
-    }
-}
-
-impl InputData {
-    pub fn new() -> Self {
-        Self {
-            role: "user".to_owned(),
-            content: Vec::new(),
-        }
-    }
-
-    pub fn add_data(&mut self, text: &str) {
-        self.content.push(Content::data(text));
-    }
+    pub content: String,
 }
 
 impl RequestBuilder {
-    /// todo: pass cfg here
-    pub fn new(model: &str, instructions: &str) -> Self {
+    pub fn new(model: &str) -> Self {
+        let schema = schema_for!(Response);
+        let text = serde_json::to_string_pretty(&schema).unwrap();
+        //println!("{}", text);
+
         Self {
             model: model.to_owned(),
             //max_tokens: 1000,
-            instructions: instructions.to_owned(),
-            input: Default::default(),
+            input: Vec::new(),
+
+            text,
         }
     }
 
-    pub fn add_input(&mut self, input: InputData) {
-        self.input.push(input);
+    pub fn add_input(&mut self, role: &str, content: &str) {
+        self.input.push(InputData {
+            role: role.to_owned(),
+            content: content.to_owned(),
+        });
+    }
+
+    /// for diff data,
+    /// mapped with path as the key
+    /// value as the changes
+    pub fn add_diffs(&mut self, diffs: HashMap<String, String>) {
+        for diff in diffs {}
     }
 }

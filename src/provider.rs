@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::request::{InputData, RequestBuilder};
+use crate::request::RequestBuilder;
 
 #[derive(Serialize, Deserialize)]
 pub struct AiProvider {
@@ -44,13 +44,13 @@ impl AiProvider {
         }
     }
 
-    pub fn build_request(&self, diffs: &[String]) -> RequestBuilder {
-        let mut rb = RequestBuilder::new("gpt-5-nano", &self.prompt);
-        for diff in diffs {
-            let mut input = InputData::new();
-            input.add_data(&diff);
-            rb.add_input(input);
-        }
+    pub fn build_request(
+        &self,
+        diffs: HashMap<String, String>,
+    ) -> RequestBuilder {
+        let mut rb = RequestBuilder::new("gpt-5-nano");
+        rb.add_input("system", &self.prompt);
+        rb.add_diffs(diffs);
 
         rb
     }
