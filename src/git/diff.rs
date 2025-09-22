@@ -19,9 +19,13 @@ pub struct HunkDiff {
     /// may be inconsistent
     pub header: String,
 
-    /// use difftype as the key,
-    /// with a list of lines
-    pub line_diffs: HashMap<DiffType, Vec<String>>,
+    pub line_diffs: Vec<LineDiff>,
+}
+
+#[derive(Debug)]
+pub struct LineDiff {
+    pub diff_type: DiffType,
+    pub content: String,
 }
 
 /// taken from diffline::origin
@@ -96,23 +100,19 @@ fn process_file_diff(
             _ => return,
         };
 
-        let find_hunk =
-            diff_hunks.iter_mut().find(|hunk| hunk.header == header);
+        let diff_line = LineDiff { diff_type, content };
 
-        match find_hunk {
-            Some(existing_hunk) => {
-                existing_hunk
-                    .line_diffs
-                    .entry(diff_type)
-                    .or_insert_with(Vec::new)
-                    .push(content);
-            }
+        // instead of storing the different types.
+        // we can just push line diffs in a clear order
+        // if i want to filter it out, i can do that
+        // later, this should just care about the diff itself
+        match diff_hunks.iter_mut().find(|h| h.header == header) {
+            Some(existing) => existing.line_diffs.push(diff_line),
             None => {
-                let mut line_diffs = HashMap::new();
-                line_diffs.insert(diff_type, vec![content]);
-
-                let new_hunk = HunkDiff { header, line_diffs };
-                diff_hunks.push(new_hunk);
+                diff_hunks.push(HunkDiff {
+                    header,
+                    line_diffs: vec![diff_line],
+                });
             }
         }
     }
