@@ -55,11 +55,16 @@ impl UI {
         self.current_file =
             app_state.get_diff_content(&self.file_paths[0]);
 
+        if app_state.skip_splash {
+            app_state.state = State::Running;
+        }
+
         loop {
             terminal.draw(|f| self.render(f, app_state))?;
 
             if matches!(app_state.state, State::Warmup)
                 && warmup.elapsed() >= Duration::from_secs(2)
+                && !app_state.skip_splash
             {
                 app_state.state = State::Running;
             }

@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
+use crate::config::Config;
+
 #[derive(Default)]
 pub struct App {
     pub state: State,
+
+    pub skip_splash: bool,
 
     pub response: String,
     pub diffs: HashMap<String, String>,
@@ -39,6 +43,14 @@ pub enum PendingType {
 }
 
 impl App {
+    pub fn init(&mut self, cfg: &Config) {
+        self.skip_splash = cfg.skip_splash;
+    }
+
+    pub fn switch_state(&mut self, new_state: State) {
+        self.state = new_state;
+    }
+
     pub fn load_diffs(&mut self, files: HashMap<String, String>) {
         self.diffs = files.to_owned();
     }

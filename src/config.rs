@@ -10,6 +10,8 @@ pub struct Config {
     /// upon launching gai
     pub auto_request: bool,
 
+    pub skip_splash: bool,
+
     pub ai: AiProvider,
     pub api_key_file: String,
 
@@ -26,6 +28,7 @@ impl Config {
     pub fn new() -> Self {
         Config {
             auto_request: false,
+            skip_splash: true,
             ai: AiProvider::new(),
             api_key_file: "".to_owned(),
             files_to_ignore: vec![

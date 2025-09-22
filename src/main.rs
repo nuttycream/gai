@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let api_key = env::var("OPENAI").expect("no env var found");
 
-    let ai = cfg.ai;
+    let ai = &cfg.ai;
 
     let string_to = diffs.values().cloned().collect::<Vec<String>>();
     let rb = ai.build_request(&string_to);
@@ -55,6 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut state = crate::app::App::default();
     let terminal = ratatui::init();
+    state.init(&cfg);
     state.load_diffs(diffs);
     state.load_recv(&recv);
     let mut ui = UI::default();
