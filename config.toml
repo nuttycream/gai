@@ -1,4 +1,4 @@
-auto_request = true
+auto_request = false
 skip_splash = true
 api_key_file = ""
 files_to_ignore = [
