@@ -37,6 +37,8 @@ pub enum OpType {
     AddFile,
     StageFile,
     CommitChanges,
+
+    // should we?
     NewBranch,
 }
 
@@ -53,6 +55,12 @@ pub enum PrefixType {
     Ops,
     Chore,
 
+    // for newbranch
+    // the ai may hallucinate
+    // and use these
+    // on non-new branch creations
+    // should we even have these clankers
+    // create branches?
     Merge,
     Revert,
 }
