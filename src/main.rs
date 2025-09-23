@@ -11,7 +11,7 @@ use std::{collections::HashMap, env, error::Error, fs, path::Path};
 
 use dotenv::dotenv;
 
-use crate::{draw::UI, git::diff::GitDiff};
+use crate::{draw::UI, git::diff::GitDiff, response::Response};
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
@@ -29,8 +29,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     // temp not using actual val of create_diffs
     let mut diffs = HashMap::new();
     for (path, _status) in &git_state.file {
-        if let Some(diff) = git_diff.diffs.get(path) {
-            diffs.insert(path.clone(), format!("{:#?}", diff));
+        if let Some(hunks) = git_diff.diffs.get(path) {
+            let mut diff_str = String::new();
+
+            for hunk in hunks {
+                diff_str.push_str(&hunk.header);
+                diff_str.push('\n');
+
+                for line in &hunk.line_diffs {
+                    let prefix = match line.diff_type {
+                        git::diff::DiffType::Unchanged => ' ',
+                        git::diff::DiffType::Additions => '+',
+                        git::diff::DiffType::Deletions => '-',
+                    };
+                    diff_str.push(prefix);
+                    diff_str.push_str(&line.content);
+                }
+                diff_str.push('\n');
+            }
+            if !diff_str.trim().is_empty() {
+                diffs.insert(path.clone(), diff_str);
+            }
         }
     }
 
@@ -39,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ai = &cfg.ai;
 
     let rb = ai.build_request(diffs.to_owned());
-    //println!("rb: {:?}", rb);
+    //println!("rb: {:#?}", rb);
 
     let mut recv = String::new();
     if cfg.auto_request {
@@ -50,8 +69,23 @@ fn main() -> Result<(), Box<dyn Error>> {
             .body_mut()
             .read_to_string()?;
 
-        println!("recv: {:#?}", recv);
+        //println!("recv: {:#?}", recv);
     }
+
+    let jason: serde_json::Value = serde_json::from_str(&recv)?;
+
+    let resp_str = jason["output"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["type"] == "message")
+        .unwrap()["content"][0]["text"]
+        .as_str()
+        .unwrap();
+
+    let resp: Response = serde_json::from_str(resp_str)?;
+
+    println!("{:#?}", resp);
 
     let mut state = crate::app::App::default();
     let terminal = ratatui::init();

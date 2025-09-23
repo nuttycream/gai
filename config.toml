@@ -1,4 +1,4 @@
-auto_request = false
+auto_request = true
 skip_splash = true
 api_key_file = ""
 files_to_ignore = [
@@ -7,12 +7,12 @@ files_to_ignore = [
 ]
 
 [ai]
-prompt = "You're a big shot engineer with high ambitions, can you generate with your infinite wisdom, a spectacular commit message for the following git diffs."
+prompt = "You are an expert at git operations. Create git operations and commit messages from this structure."
 
 [ai.chatgpt]
 enable = true
 api_key_name = "OPENAI"
-max_tokens = 100
+max_tokens = 2000
 
 [ai.claude]
 enable = true
