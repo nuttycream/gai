@@ -1,42 +1,46 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Response {
     pub ops: Vec<Operation>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Operation {
     pub op_type: OpType,
 
     // paths to apply operation to
     // ex. git add main.rs doubloon.rs
-    pub files: Option<Vec<String>>,
+    pub files: Vec<String>,
 
-    pub message: Option<RespMessage>,
+    pub message: CommitMessage,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub struct RespMessage {
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct CommitMessage {
     // feat
     pub prefix: PrefixType,
     // (api)
-    pub scope: Option<String>,
+    pub scope: String,
     // !
     pub breaking: bool,
     // desc
     pub message: String,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub enum OpType {
-    Add,
-    Commit,
+    AddFile,
+    StageFile,
+    CommitChanges,
     NewBranch,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub enum PrefixType {
     Feat,
     Fix,
