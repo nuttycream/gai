@@ -7,7 +7,7 @@ pub mod request;
 pub mod response;
 pub mod utils;
 
-use std::{collections::HashMap, env, error::Error, fs, path::Path};
+use std::{collections::HashMap, env, error::Error, path::Path};
 
 use dotenv::dotenv;
 
@@ -61,6 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     //println!("rb: {:#?}", rb);
 
     let mut recv = String::new();
+
     if cfg.auto_request {
         recv = ureq::post("https://api.openai.com/v1/responses")
             .header("Content-Type", "application/json")
@@ -72,20 +73,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         //println!("recv: {:#?}", recv);
     }
 
-    let jason: serde_json::Value = serde_json::from_str(&recv)?;
+    match serde_json::from_str::<serde_json::Value>(&recv) {
+        Ok(jason) => {
+            let resp_str = jason["output"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|item| item["type"] == "message")
+                .unwrap()["content"][0]["text"]
+                .as_str()
+                .unwrap();
 
-    let resp_str = jason["output"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|item| item["type"] == "message")
-        .unwrap()["content"][0]["text"]
-        .as_str()
-        .unwrap();
+            let resp: Response = serde_json::from_str(resp_str)?;
 
-    let resp: Response = serde_json::from_str(resp_str)?;
-
-    println!("{:#?}", resp);
+            println!("{:#?}", resp);
+        }
+        Err(_) => {}
+    }
 
     let mut state = crate::app::App::default();
     let terminal = ratatui::init();
