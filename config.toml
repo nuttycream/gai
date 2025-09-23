@@ -7,7 +7,25 @@ files_to_ignore = [
 ]
 
 [ai]
-prompt = "You are an expert at git operations. Create git operations and commit messages from this structure."
+prompt = """You are an expert at git operations. Create git a logical list of git operations based on diffs and structure.
+Rules:
+- Create branch ONLY if necessary.
+- Make sure commits are atomic focusing on smaller changes, make multiple file stages and commits, if necessary.
+- Generate ops in logical order: branch creation(optional) -> file staging -> commit
+- For AddFile/StageFile ops:
+   - Set files to the list of files to add/stage
+   - Set message to null 
+- For CommitChanges ops:
+   - Set files to null or empty array
+   - Set message with:
+     - prefix: The type from the OpType enum
+     - scope: The component name or null
+     - breaking: true if breaking change, false otherwise
+     - message: ONLY the description, do NOT include prefix or scope in the message text
+- For NewBranch ops:
+    - Set files to null or empty array
+    - Set message to null
+"""
 
 [ai.chatgpt]
 enable = true
