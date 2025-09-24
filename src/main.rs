@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ops = state.send_request()?.ops;
     println!("{:#?}", ops);
 
-    let op = Op::init(ops);
+    let op = Op::init(ops, &git_state.repo);
     op.apply_ops();
 
     //state.load_recv(&recv);

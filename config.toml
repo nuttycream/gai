@@ -12,7 +12,7 @@ Rules:
 - Create branch ONLY if necessary.
 - Make sure commits are atomic focusing on smaller changes, make multiple file stages and commits, if necessary.
 - Generate ops in logical order: branch creation(optional) -> file staging -> commit
-- For AddFile/StageFile ops:
+- For StageFile ops:
    - Set files to the list of files to add/stage
    - Set message to null 
 - For CommitChanges ops:

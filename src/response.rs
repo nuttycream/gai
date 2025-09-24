@@ -34,7 +34,6 @@ pub struct CommitMessage {
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub enum OpType {
-    AddFile,
     StageFile,
     CommitChanges,
 
