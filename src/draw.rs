@@ -160,7 +160,7 @@ impl UI {
             State::Warmup => {
                 draw_splash(frame);
             }
-            State::Pending(pt) => {}
+            State::Pending => {}
             State::Running => {
                 self.draw_running(frame);
             }

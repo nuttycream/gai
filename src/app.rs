@@ -26,7 +26,7 @@ pub enum State {
     /// receive the response.
     /// This is usually one continous
     /// moment.
-    Pending(PendingType),
+    Pending,
 
     /// state where the user can
     /// either: see what to send
@@ -34,11 +34,6 @@ pub enum State {
     /// or what the AI provider has
     /// sent back
     Running,
-}
-
-pub enum PendingType {
-    Sending,
-    Receiving,
 }
 
 impl App {
