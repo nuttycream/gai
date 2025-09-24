@@ -84,9 +84,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .as_str()
                 .unwrap();
 
-            let resp: Response = serde_json::from_str(resp_str)?;
+            let resp = Response::new(resp_str);
 
-            println!("{:#?}", resp);
+            println!("{:#?}", resp.ops);
         }
         Err(_) => {}
     }

@@ -66,11 +66,7 @@ pub enum PrefixType {
 }
 
 impl Response {
-    pub fn new() -> Self {
-        Self { ops: Vec::new() }
-    }
-
-    pub fn build_ops(&mut self, response: &str) {
-        self.ops = Vec::new();
+    pub fn new(response: &str) -> Self {
+        return serde_json::from_str(response).unwrap();
     }
 }
