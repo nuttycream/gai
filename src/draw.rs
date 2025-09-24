@@ -7,8 +7,11 @@ use crossterm::event::{self, Event, KeyCode, poll};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Direction, Flex, Layout, Rect},
-    style::{Modifier, Style, palette::tailwind::SLATE},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    style::{Color, Modifier, Style, palette::tailwind::SLATE},
+    widgets::{
+        Block, Borders, List, ListItem, ListState, Paragraph,
+        Scrollbar, ScrollbarOrientation, ScrollbarState,
+    },
 };
 
 use crate::{
@@ -23,8 +26,12 @@ const SELECTED_STYLE: Style =
 pub struct UI {
     file_paths: Vec<String>,
     file_path_state: ListState,
+    file_scroll_state: ScrollbarState,
 
     current_file: String,
+    content_scroll: u16,
+    content_scroll_state: ScrollbarState,
+    in_content_mode: bool,
 }
 
 #[derive(Default)]
@@ -55,7 +62,11 @@ impl UI {
         self.current_file =
             app_state.get_diff_content(&self.file_paths[0]);
 
-        if app_state.skip_splash {
+        self.file_scroll_state =
+            ScrollbarState::new(self.file_paths.len());
+        self.update_content_scroll();
+
+        if app_state.cfg.skip_splash {
             app_state.state = State::Running;
         }
 
@@ -64,7 +75,7 @@ impl UI {
 
             if matches!(app_state.state, State::Warmup)
                 && warmup.elapsed() >= Duration::from_secs(2)
-                && !app_state.skip_splash
+                && !app_state.cfg.skip_splash
             {
                 app_state.state = State::Running;
             }
@@ -74,13 +85,43 @@ impl UI {
                     match key.code {
                         KeyCode::Esc => break Ok(()),
                         KeyCode::Char('q' | 'Q') => break Ok(()),
+                        KeyCode::Char('h') | KeyCode::Left => {
+                            if self.in_content_mode {
+                                self.in_content_mode = false;
+                            }
+                        }
+                        KeyCode::Char('l') | KeyCode::Right => {
+                            if !self.in_content_mode {
+                                self.in_content_mode = true;
+                            }
+                        }
                         KeyCode::Char('j') | KeyCode::Down => {
-                            self.file_path_state.select_next();
-                            self.update_curr_diff(app_state);
+                            if self.in_content_mode {
+                                self.content_scroll = self
+                                    .content_scroll
+                                    .saturating_add(1);
+                                self.update_content_scroll();
+                            } else {
+                                self.file_path_state.select_next();
+                                self.update_curr_diff(app_state);
+                                self.update_file_scroll();
+                            }
                         }
                         KeyCode::Char('k') | KeyCode::Up => {
-                            self.file_path_state.select_previous();
-                            self.update_curr_diff(app_state);
+                            if self.in_content_mode {
+                                self.content_scroll = self
+                                    .content_scroll
+                                    .saturating_sub(1);
+                                self.update_content_scroll();
+                            } else {
+                                self.file_path_state
+                                    .select_previous();
+                                self.update_curr_diff(app_state);
+                                self.update_file_scroll();
+                            }
+                        }
+                        KeyCode::Char('p') => {
+                            app_state.send_request();
                         }
                         _ => {}
                     }
@@ -94,14 +135,30 @@ impl UI {
             if selected < self.file_paths.len() {
                 self.current_file = app_state
                     .get_diff_content(&self.file_paths[selected]);
+                self.content_scroll = 0;
+                self.in_content_mode = false;
+                self.update_content_scroll();
             }
         }
+    }
+
+    fn update_file_scroll(&mut self) {
+        if let Some(selected) = self.file_path_state.selected() {
+            self.file_scroll_state =
+                self.file_scroll_state.position(selected);
+        }
+    }
+
+    fn update_content_scroll(&mut self) {
+        let height = self.current_file.lines().count().max(1);
+        self.content_scroll_state = ScrollbarState::new(height)
+            .position(self.content_scroll as usize);
     }
 
     fn render(&mut self, frame: &mut Frame, app_state: &App) {
         match &app_state.state {
             State::Warmup => {
-                draw_warmup(frame);
+                draw_splash(frame);
             }
             State::Pending(pt) => {}
             State::Running => {
@@ -117,7 +174,7 @@ impl UI {
                 Constraint::Percentage(25),
                 Constraint::Percentage(75),
             ])
-            .margin(10)
+            .margin(1)
             .split(frame.area());
 
         let items: Vec<ListItem> = self
@@ -126,11 +183,22 @@ impl UI {
             .map(|path| ListItem::new(path.as_str()))
             .collect();
 
+        let border_style = if self.in_content_mode {
+            Style::default().fg(Color::LightGreen)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
         let files_list = List::new(items)
             .block(
                 Block::default()
                     .title("files")
-                    .borders(Borders::RIGHT),
+                    .borders(Borders::ALL)
+                    .border_style(if !self.in_content_mode {
+                        Style::default().fg(Color::LightGreen)
+                    } else {
+                        Style::default().fg(Color::DarkGray)
+                    }),
             )
             .highlight_style(SELECTED_STYLE)
             .highlight_symbol("-> ");
@@ -141,14 +209,33 @@ impl UI {
             &mut self.file_path_state,
         );
 
-        let content = Paragraph::new(self.current_file.as_str())
-            .block(
-                Block::default()
-                    .title("content")
-                    .borders(Borders::NONE),
-            );
+        let content_lines: Vec<&str> =
+            self.current_file.lines().collect();
+        let visible_content = if content_lines.len()
+            > self.content_scroll as usize
+        {
+            content_lines[self.content_scroll as usize..].join("\n")
+        } else {
+            String::new()
+        };
+
+        let content = Paragraph::new(visible_content).block(
+            Block::default()
+                .title("changes")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
 
         frame.render_widget(content, layout[1]);
+
+        frame.render_stateful_widget(
+            Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None),
+            layout[1],
+            &mut self.content_scroll_state,
+        );
     }
 }
 
@@ -165,7 +252,7 @@ fn center(
     area
 }
 
-fn draw_warmup(frame: &mut Frame) {
+fn draw_splash(frame: &mut Frame) {
     let area = center(
         frame.area(),
         Constraint::Length(32),
