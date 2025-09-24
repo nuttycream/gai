@@ -11,13 +11,7 @@ use std::{collections::HashMap, error::Error, path::Path};
 
 use dotenv::dotenv;
 
-use crate::{
-    draw::UI,
-    git::{
-        diff::GitDiff,
-        ops::{self, Op},
-    },
-};
+use crate::git::{diff::GitDiff, ops::GitOps};
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
@@ -65,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ops = state.send_request()?.ops;
     println!("{:#?}", ops);
 
-    let op = Op::init(ops, &git_state.repo);
+    let op = GitOps::init(ops, &git_state.repo);
     op.apply_ops();
 
     //state.load_recv(&recv);

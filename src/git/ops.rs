@@ -1,18 +1,20 @@
-use git2::Repository;
+use std::path::Path;
+
+use git2::{Repository, Status};
 
 use crate::response::{OpType, Operation};
 
-pub struct Op<'repo> {
+pub struct GitOps<'repo> {
     ops: Vec<Operation>,
     repo: &'repo Repository,
 }
 
-impl<'repo> Op<'repo> {
+impl<'repo> GitOps<'repo> {
     pub fn init(
         ops: Vec<Operation>,
         repo: &'repo Repository,
-    ) -> Op<'repo> {
-        Op { ops, repo }
+    ) -> GitOps<'repo> {
+        GitOps { ops, repo }
     }
 
     pub fn apply_ops(&self) {
@@ -27,7 +29,19 @@ impl<'repo> Op<'repo> {
     }
 
     fn stage(&self, op: &Operation) {
-        self.repo.index().unwrap();
+        let mut index = self.repo.index().unwrap();
+        for path in &op.files {
+            let path = Path::new(&path);
+            let status = self.repo.status_file(path).unwrap();
+
+            if status.contains(Status::WT_MODIFIED)
+                || status.contains(Status::WT_NEW)
+            {
+                let _ = index.add_path(path);
+            }
+        }
+
+        index.write().unwrap();
     }
 
     fn commit(&self) {}
