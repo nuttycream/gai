@@ -11,7 +11,13 @@ use std::{collections::HashMap, error::Error, path::Path};
 
 use dotenv::dotenv;
 
-use crate::{draw::UI, git::diff::GitDiff};
+use crate::{
+    draw::UI,
+    git::{
+        diff::GitDiff,
+        ops::{self, Op},
+    },
+};
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
@@ -54,14 +60,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut state = crate::app::App::default();
-    let terminal = ratatui::init();
     state.init(cfg);
     state.load_diffs(diffs);
+    let ops = state.send_request()?.ops;
+    println!("{:#?}", ops);
+
+    let op = Op::init(ops);
+    op.apply_ops();
+
     //state.load_recv(&recv);
+    /* let terminal = ratatui::init();
     let mut ui = UI::default();
     let result = ui.run(terminal, &mut state);
 
     ratatui::restore();
 
-    result
+    result */
+    Ok(())
 }
