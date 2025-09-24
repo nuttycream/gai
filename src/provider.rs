@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::request::RequestBuilder;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct AiProvider {
     pub chatgpt: AiConfig,
     pub claude: AiConfig,
@@ -13,7 +13,7 @@ pub struct AiProvider {
     pub git_message_convention: HashMap<String, String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct AiConfig {
     pub enable: bool,
     pub api_key_name: String,

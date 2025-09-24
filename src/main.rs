@@ -7,11 +7,11 @@ pub mod request;
 pub mod response;
 pub mod utils;
 
-use std::{collections::HashMap, env, error::Error, path::Path};
+use std::{collections::HashMap, error::Error, path::Path};
 
 use dotenv::dotenv;
 
-use crate::{draw::UI, git::diff::GitDiff, response::Response};
+use crate::{draw::UI, git::diff::GitDiff};
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
@@ -53,49 +53,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let api_key = env::var("OPENAI").expect("no env var found");
-
-    let ai = &cfg.ai;
-
-    let rb = ai.build_request(diffs.to_owned());
-    //println!("rb: {:#?}", rb);
-
-    let mut recv = String::new();
-
-    if cfg.auto_request {
-        recv = ureq::post("https://api.openai.com/v1/responses")
-            .header("Content-Type", "application/json")
-            .header("Authorization", &format!("Bearer {}", api_key))
-            .send_json(&rb)?
-            .body_mut()
-            .read_to_string()?;
-
-        //println!("recv: {:#?}", recv);
-    }
-
-    match serde_json::from_str::<serde_json::Value>(&recv) {
-        Ok(jason) => {
-            let resp_str = jason["output"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|item| item["type"] == "message")
-                .unwrap()["content"][0]["text"]
-                .as_str()
-                .unwrap();
-
-            let resp = Response::new(resp_str);
-
-            println!("{:#?}", resp.ops);
-        }
-        Err(_) => {}
-    }
-
     let mut state = crate::app::App::default();
     let terminal = ratatui::init();
-    state.init(&cfg);
+    state.init(cfg);
     state.load_diffs(diffs);
-    state.load_recv(&recv);
+    //state.load_recv(&recv);
     let mut ui = UI::default();
     let result = ui.run(terminal, &mut state);
 

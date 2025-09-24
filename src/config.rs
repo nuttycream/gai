@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::provider::AiProvider;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Config {
     /// send out the request
     /// upon launching gai
