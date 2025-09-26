@@ -22,8 +22,8 @@ impl<'repo> GitOps<'repo> {
         for op in &self.ops {
             match op.op_type {
                 OpType::StageFile => self.stage(op),
-                OpType::CommitChanges => self.commit(),
-                OpType::NewBranch => self.new_branch(),
+                OpType::CommitChanges => self.commit(op),
+                OpType::NewBranch => self.new_branch(op),
             }
         }
     }
@@ -44,7 +44,34 @@ impl<'repo> GitOps<'repo> {
         index.write().unwrap();
     }
 
-    fn commit(&self) {}
+    fn commit(&self, op: &Operation) {
+        let mut index = self.repo.index().unwrap();
 
-    fn new_branch(&self) {}
+        let tree_oid = index.write_tree().unwrap();
+        let tree = self.repo.find_tree(tree_oid).unwrap();
+
+        let parent_commit = match self.repo.revparse_single("HEAD") {
+            Ok(obj) => Some(obj.into_commit().unwrap()),
+            Err(e) => panic!("parent commit err"),
+        };
+
+        let mut parents = Vec::new();
+        if parent_commit.is_some() {
+            parents.push(parent_commit.as_ref().unwrap());
+        }
+
+        let sig = self.repo.signature().unwrap();
+        self.repo
+            .commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                &op.message.message,
+                &tree,
+                &parents[..],
+            )
+            .unwrap();
+    }
+
+    fn new_branch(&self, op: &Operation) {}
 }
