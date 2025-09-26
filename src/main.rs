@@ -57,7 +57,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     state.init(cfg);
     state.load_diffs(diffs);
     let ops = state.send_request()?.ops;
-    println!("{:#?}", ops);
+    //println!("{:#?}", ops);
 
     let op = GitOps::init(ops, &git_state.repo);
     op.apply_ops();
