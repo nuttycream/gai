@@ -8,19 +8,37 @@ files_to_ignore = [
 
 [ai]
 prompt = "You are an expert at git operations.Create git a logical list of git operations based on diffs and structure."
-rules = ""
+rules = """
+
+- Create branch ONLY if necessary.
+- Make sure commits are atomic focusing on smaller changes, make multiple file stages and commits, if necessary.
+- Generate ops in logical order: branch creation(optional) -> file staging -> commit
+- For StageFile ops:
+- Set files to the list of files to add/stage
+- Set message to null 
+- For CommitChanges ops:
+- Set files to null or empty array
+- Set message with:
+- prefix: The type from the OpType enum
+- scope: The component name or null
+- breaking: true if breaking change, false otherwise
+- message: ONLY the description, do NOT include prefix or scope in the message text
+- For NewBranch ops:
+- Set files to null or empty array
+- Set message to null
+"""
 
 [ai.openai]
 enable = true
 model_name = "gpt-5-nano-2025-08-07"
-max_tokens = 1024
+max_tokens = 5000
 
 [ai.gemini]
 enable = true
 model_name = "gemini-2.5-flash-lite"
-max_tokens = 1024
+max_tokens = 5000
 
 [ai.claude]
-enable = true
+enable = false
 model_name = "claude-3-5-haiku-latest"
-max_tokens = 1024
+max_tokens = 5000
