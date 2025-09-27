@@ -3,7 +3,6 @@ pub mod config;
 pub mod draw;
 pub mod git;
 pub mod provider;
-pub mod request;
 pub mod response;
 pub mod utils;
 

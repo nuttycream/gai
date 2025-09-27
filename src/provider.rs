@@ -1,9 +1,22 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error};
 
-use rig::agent::Agent;
+use rig::{
+    client::{CompletionClient, ProviderClient},
+    extractor::Extractor,
+    providers::{
+        anthropic,
+        gemini::{
+            self,
+            completion::gemini_api_types::{
+                AdditionalParameters, GenerationConfig,
+            },
+        },
+        openai::{self, responses_api::ResponsesCompletionModel},
+    },
+};
 use serde::{Deserialize, Serialize};
 
-use crate::request::RequestBuilder;
+use crate::response::Response;
 
 #[derive(Serialize, Deserialize)]
 pub struct AI {
@@ -20,7 +33,7 @@ pub struct AI {
 pub struct AiConfig {
     pub enable: bool,
     pub model_name: String,
-    pub max_tokens: u32,
+    pub max_tokens: u64,
 }
 
 impl Default for AI {
@@ -31,7 +44,25 @@ impl Default for AI {
             based on diffs and structure."
                 .to_owned(),
 
-            rules: String::new(),
+            rules: 
+            "
+- Create branch ONLY if necessary.
+- Make sure commits are atomic focusing on smaller changes, make multiple file stages and commits, if necessary.
+- Generate ops in logical order: branch creation(optional) -> file staging -> commit
+- For StageFile ops:
+- Set files to the list of files to add/stage
+- Set message to null 
+- For CommitChanges ops:
+- Set files to null or empty array
+- Set message with:
+- prefix: The type from the OpType enum
+- scope: The component name or null
+- breaking: true if breaking change, false otherwise
+- message: ONLY the description, do NOT include prefix or scope in the message text
+- For NewBranch ops:
+- Set files to null or empty array
+- Set message to null
+".to_owned(),
 
             openai: AiConfig::new("gpt-5-nano-2025-08-07"),
             claude: AiConfig::new("claude-3-5-haiku-latest"),
@@ -40,13 +71,70 @@ impl Default for AI {
     }
 }
 
+pub struct Extractors {
+    pub gemini: Option<
+        Extractor<gemini::completion::CompletionModel, Response>,
+    >,
+    pub claude: Option<
+        Extractor<anthropic::completion::CompletionModel, Response>,
+    >,
+    pub openai: Option<Extractor<ResponsesCompletionModel, Response>>,
+}
+
 impl AI {
-    pub fn build_requests(&self, diffs: HashMap<String, String>) {
-        if self.openai.enable {}
+    pub fn build_requests(
+        &self,
+    ) -> Result<Extractors, Box<dyn Error>> {
+        let prompt =
+            format!("{}\nRules:\n{}", self.prompt, self.rules);
+        let gemini = if self.gemini.enable {
+            let client = gemini::Client::from_env();
+            let gen_cfg = GenerationConfig {
+                max_output_tokens: Some(self.gemini.max_tokens),
+                ..Default::default()
+            };
 
-        if self.gemini.enable {}
+            let cfg =
+                AdditionalParameters::default().with_config(gen_cfg);
 
-        if self.claude.enable {}
+            Some(
+                client
+                    .extractor::<Response>(&self.gemini.model_name)
+                    .preamble(&prompt)
+                    .additional_params(serde_json::to_value(cfg)?)
+                    .build(),
+            )
+        } else {
+            None
+        };
+        let openai = if self.openai.enable {
+            let client = openai::Client::from_env();
+            Some(
+                client
+                    .extractor::<Response>(&self.openai.model_name)
+                    .preamble(&prompt)
+                    .build(),
+            )
+        } else {
+            None
+        };
+        let claude = if self.claude.enable {
+            let client = anthropic::Client::from_env();
+            Some(
+                client
+                    .extractor::<Response>(&self.claude.model_name)
+                    .preamble(&prompt)
+                    .build(),
+            )
+        } else {
+            None
+        };
+        let extractors = Extractors {
+            gemini,
+            claude,
+            openai,
+        };
+        Ok(extractors)
     }
 }
 
@@ -55,7 +143,7 @@ impl AiConfig {
         Self {
             enable: false,
             model_name: model_name.to_owned(),
-            max_tokens: 1024,
+            max_tokens: 5000,
         }
     }
 }
