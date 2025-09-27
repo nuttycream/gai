@@ -2,7 +2,7 @@ use std::{error::Error, fs, io::ErrorKind};
 
 use serde::{Deserialize, Serialize};
 
-use crate::provider::AiProvider;
+use crate::provider::AI;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Config {
@@ -12,7 +12,7 @@ pub struct Config {
 
     pub skip_splash: bool,
 
-    pub ai: AiProvider,
+    pub ai: AI,
     pub api_key_file: String,
 
     /// files that gai will ignore
@@ -29,7 +29,7 @@ impl Config {
         Config {
             auto_request: false,
             skip_splash: true,
-            ai: AiProvider::new(),
+            ai: AI::default(),
             api_key_file: "".to_owned(),
             files_to_ignore: vec![
                 "Cargo.lock".to_owned(),

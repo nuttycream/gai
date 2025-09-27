@@ -52,7 +52,7 @@ impl<'repo> GitOps<'repo> {
 
         let parent_commit = match self.repo.revparse_single("HEAD") {
             Ok(obj) => Some(obj.into_commit().unwrap()),
-            Err(e) => panic!("parent commit err"),
+            Err(e) => panic!("parent commit err: {e}"),
         };
 
         let mut parents = Vec::new();

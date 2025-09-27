@@ -11,11 +11,14 @@ use std::{collections::HashMap, error::Error, path::Path};
 
 use dotenv::dotenv;
 
-use crate::git::{diff::GitDiff, ops::GitOps};
+use crate::{
+    draw::UI,
+    git::{diff::GitDiff, ops::GitOps},
+};
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
-
     let cfg = config::Config::init("config.toml")?;
 
     let mut git_state = git::state::GitState::new(Path::new("."))?;
@@ -27,6 +30,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _ = git_diff.create_diffs(&git_state.repo);
 
     // temp not using actual val of create_diffs
+    // todo: put this in draw.rs
+    // we need to give color to the diffs
+    // in the diffview
     let mut diffs = HashMap::new();
     for (path, _status) in &git_state.file {
         if let Some(hunks) = git_diff.diffs.get(path) {
@@ -56,11 +62,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut state = crate::app::App::default();
     state.init(cfg);
     state.load_diffs(diffs);
-    let ops = state.send_request()?.ops;
-    //println!("{:#?}", ops);
+    let ops = state.send_request().await?.ops;
+    println!("{:#?}", ops);
 
-    let op = GitOps::init(ops, &git_state.repo);
-    op.apply_ops();
+    //let op = GitOps::init(ops, &git_state.repo);
+    //op.apply_ops();
 
     //state.load_recv(&recv);
     /* let terminal = ratatui::init();

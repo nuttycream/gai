@@ -7,15 +7,19 @@ use crossterm::event::{self, Event, KeyCode, poll};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Direction, Flex, Layout, Rect},
-    style::{Color, Modifier, Style, palette::tailwind::SLATE},
+    style::{
+        Color, Modifier, Style, Stylize, palette::tailwind::SLATE,
+    },
     widgets::{
         Block, Borders, List, ListItem, ListState, Paragraph,
-        Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Scrollbar, ScrollbarOrientation, ScrollbarState, Widget,
+        Wrap,
     },
 };
 
 use crate::{
     app::{App, State},
+    response::Response,
     utils::GaiLogo,
 };
 
@@ -67,17 +71,17 @@ impl UI {
         self.update_content_scroll();
 
         if app_state.cfg.skip_splash {
-            app_state.state = State::Running;
+            app_state.state = State::DiffView;
         }
 
         loop {
             terminal.draw(|f| self.render(f, app_state))?;
 
-            if matches!(app_state.state, State::Warmup)
+            if matches!(app_state.state, State::Splash)
                 && warmup.elapsed() >= Duration::from_secs(2)
                 && !app_state.cfg.skip_splash
             {
-                app_state.state = State::Running;
+                app_state.state = State::DiffView;
             }
 
             if poll(Duration::from_millis(50))? {
@@ -121,7 +125,19 @@ impl UI {
                             }
                         }
                         KeyCode::Char('p') => {
-                            app_state.send_request();
+                            app_state.switch_state(State::Pending);
+                            // todo: remove temp force redraw
+                            terminal.draw(|f| {
+                                self.render(f, app_state)
+                            })?;
+                            /* match app_state.send_request() {
+                                Ok(resp) => app_state.switch_state(
+                                    State::OpsView(resp),
+                                ),
+                                Err(e) => panic!(
+                                    "failed to send request: {e}"
+                                ),
+                            } */
                         }
                         _ => {}
                     }
@@ -157,24 +173,58 @@ impl UI {
 
     fn render(&mut self, frame: &mut Frame, app_state: &App) {
         match &app_state.state {
-            State::Warmup => {
+            State::Splash => {
                 draw_splash(frame);
             }
-            State::Pending => {}
-            State::Running => {
-                self.draw_running(frame);
+            State::Pending => {
+                self.draw_pending(frame);
+            }
+            State::DiffView => {
+                self.draw_diff_view(frame);
+            }
+            State::OpsView(resp) => {
+                self.draw_ops_view(frame, resp);
             }
         }
     }
 
-    fn draw_running(&mut self, frame: &mut Frame) {
+    fn draw_pending(&mut self, frame: &mut Frame) {
+        let area = center(
+            frame.area(),
+            Constraint::Length(25),
+            Constraint::Length(3),
+        );
+
+        let popup = Paragraph::new("sending request...")
+            .alignment(ratatui::layout::Alignment::Center)
+            .style(Style::new().yellow())
+            .block(
+                Block::new()
+                    .borders(Borders::ALL)
+                    .border_style(Style::new().red()),
+            );
+        frame.render_widget(popup, area);
+    }
+
+    fn draw_ops_view(&mut self, frame: &mut Frame, resp: &Response) {
         let layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![
                 Constraint::Percentage(25),
                 Constraint::Percentage(75),
             ])
-            .margin(1)
+            .margin(5)
+            .split(frame.area());
+    }
+
+    fn draw_diff_view(&mut self, frame: &mut Frame) {
+        let layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![
+                Constraint::Percentage(25),
+                Constraint::Percentage(75),
+            ])
+            .margin(10)
             .split(frame.area());
 
         let items: Vec<ListItem> = self
@@ -184,7 +234,7 @@ impl UI {
             .collect();
 
         let border_style = if self.in_content_mode {
-            Style::default().fg(Color::LightGreen)
+            Style::default().fg(Color::Cyan)
         } else {
             Style::default().fg(Color::DarkGray)
         };
@@ -195,7 +245,7 @@ impl UI {
                     .title("files")
                     .borders(Borders::ALL)
                     .border_style(if !self.in_content_mode {
-                        Style::default().fg(Color::LightGreen)
+                        Style::default().fg(Color::Cyan)
                     } else {
                         Style::default().fg(Color::DarkGray)
                     }),
