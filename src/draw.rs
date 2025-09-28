@@ -12,13 +12,13 @@ use ratatui::{
     },
     widgets::{
         Block, Borders, List, ListItem, ListState, Paragraph,
-        Scrollbar, ScrollbarOrientation, ScrollbarState, Widget,
-        Wrap,
+        Scrollbar, ScrollbarOrientation, ScrollbarState,
     },
 };
 
 use crate::{
     app::{App, State},
+    git::ops::GitOps,
     response::Response,
     utils::GaiLogo,
 };
@@ -31,6 +31,8 @@ pub struct UI {
     file_paths: Vec<String>,
     file_path_state: ListState,
     file_scroll_state: ScrollbarState,
+
+    commit_view_state: ListState,
 
     current_file: String,
     content_scroll: u16,
@@ -54,7 +56,7 @@ pub enum UIActions {
 }
 
 impl UI {
-    pub fn run(
+    pub async fn run(
         &mut self,
         mut terminal: DefaultTerminal,
         app_state: &mut App,
@@ -99,29 +101,71 @@ impl UI {
                                 self.in_content_mode = true;
                             }
                         }
+
+                        // todo refactor
                         KeyCode::Char('j') | KeyCode::Down => {
-                            if self.in_content_mode {
-                                self.content_scroll = self
-                                    .content_scroll
-                                    .saturating_add(1);
-                                self.update_content_scroll();
-                            } else {
-                                self.file_path_state.select_next();
-                                self.update_curr_diff(app_state);
-                                self.update_file_scroll();
+                            match &app_state.state {
+                                State::DiffView => {
+                                    if self.in_content_mode {
+                                        self.content_scroll = self
+                                            .content_scroll
+                                            .saturating_add(1);
+                                        self.update_content_scroll();
+                                    } else {
+                                        self.file_path_state
+                                            .select_next();
+                                        self.update_curr_diff(
+                                            app_state,
+                                        );
+                                        self.update_file_scroll();
+                                    }
+                                }
+                                State::OpsView(resp) => {
+                                    if self.in_content_mode {
+                                        self.content_scroll = self
+                                            .content_scroll
+                                            .saturating_add(1);
+                                        self.update_content_scroll();
+                                    } else {
+                                        self.commit_view_state
+                                            .select_next();
+                                        self.update_curr_commit(resp);
+                                    }
+                                }
+                                _ => {}
                             }
                         }
+
                         KeyCode::Char('k') | KeyCode::Up => {
-                            if self.in_content_mode {
-                                self.content_scroll = self
-                                    .content_scroll
-                                    .saturating_sub(1);
-                                self.update_content_scroll();
-                            } else {
-                                self.file_path_state
-                                    .select_previous();
-                                self.update_curr_diff(app_state);
-                                self.update_file_scroll();
+                            match &app_state.state {
+                                State::DiffView => {
+                                    if self.in_content_mode {
+                                        self.content_scroll = self
+                                            .content_scroll
+                                            .saturating_sub(1);
+                                        self.update_content_scroll();
+                                    } else {
+                                        self.file_path_state
+                                            .select_previous();
+                                        self.update_curr_diff(
+                                            app_state,
+                                        );
+                                        self.update_file_scroll();
+                                    }
+                                }
+                                State::OpsView(resp) => {
+                                    if self.in_content_mode {
+                                        self.content_scroll = self
+                                            .content_scroll
+                                            .saturating_sub(1);
+                                        self.update_content_scroll();
+                                    } else {
+                                        self.commit_view_state
+                                            .select_previous();
+                                        self.update_curr_commit(resp);
+                                    }
+                                }
+                                _ => {}
                             }
                         }
                         KeyCode::Char('p') => {
@@ -130,14 +174,31 @@ impl UI {
                             terminal.draw(|f| {
                                 self.render(f, app_state)
                             })?;
-                            /* match app_state.send_request() {
+                            match app_state.send_request().await {
                                 Ok(resp) => app_state.switch_state(
                                     State::OpsView(resp),
                                 ),
                                 Err(e) => panic!(
                                     "failed to send request: {e}"
                                 ),
-                            } */
+                            }
+                        }
+                        KeyCode::Char('x') => {
+                            match &app_state.state {
+                                State::Splash => {}
+                                State::Pending => {}
+                                State::DiffView => {}
+                                State::OpsView(response) => {
+                                    let ops = response.ops.to_vec();
+                                    let op = GitOps::init(
+                                        ops,
+                                        &app_state.repo,
+                                    );
+                                    op.apply_ops();
+
+                                    break Ok(());
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -153,6 +214,30 @@ impl UI {
                     .get_diff_content(&self.file_paths[selected]);
                 self.content_scroll = 0;
                 self.in_content_mode = false;
+                self.update_content_scroll();
+            }
+        }
+    }
+
+    fn update_curr_commit(&mut self, resp: &Response) {
+        if let Some(selected) = self.commit_view_state.selected() {
+            if selected < resp.ops.len() {
+                let commit = &resp.ops[selected];
+                // use curr file for now
+                self.current_file = format!(
+                    "files to stage:\n{}\ncommit message:\n{}\n",
+                    commit
+                        .files
+                        .iter()
+                        .map(|f| format!("  - {}", f))
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    format!(
+                        "{:?}: {}",
+                        commit.message.prefix, commit.message.message
+                    )
+                );
+                self.content_scroll = 0;
                 self.update_content_scroll();
             }
         }
@@ -215,6 +300,40 @@ impl UI {
             ])
             .margin(5)
             .split(frame.area());
+
+        let commits: Vec<ListItem> = resp
+            .ops
+            .iter()
+            .map(|c| ListItem::new(format!("{:?}", c.message.prefix)))
+            .collect();
+
+        let commit_list = List::new(commits)
+            .block(
+                Block::default()
+                    .title("commits")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Cyan)),
+            )
+            .highlight_style(SELECTED_STYLE)
+            .highlight_symbol("->");
+
+        frame.render_stateful_widget(
+            commit_list,
+            layout[0],
+            &mut self.commit_view_state,
+        );
+
+        let content = Paragraph::new(self.current_file.as_str())
+            .block(
+                Block::default()
+                    .title("commit")
+                    .borders(Borders::ALL)
+                    .border_style(
+                        Style::default().fg(Color::DarkGray),
+                    ),
+            );
+
+        frame.render_widget(content, layout[1]);
     }
 
     fn draw_diff_view(&mut self, frame: &mut Frame) {
