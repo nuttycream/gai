@@ -64,8 +64,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let ops = state.send_request().await?.ops;
     println!("{:#?}", ops);
 
-    //let op = GitOps::init(ops, &git_state.repo);
-    //op.apply_ops();
+    let op = GitOps::init(ops, &git_state.repo);
+    op.apply_ops();
 
     //state.load_recv(&recv);
     /* let terminal = ratatui::init();
