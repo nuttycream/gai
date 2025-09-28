@@ -2,35 +2,33 @@ use std::path::Path;
 
 use git2::{Repository, Status};
 
-use crate::response::{OpType, Operation};
+use crate::response::Commit;
 
 pub struct GitOps<'repo> {
-    ops: Vec<Operation>,
+    commits: Vec<Commit>,
     repo: &'repo Repository,
 }
 
 impl<'repo> GitOps<'repo> {
     pub fn init(
-        ops: Vec<Operation>,
+        ops: Vec<Commit>,
         repo: &'repo Repository,
     ) -> GitOps<'repo> {
-        GitOps { ops, repo }
+        GitOps { commits: ops, repo }
     }
 
     pub fn apply_ops(&self) {
-        println!("{:#?}", self.ops);
-        for op in &self.ops {
-            match op.op_type {
-                OpType::StageFile => self.stage(op),
-                OpType::CommitChanges => self.commit(op),
-                OpType::NewBranch => self.new_branch(op),
-            }
+        println!("{:#?}", self.commits);
+        for commit in &self.commits {
+            self.commit(commit);
         }
     }
 
-    fn stage(&self, op: &Operation) {
+    fn commit(&self, commit: &Commit) {
         let mut index = self.repo.index().unwrap();
-        for path in &op.files {
+
+        // staging
+        for path in &commit.files {
             let path = Path::new(&path);
             let status = self.repo.status_file(path).unwrap();
 
@@ -40,12 +38,6 @@ impl<'repo> GitOps<'repo> {
                 let _ = index.add_path(path);
             }
         }
-
-        index.write().unwrap();
-    }
-
-    fn commit(&self, op: &Operation) {
-        let mut index = self.repo.index().unwrap();
 
         let tree_oid = index.write_tree().unwrap();
         let tree = self.repo.find_tree(tree_oid).unwrap();
@@ -66,12 +58,13 @@ impl<'repo> GitOps<'repo> {
                 Some("HEAD"),
                 &sig,
                 &sig,
-                &op.message.message,
+                &commit.message.message,
                 &tree,
                 &parents[..],
             )
             .unwrap();
     }
 
-    fn new_branch(&self, op: &Operation) {}
+    // won't bother with this for now
+    //fn new_branch(&self, commit: &Commit) {}
 }
