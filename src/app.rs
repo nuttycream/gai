@@ -1,24 +1,26 @@
 use std::{collections::HashMap, error::Error};
 
+use git2::Repository;
+
 use crate::{config::Config, response::Response};
 
-#[derive(Default)]
 pub struct App {
     pub state: State,
 
     pub cfg: Config,
 
+    // todo insert lifetime
+    pub repo: Repository,
+
     pub diffs: HashMap<String, String>,
 }
 
-#[derive(Default)]
 pub enum State {
     /// initializing gai:
     /// checks for existing repo
     /// does a diff check
     /// and gathers the data
     /// for the user to send
-    #[default]
     Splash,
 
     /// state where gai is sending
@@ -38,16 +40,8 @@ pub enum State {
 }
 
 impl App {
-    pub fn init(&mut self, cfg: Config) {
-        self.cfg = cfg;
-    }
-
     pub fn switch_state(&mut self, new_state: State) {
         self.state = new_state;
-    }
-
-    pub fn load_diffs(&mut self, files: HashMap<String, String>) {
-        self.diffs = files.to_owned();
     }
 
     pub fn get_file_paths(&self) -> Vec<String> {
