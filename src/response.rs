@@ -4,18 +4,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct Response {
-    pub ops: Vec<Operation>,
+    pub ops: Vec<Commit>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
-pub struct Operation {
-    pub op_type: OpType,
-
-    // paths to apply operation to
+pub struct Commit {
+    // paths to apply commit to
     // ex. git add main.rs doubloon.rs
     pub files: Vec<String>,
-
     pub message: CommitMessage,
 }
 
@@ -30,15 +27,6 @@ pub struct CommitMessage {
     pub breaking: bool,
     // desc
     pub message: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-pub enum OpType {
-    StageFile,
-    CommitChanges,
-
-    // should we?
-    NewBranch,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
