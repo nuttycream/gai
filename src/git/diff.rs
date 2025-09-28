@@ -5,10 +5,12 @@ use git2::{DiffHunk, DiffLine, DiffOptions, Repository};
 /// an abstracted ver
 /// of the lowlevel impl
 /// of diffdelta and diffline
-pub struct GitDiff {
+pub struct GitDiff<'repo> {
     /// storing individual file diffs
     /// with their path as the key
     pub diffs: HashMap<String, Vec<HunkDiff>>,
+
+    pub repo: &'repo Repository,
 }
 
 #[derive(Debug)]
@@ -37,23 +39,23 @@ pub enum DiffType {
     Deletions,
 }
 
-impl GitDiff {
-    pub fn new() -> Self {
+impl<'repo> GitDiff<'repo> {
+    pub fn new(repo: &'repo Repository) -> Self {
         Self {
             diffs: HashMap::new(),
+            repo,
         }
     }
 
     /// only call this on State::Status::Changed;
-    pub fn create_diffs(
-        &mut self,
-        repo: &Repository,
-    ) -> Result<String, git2::Error> {
+    pub fn create_diffs(&mut self) -> Result<String, git2::Error> {
         // start this puppy up
         let mut opts = DiffOptions::new();
         opts.include_untracked(true)
             .recurse_untracked_dirs(true)
             .enable_fast_untracked_dirs(true);
+
+        let repo = &self.repo;
 
         let head = repo.head()?.peel_to_tree()?;
         let diff =
