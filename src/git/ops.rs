@@ -73,8 +73,7 @@ impl<'repo> GitOps<'repo> {
                 &format!(
                     "{}: {}",
                     match commit.message.prefix {
-                        _ => format!("{:?}", commit.message.prefix)
-                            .to_lowercase(),
+                        _ => format!("{:?}", commit.message.prefix),
                     },
                     commit.message.message
                 ),
