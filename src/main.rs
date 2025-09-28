@@ -65,12 +65,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         diffs,
     };
 
-    //let ops = state.send_request().await?.ops;
-    //println!("{:#?}", ops);
-
-    //let op = GitOps::init(ops, &git_state.repo);
-    //op.apply_ops();
-
     let terminal = ratatui::init();
     let mut ui = UI::default();
     let result = ui.run(terminal, &mut state).await;
