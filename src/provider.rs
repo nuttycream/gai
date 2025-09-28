@@ -40,29 +40,27 @@ impl Default for AI {
     fn default() -> Self {
         Self {
             prompt: "You are an expert at git operations.\
-            Create git a logical list of git operations \
+            Create git a logical list of git commits \
             based on diffs and structure."
                 .to_owned(),
 
-            rules: 
-            "
-- Create branch ONLY if necessary.
-- Make sure commits are atomic focusing on smaller changes, make multiple file stages and commits, if necessary.
-- Generate ops in logical order: branch creation(optional) -> file staging -> commit
-- For StageFile ops:
-- Set files to the list of files to add/stage
-- Set message to null 
-- For CommitChanges ops:
-- Set files to null or empty array
-- Set message with:
-- prefix: The type from the OpType enum
-- scope: The component name or null
-- breaking: true if breaking change, false otherwise
-- message: ONLY the description, do NOT include prefix or scope in the message text
-- For NewBranch ops:
-- Set files to null or empty array
-- Set message to null
-".to_owned(),
+            rules: "
+                - Make sure commits are atomic focusing on smaller changes.
+                - Make multiple file stages and commits, if necessary.
+                - Make sure you cover all files in the diff
+                - IMPORTANT: Each file should appear in ONLY ONE commit. Do not create overlapping commits.
+                - IMPORTANT: Do NOT create a summary commit that includes files already committed individually.
+                - Choose EITHER:
+                a) Multiple small commits (one per logical change/component), OR
+                b) One larger commit for related changes across multiple files
+                But NEVER both for the same set of files.
+                - For CommitMessage:
+                - Set message with:
+                - prefix: The appropriate type from the PrefixType enum
+                - scope: The component name or \"\"
+                - breaking: true if breaking change, false otherwise
+                - message: ONLY the description, do NOT include prefix or scope in the message text
+                ".to_owned(),
 
             openai: AiConfig::new("gpt-5-nano-2025-08-07"),
             claude: AiConfig::new("claude-3-5-haiku-latest"),
