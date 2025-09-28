@@ -7,7 +7,7 @@ pub struct Response {
     pub ops: Vec<Commit>,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct Commit {
     // paths to apply commit to
@@ -16,7 +16,7 @@ pub struct Commit {
     pub message: CommitMessage,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct CommitMessage {
     // feat
@@ -29,7 +29,8 @@ pub struct CommitMessage {
     pub message: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
 pub enum PrefixType {
     Feat,
     Fix,
