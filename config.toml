@@ -27,12 +27,12 @@ But NEVER both for the same set of files.
 """
 
 [ai.openai]
-enable = true
+enable = false
 model_name = "gpt-5-nano-2025-08-07"
 max_tokens = 5000
 
 [ai.gemini]
-enable = false
+enable = true
 model_name = "gemini-2.5-flash-lite"
 max_tokens = 5000
 
