@@ -12,7 +12,7 @@ use dotenv::dotenv;
 
 use crate::{
     draw::UI,
-    git::{diff::GitDiff, ops::GitOps},
+    git::{diff::GitDiff, state},
 };
 
 #[tokio::main]
@@ -58,22 +58,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let mut state = crate::app::App::default();
-    state.init(cfg);
-    state.load_diffs(diffs);
-    let ops = state.send_request().await?.ops;
-    println!("{:#?}", ops);
+    let mut state = crate::app::App {
+        state: app::State::Splash,
+        cfg,
+        repo: git_state.repo,
+        diffs,
+    };
 
-    let op = GitOps::init(ops, &git_state.repo);
-    op.apply_ops();
+    //let ops = state.send_request().await?.ops;
+    //println!("{:#?}", ops);
 
-    //state.load_recv(&recv);
-    /* let terminal = ratatui::init();
+    //let op = GitOps::init(ops, &git_state.repo);
+    //op.apply_ops();
+
+    let terminal = ratatui::init();
     let mut ui = UI::default();
-    let result = ui.run(terminal, &mut state);
+    let result = ui.run(terminal, &mut state).await;
 
     ratatui::restore();
 
-    result */
-    Ok(())
+    result
+
+    //Ok(())
 }
