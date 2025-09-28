@@ -39,6 +39,10 @@ impl GitState {
 
         options.include_untracked(true);
 
+        if repo.statuses(Some(&mut options)).unwrap().is_empty() {
+            return Err("no diffs".into());
+        }
+
         Ok(GitState {
             repo,
             options,
