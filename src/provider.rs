@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error};
+use std::error::Error;
 
 use rig::{
     client::{CompletionClient, ProviderClient},
@@ -20,12 +20,16 @@ use crate::response::Response;
 
 #[derive(Serialize, Deserialize)]
 pub struct AI {
+    pub capitalize_prefix: bool,
     pub prompt: String,
 
     pub openai: AiConfig,
     pub gemini: AiConfig,
     pub claude: AiConfig,
 
+    // do we want to expose this to the user?
+    // maybe have 'predefined' options
+    // for the rules, that they can toggle
     pub rules: String,
 }
 
@@ -65,6 +69,8 @@ impl Default for AI {
             openai: AiConfig::new("gpt-5-nano-2025-08-07"),
             claude: AiConfig::new("claude-3-5-haiku-latest"),
             gemini: AiConfig::new("gemini-2.5-flash-lite"),
+
+            capitalize_prefix: false,
         }
     }
 }
