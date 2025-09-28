@@ -7,24 +7,26 @@ files_to_ignore = [
 ]
 
 [ai]
+capitalize_prefix = false
 prompt = "You are an expert at git operations.Create git a logical list of git commits based on diffs and structure."
 rules = """
-- Make sure commits are atomic focusing on smaller changes.
-- Make multiple file stages and commits, if necessary.
-- Make sure you cover all files in the diff
-- IMPORTANT: Each file should appear in ONLY ONE commit. Do not create overlapping commits.
-- IMPORTANT: Do NOT create a summary commit that includes files already committed individually.
-- Choose EITHER:
-a) Multiple small commits (one per logical change/component), OR
-b) One larger commit for related changes across multiple files
-But NEVER both for the same set of files.
-- For CommitMessage:
-- Set message with:
-- prefix: The appropriate type from the PrefixType enum
-- scope: The component name or ""
-- breaking: true if breaking change, false otherwise
-- message: ONLY the description, do NOT include prefix or scope in the message text
-"""
+
+                - Make sure commits are atomic focusing on smaller changes.
+                - Make multiple file stages and commits, if necessary.
+                - Make sure you cover all files in the diff
+                - IMPORTANT: Each file should appear in ONLY ONE commit. Do not create overlapping commits.
+                - IMPORTANT: Do NOT create a summary commit that includes files already committed individually.
+                - Choose EITHER:
+                a) Multiple small commits (one per logical change/component), OR
+                b) One larger commit for related changes across multiple files
+                But NEVER both for the same set of files.
+                - For CommitMessage:
+                - Set message with:
+                - prefix: The appropriate type from the PrefixType enum
+                - scope: The component name or ""
+                - breaking: true if breaking change, false otherwise
+                - message: ONLY the description, do NOT include prefix or scope in the message text
+                """
 
 [ai.openai]
 enable = false
