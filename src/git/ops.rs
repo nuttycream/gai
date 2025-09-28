@@ -18,7 +18,7 @@ impl<'repo> GitOps<'repo> {
     }
 
     pub fn apply_ops(&self) {
-        println!("{:#?}", self.commits);
+        //println!("{:#?}", self.commits);
         for commit in &self.commits {
             self.commit(commit);
         }
