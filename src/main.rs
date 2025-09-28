@@ -10,10 +10,7 @@ use std::{collections::HashMap, error::Error, path::Path};
 
 use dotenv::dotenv;
 
-use crate::{
-    draw::UI,
-    git::{diff::GitDiff, state},
-};
+use crate::{draw::UI, git::diff::GitDiff};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -21,12 +18,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cfg = config::Config::init("config.toml")?;
 
     let mut git_state = git::state::GitState::new(Path::new("."))?;
+
+    // todo remove, we don't really need to track the
+    // state no? or should we keep it.
     git_state.status(&cfg.files_to_ignore)?;
 
-    let mut git_diff = GitDiff::new();
+    let mut git_diff = GitDiff::new(&git_state.repo);
 
     // temp
-    let _ = git_diff.create_diffs(&git_state.repo);
+    let _ = git_diff.create_diffs();
 
     // temp not using actual val of create_diffs
     // todo: put this in draw.rs
