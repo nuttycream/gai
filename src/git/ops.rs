@@ -27,6 +27,14 @@ impl<'repo> GitOps<'repo> {
     fn commit(&self, commit: &Commit) {
         let mut index = self.repo.index().unwrap();
 
+        index.clear().unwrap();
+
+        if let Ok(head) = self.repo.head() {
+            if let Ok(tree) = head.peel_to_tree() {
+                index.read_tree(&tree).unwrap();
+            }
+        }
+
         // staging
         for path in &commit.files {
             let path = Path::new(&path);
@@ -35,30 +43,41 @@ impl<'repo> GitOps<'repo> {
             if status.contains(Status::WT_MODIFIED)
                 || status.contains(Status::WT_NEW)
             {
-                let _ = index.add_path(path);
+                index.add_path(path).unwrap();
             }
         }
+
+        index.write().unwrap();
 
         let tree_oid = index.write_tree().unwrap();
         let tree = self.repo.find_tree(tree_oid).unwrap();
 
         let parent_commit = match self.repo.revparse_single("HEAD") {
             Ok(obj) => Some(obj.into_commit().unwrap()),
-            Err(e) => panic!("parent commit err: {e}"),
+            // ignore first commit
+            Err(_) => None,
         };
 
         let mut parents = Vec::new();
-        if parent_commit.is_some() {
-            parents.push(parent_commit.as_ref().unwrap());
+        if let Some(parent) = parent_commit.as_ref() {
+            parents.push(parent);
         }
 
         let sig = self.repo.signature().unwrap();
+
         self.repo
             .commit(
                 Some("HEAD"),
                 &sig,
                 &sig,
-                &commit.message.message,
+                &format!(
+                    "{}: {}",
+                    match commit.message.prefix {
+                        _ => format!("{:?}", commit.message.prefix)
+                            .to_lowercase(),
+                    },
+                    commit.message.message
+                ),
                 &tree,
                 &parents[..],
             )
