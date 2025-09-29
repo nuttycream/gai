@@ -213,11 +213,16 @@ impl UI {
         }
     }
 
+    // todo this needs to moved
+    // + commit.message.prefix determine if lowercase atp?
+    // maybe make a specific func for it in the commit struct
     fn update_curr_commit(&mut self, resp: &Response) {
         if let Some(selected) = self.commit_view_state.selected() {
             if selected < resp.commits.len() {
                 let commit = &resp.commits[selected];
                 // use curr file for now
+                let prefix = format!("{:?}", commit.message.prefix)
+                    .to_lowercase();
                 self.current_file = format!(
                     "files to stage:\n{}\ncommit message:\n{}\n",
                     commit
@@ -226,10 +231,7 @@ impl UI {
                         .map(|f| format!("  - {}", f))
                         .collect::<Vec<_>>()
                         .join("\n"),
-                    format!(
-                        "{:?}: {}",
-                        commit.message.prefix, commit.message.message
-                    )
+                    format!("{}: {}", prefix, commit.message.message)
                 );
                 self.content_scroll = 0;
                 self.update_content_scroll();
