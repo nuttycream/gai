@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, path::Path};
 
 use git2::{Repository, StatusOptions};
 
-pub struct GitState {
+pub struct GitRepo {
     pub repo: Repository,
     options: StatusOptions,
 
@@ -29,7 +29,7 @@ pub enum Status {
     Untracked,
 }
 
-impl GitState {
+impl GitRepo {
     /// this could fail on an unitialized directory
     /// for now, im not gonna handle those and we
     /// just straight up panic if we failed to open
@@ -43,7 +43,7 @@ impl GitState {
             return Err("no diffs".into());
         }
 
-        Ok(GitState {
+        Ok(GitRepo {
             repo,
             options,
             file: HashMap::new(),
@@ -78,6 +78,9 @@ impl GitState {
                 }
                 s if s.contains(git2::Status::WT_TYPECHANGE) => {
                     Status::Changed("typechange".to_owned())
+                }
+                s if s.contains(git2::Status::WT_NEW) => {
+                    Status::Untracked
                 }
                 s if s.contains(git2::Status::WT_NEW) => {
                     Status::Untracked
