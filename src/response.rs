@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct Response {
-    pub ops: Vec<Commit>,
+    pub commits: Vec<Commit>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
