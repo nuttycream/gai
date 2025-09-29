@@ -12,6 +12,9 @@ pub struct Config {
 
     pub skip_splash: bool,
 
+    /// should we send untracked files as well?
+    pub include_untracked: bool,
+
     pub ai: AI,
     pub api_key_file: String,
 
@@ -29,6 +32,7 @@ impl Config {
         Config {
             auto_request: false,
             skip_splash: true,
+            include_untracked: true,
             ai: AI::default(),
             api_key_file: "".to_owned(),
             files_to_ignore: vec![
