@@ -10,10 +10,7 @@ use std::{collections::HashMap, error::Error, fs, path::Path};
 
 use dotenv::dotenv;
 
-use crate::{
-    draw::UI,
-    git::{DiffType, Status},
-};
+use crate::{draw::UI, git::DiffType};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -22,30 +19,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut gai = git::GaiGit::new(Path::new("."))?;
 
-    // todo remove, we don't really need to track the
-    // state no? or should we keep it.
-    gai.status(&cfg.files_to_ignore)?;
-
-    gai.create_diffs().unwrap();
+    let files = gai.create_diffs(&cfg.files_to_ignore).unwrap();
 
     // temp not using actual val of create_diffs
     // todo: put this in draw.rs
     // we need to give color to the diffs
     // in the diffview
     let mut diffs = HashMap::new();
-    for (path, status) in &gai.file {
-        match status {
-            Status::Changed(changed) => {}
-            Status::Untracked => {
-                if cfg.include_untracked {
-                    diffs.insert(
-                        path.to_owned(),
-                        fs::read_to_string(path).unwrap(),
-                    );
-                }
-            }
-        }
-        if let Some(hunks) = gai.diffs.get(path) {
+    for file in files {
+        if let Some(hunks) = gai.diffs.get(&file) {
             let mut diff_str = String::new();
 
             for hunk in hunks {
@@ -64,7 +46,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 diff_str.push('\n');
             }
             if !diff_str.trim().is_empty() {
-                diffs.insert(path.clone(), diff_str);
+                diffs.insert(file.clone(), diff_str);
             }
         }
     }
