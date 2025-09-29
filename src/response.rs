@@ -1,6 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::config::Config;
+
 #[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct Response {
@@ -56,5 +58,33 @@ pub enum PrefixType {
 impl Response {
     pub fn new(response: &str) -> Self {
         return serde_json::from_str(response).unwrap();
+    }
+}
+
+impl Commit {
+    pub fn get_commit_message(&self, cfg: &Config) -> String {
+        let prefix = if cfg.ai.capitalize_prefix {
+            format!("{:?}", self.message.prefix)
+        } else {
+            format!("{:?}", self.message.prefix).to_lowercase()
+        };
+
+        let breaking = if self.message.breaking { "!" } else { "" };
+        let scope = if cfg.ai.include_scope {
+            // gonna set it to lowercase PERMA
+            // sometimes the AI responds with a scope
+            // that includes the file extension and is capitalized
+            // like (Respfileonse.rs) which looks ridiculous imo
+            // the only way i can think of is to make it a rule to not include
+            // extension names
+            format!("({})", self.message.scope.to_lowercase())
+        } else {
+            "".to_owned()
+        };
+
+        format!(
+            "{}{}{}: {}",
+            prefix, scope, breaking, self.message.message
+        )
     }
 }
