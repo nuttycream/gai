@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error::Error, path::Path};
 
 use git2::{
-    Delta, DiffHunk, DiffLine, DiffOptions, Repository, StatusOptions,
+    DiffHunk, DiffLine, DiffOptions, Repository, StatusOptions,
 };
 
 use crate::response::Commit;
@@ -217,7 +217,14 @@ impl GaiGit {
                 &format!(
                     "{}: {}",
                     match commit.message.prefix {
-                        _ => format!("{:?}", commit.message.prefix),
+                        _ => {
+                            let prefix = format!(
+                                "{:?}",
+                                commit.message.prefix
+                            );
+                            // todo use cfg setting
+                            prefix.to_lowercase()
+                        }
                     },
                     commit.message.message
                 ),
