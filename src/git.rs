@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error::Error, path::Path};
 
 use git2::{
-    DiffHunk, DiffLine, DiffOptions, Repository, StatusOptions,
+    Delta, DiffHunk, DiffLine, DiffOptions, Repository, StatusOptions,
 };
 
 use crate::response::Commit;
@@ -16,23 +16,11 @@ pub struct GaiGit {
     ///
     /// everything else such as unmodified, ignored
     /// doesnt get saved here
-    pub file: HashMap<String, Status>,
+    pub file: Vec<String>,
 
     pub diffs: HashMap<String, Vec<HunkDiff>>,
 
     options: StatusOptions,
-}
-
-#[derive(Debug)]
-pub enum Status {
-    /// change includes
-    /// modified, deleted,
-    /// typechanged, renamed
-    Changed(String),
-
-    /// files that haven't been
-    /// added Status::WT_NEW
-    Untracked,
 }
 
 #[derive(Debug)]
@@ -78,7 +66,7 @@ impl GaiGit {
         Ok(GaiGit {
             repo,
             options,
-            file: HashMap::new(),
+            file: Vec::new(),
             diffs: HashMap::new(),
         })
     }
@@ -90,41 +78,11 @@ impl GaiGit {
         let statuses = self.repo.statuses(Some(&mut self.options))?;
 
         for entry in statuses.iter() {
-            // With `Status::OPT_INCLUDE_UNMODIFIED` (not used in this example)
-            // `index_to_workdir` may not be `None` even if there are no differences,
-            // in which case it will be a `Delta::Unmodified`.
             if entry.status() == git2::Status::CURRENT
                 || entry.index_to_workdir().is_none()
             {
                 continue;
             }
-
-            let status = match entry.status() {
-                s if s.contains(git2::Status::WT_MODIFIED) => {
-                    Status::Changed("modified".to_owned())
-                }
-                s if s.contains(git2::Status::WT_DELETED) => {
-                    Status::Changed("deleted".to_owned())
-                }
-                s if s.contains(git2::Status::WT_RENAMED) => {
-                    Status::Changed("renamed".to_owned())
-                }
-                s if s.contains(git2::Status::WT_TYPECHANGE) => {
-                    Status::Changed("typechange".to_owned())
-                }
-                s if s.contains(git2::Status::WT_NEW) => {
-                    Status::Untracked
-                }
-                s if s.contains(git2::Status::WT_NEW) => {
-                    Status::Untracked
-                }
-                _ => continue,
-            };
-
-            // used when comparing the two files, but I think we can just use the
-            // entry path in this scenario no?
-            // let old_path = entry.head_to_index().unwrap().old_file().path();
-            // let new_path = entry.head_to_index().unwrap().new_file().path();
 
             if to_ignore
                 .iter()
@@ -135,13 +93,16 @@ impl GaiGit {
 
             let path = entry.path().unwrap().to_owned();
 
-            self.file.insert(path, status);
+            self.file.push(path);
         }
 
         Ok(())
     }
 
-    pub fn create_diffs(&mut self) -> Result<(), git2::Error> {
+    pub fn create_diffs(
+        &mut self,
+        to_ignore: &[String],
+    ) -> Result<Vec<String>, git2::Error> {
         // start this puppy up
         let mut opts = DiffOptions::new();
         opts.include_untracked(true)
@@ -154,7 +115,24 @@ impl GaiGit {
         let diff =
             repo.diff_tree_to_workdir(Some(&head), Some(&mut opts))?;
 
+        let mut files = Vec::new();
+
         diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
+            match delta.status() {
+                // Delta::Added => todo!(),
+                // Delta::Deleted => todo!(),
+                // Delta::Modified => todo!(),
+                // Delta::Renamed => todo!(),
+                // Delta::Copied => todo!(),
+                // Delta::Ignored => todo!(),
+                // Delta::Untracked => todo!(),
+                // Delta::Typechange => todo!(),
+                // Delta::Unreadable => todo!(),
+                // Delta::Conflicted => todo!(),
+                // ignore unmodified
+                _ => {}
+            }
+
             let path = delta
                 .new_file()
                 .path()
@@ -163,16 +141,26 @@ impl GaiGit {
                 .unwrap()
                 .to_owned();
 
-            let diff_hunks =
-                self.diffs.entry(path).or_insert_with(Vec::new);
+            // skip I think
+            if to_ignore.iter().any(|f| path.ends_with(f)) {
+                return true;
+            }
+
+            let diff_hunks = self
+                .diffs
+                .entry(path.clone())
+                .or_insert_with(Vec::new);
 
             process_file_diff(diff_hunks, &hunk, &line);
+
+            files.push(path);
 
             true
         })?;
 
-        Ok(())
+        Ok(files)
     }
+
     pub fn apply_commits(&self, commits: &[Commit]) {
         //println!("{:#?}", self.commits);
         for commit in commits {
