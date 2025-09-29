@@ -1,18 +1,13 @@
 use std::{collections::HashMap, error::Error};
 
-use git2::Repository;
-
-use crate::{config::Config, response::Response};
+use crate::{config::Config, git::GaiGit, response::Response};
 
 pub struct App {
     pub state: State,
-
     pub cfg: Config,
-
-    // todo insert lifetime
-    pub repo: Repository,
-
     pub diffs: HashMap<String, String>,
+
+    pub gai: GaiGit,
 }
 
 pub enum State {
@@ -91,5 +86,9 @@ impl App {
         }
 
         Err("No AI providers enabled or all failed".into())
+    }
+
+    pub fn apply_ops(&self, response: &Response) {
+        self.gai.apply_commits(&response.commits);
     }
 }
