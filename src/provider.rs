@@ -21,6 +21,7 @@ use crate::response::Response;
 #[derive(Serialize, Deserialize)]
 pub struct AI {
     pub capitalize_prefix: bool,
+    pub include_scope: bool,
     pub prompt: String,
 
     pub openai: AiConfig,
@@ -61,7 +62,7 @@ impl Default for AI {
                 - For CommitMessage:
                 - Set message with:
                 - prefix: The appropriate type from the PrefixType enum
-                - scope: The component name or \"\"
+                - scope: The component name or \"\", DO NOT include the file extension
                 - breaking: true if breaking change, false otherwise
                 - message: ONLY the description, do NOT include prefix or scope in the message text
                 ".to_owned(),
@@ -71,6 +72,7 @@ impl Default for AI {
             gemini: AiConfig::new("gemini-2.5-flash-lite"),
 
             capitalize_prefix: false,
+            include_scope: true,
         }
     }
 }
