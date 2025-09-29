@@ -1,5 +1,6 @@
 auto_request = false
 skip_splash = true
+include_untracked = true
 api_key_file = ""
 files_to_ignore = [
     "Cargo.lock",
@@ -29,12 +30,12 @@ rules = """
                 """
 
 [ai.openai]
-enable = false
+enable = true
 model_name = "gpt-5-nano-2025-08-07"
 max_tokens = 5000
 
 [ai.gemini]
-enable = true
+enable = false
 model_name = "gemini-2.5-flash-lite"
 max_tokens = 5000
 
