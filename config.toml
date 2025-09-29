@@ -9,6 +9,7 @@ files_to_ignore = [
 
 [ai]
 capitalize_prefix = false
+include_scope = true
 prompt = "You are an expert at git operations.Create git a logical list of git commits based on diffs and structure."
 rules = """
 
@@ -24,7 +25,7 @@ rules = """
                 - For CommitMessage:
                 - Set message with:
                 - prefix: The appropriate type from the PrefixType enum
-                - scope: The component name or ""
+                - scope: The component name or "", DO NOT include the file extension
                 - breaking: true if breaking change, false otherwise
                 - message: ONLY the description, do NOT include prefix or scope in the message text
                 """
