@@ -12,7 +12,7 @@ use dotenv::dotenv;
 
 use crate::{
     draw::UI,
-    git::{diff::GitDiff, state::Status},
+    git::{DiffType, Status},
 };
 
 #[tokio::main]
@@ -20,21 +20,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
     let cfg = config::Config::init("config.toml")?;
 
-    let mut git_state = git::state::GitRepo::new(Path::new("."))?;
+    let mut gai = git::GaiGit::new(Path::new("."))?;
 
     // todo remove, we don't really need to track the
     // state no? or should we keep it.
-    git_state.status(&cfg.files_to_ignore)?;
+    gai.status(&cfg.files_to_ignore)?;
 
-    let mut git_diff = GitDiff::new(&git_state.repo);
-    git_diff.create_diffs().unwrap();
+    gai.create_diffs().unwrap();
 
     // temp not using actual val of create_diffs
     // todo: put this in draw.rs
     // we need to give color to the diffs
     // in the diffview
     let mut diffs = HashMap::new();
-    for (path, status) in &git_state.file {
+    for (path, status) in &gai.file {
         match status {
             Status::Changed(changed) => {}
             Status::Untracked => {
@@ -46,7 +45,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
-        if let Some(hunks) = git_diff.diffs.get(path) {
+        if let Some(hunks) = gai.diffs.get(path) {
             let mut diff_str = String::new();
 
             for hunk in hunks {
@@ -55,9 +54,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 for line in &hunk.line_diffs {
                     let prefix = match line.diff_type {
-                        git::diff::DiffType::Unchanged => ' ',
-                        git::diff::DiffType::Additions => '+',
-                        git::diff::DiffType::Deletions => '-',
+                        DiffType::Unchanged => ' ',
+                        DiffType::Additions => '+',
+                        DiffType::Deletions => '-',
                     };
                     diff_str.push(prefix);
                     diff_str.push_str(&line.content);
@@ -73,8 +72,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut state = crate::app::App {
         state: app::State::Splash,
         cfg,
-        repo: git_state.repo,
         diffs,
+        gai,
     };
 
     let terminal = ratatui::init();
