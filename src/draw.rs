@@ -18,7 +18,6 @@ use ratatui::{
 
 use crate::{
     app::{App, State},
-    git::ops::GitOps,
     response::Response,
     utils::GaiLogo,
 };
@@ -189,12 +188,7 @@ impl UI {
                                 State::Pending => {}
                                 State::DiffView => {}
                                 State::OpsView(response) => {
-                                    let ops = response.ops.to_vec();
-                                    let op = GitOps::init(
-                                        ops,
-                                        &app_state.repo,
-                                    );
-                                    op.apply_ops();
+                                    app_state.apply_ops(response);
 
                                     break Ok(());
                                 }
@@ -221,8 +215,8 @@ impl UI {
 
     fn update_curr_commit(&mut self, resp: &Response) {
         if let Some(selected) = self.commit_view_state.selected() {
-            if selected < resp.ops.len() {
-                let commit = &resp.ops[selected];
+            if selected < resp.commits.len() {
+                let commit = &resp.commits[selected];
                 // use curr file for now
                 self.current_file = format!(
                     "files to stage:\n{}\ncommit message:\n{}\n",
@@ -302,7 +296,7 @@ impl UI {
             .split(frame.area());
 
         let commits: Vec<ListItem> = resp
-            .ops
+            .commits
             .iter()
             .map(|c| ListItem::new(format!("{:?}", c.message.prefix)))
             .collect();
