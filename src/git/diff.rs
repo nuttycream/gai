@@ -10,7 +10,7 @@ pub struct GitDiff<'repo> {
     /// with their path as the key
     pub diffs: HashMap<String, Vec<HunkDiff>>,
 
-    pub repo: &'repo Repository,
+    repo: &'repo Repository,
 }
 
 #[derive(Debug)]
@@ -48,7 +48,7 @@ impl<'repo> GitDiff<'repo> {
     }
 
     /// only call this on State::Status::Changed;
-    pub fn create_diffs(&mut self) -> Result<String, git2::Error> {
+    pub fn create_diffs(&mut self) -> Result<(), git2::Error> {
         // start this puppy up
         let mut opts = DiffOptions::new();
         opts.include_untracked(true)
@@ -78,7 +78,7 @@ impl<'repo> GitDiff<'repo> {
             true
         })?;
 
-        Ok(format!("{:#?}", self.diffs))
+        Ok(())
     }
 }
 
