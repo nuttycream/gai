@@ -6,7 +6,7 @@ pub mod provider;
 pub mod response;
 pub mod utils;
 
-use std::{collections::HashMap, error::Error, fs, path::Path};
+use std::{collections::HashMap, error::Error, path::Path};
 
 use dotenv::dotenv;
 
