@@ -6,34 +6,46 @@ pub mod provider;
 pub mod response;
 pub mod utils;
 
-use std::{collections::HashMap, error::Error, path::Path};
+use std::{collections::HashMap, error::Error, fs, path::Path};
 
 use dotenv::dotenv;
 
-use crate::{draw::UI, git::diff::GitDiff};
+use crate::{
+    draw::UI,
+    git::{diff::GitDiff, state::Status},
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
     let cfg = config::Config::init("config.toml")?;
 
-    let mut git_state = git::state::GitState::new(Path::new("."))?;
+    let mut git_state = git::state::GitRepo::new(Path::new("."))?;
 
     // todo remove, we don't really need to track the
     // state no? or should we keep it.
     git_state.status(&cfg.files_to_ignore)?;
 
     let mut git_diff = GitDiff::new(&git_state.repo);
-
-    // temp
-    let _ = git_diff.create_diffs();
+    git_diff.create_diffs().unwrap();
 
     // temp not using actual val of create_diffs
     // todo: put this in draw.rs
     // we need to give color to the diffs
     // in the diffview
     let mut diffs = HashMap::new();
-    for (path, _status) in &git_state.file {
+    for (path, status) in &git_state.file {
+        match status {
+            Status::Changed(changed) => {}
+            Status::Untracked => {
+                if cfg.include_untracked {
+                    diffs.insert(
+                        path.to_owned(),
+                        fs::read_to_string(path).unwrap(),
+                    );
+                }
+            }
+        }
         if let Some(hunks) = git_diff.diffs.get(path) {
             let mut diff_str = String::new();
 
