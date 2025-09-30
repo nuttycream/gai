@@ -1,3 +1,5 @@
+use std::fs;
+
 use anyhow::Result;
 use rig::{
     client::{CompletionClient, ProviderClient},
@@ -22,6 +24,9 @@ pub struct AI {
     pub capitalize_prefix: bool,
     pub include_scope: bool,
     pub prompt: String,
+
+    /// conventionalcommits.md
+    pub include_convention: bool,
 
     pub openai: AiConfig,
     pub gemini: AiConfig,
@@ -69,6 +74,7 @@ impl Default for AI {
             claude: AiConfig::new("claude-3-5-haiku-latest"),
             gemini: AiConfig::new("gemini-2.5-flash-lite"),
 
+            include_convention: true,
             capitalize_prefix: false,
             include_scope: true,
         }
@@ -87,8 +93,20 @@ pub struct Extractors {
 
 impl AI {
     pub fn build_requests(&self) -> Result<Extractors> {
-        let prompt =
-            format!("{}\nRules:\n{}", self.prompt, self.rules);
+        let convention = if self.include_convention {
+            format!(
+                "Convention:\n{}",
+                fs::read_to_string("conventionalcommits.md")?
+            )
+        } else {
+            "".to_owned()
+        };
+
+        let prompt = format!(
+            "{}\nRules:\n{}\n{}",
+            self.prompt, self.rules, convention
+        );
+
         let gemini = if self.gemini.enable {
             let client = gemini::Client::from_env();
             let gen_cfg = GenerationConfig {
