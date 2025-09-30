@@ -6,53 +6,28 @@ pub mod provider;
 pub mod response;
 pub mod utils;
 
-use std::{collections::HashMap, error::Error, path::Path};
+use crate::draw::UI;
 
 use dotenv::dotenv;
-
-use crate::{draw::UI, git::DiffType};
+use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
     let cfg = config::Config::init("config.toml")?;
 
-    let mut gai = git::GaiGit::new(Path::new("."))?;
+    let mut gai = git::GaiGit::new(".")?;
+    gai.create_diffs(&cfg.files_to_ignore)?;
+    let diffs = gai.diffs.to_owned();
 
-    let files = gai.create_diffs(&cfg.files_to_ignore).unwrap();
-
-    // temp not using actual val of create_diffs
-    // todo: put this in draw.rs
-    // we need to give color to the diffs
-    // in the diffview
-    let mut diffs = HashMap::new();
-    for file in files {
-        if let Some(hunks) = gai.diffs.get(&file) {
-            let mut diff_str = String::new();
-
-            for hunk in hunks {
-                diff_str.push_str(&hunk.header);
-                diff_str.push('\n');
-
-                for line in &hunk.line_diffs {
-                    let prefix = match line.diff_type {
-                        DiffType::Unchanged => ' ',
-                        DiffType::Additions => '+',
-                        DiffType::Deletions => '-',
-                    };
-                    diff_str.push(prefix);
-                    diff_str.push_str(&line.content);
-                }
-                diff_str.push('\n');
-            }
-            if !diff_str.trim().is_empty() {
-                diffs.insert(file.clone(), diff_str);
-            }
-        }
-    }
+    let state = if cfg.skip_splash {
+        app::State::DiffView { selected: 0 }
+    } else {
+        app::State::Splash
+    };
 
     let mut state = crate::app::App {
-        state: app::State::Splash,
+        state,
         cfg,
         diffs,
         gai,
