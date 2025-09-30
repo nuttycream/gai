@@ -3,7 +3,7 @@ skip_splash = true
 include_untracked = true
 api_key_file = ""
 files_to_ignore = [
-    "Cargo.lock",
+    #"Cargo.lock",
     "package-lock.json",
 ]
 
@@ -11,33 +11,31 @@ files_to_ignore = [
 capitalize_prefix = false
 include_scope = true
 prompt = "You are an expert at git operations.Create git a logical list of git commits based on diffs and structure."
+include_convention = true
 rules = """
 
-                - Make sure commits are atomic focusing on smaller changes.
-                - Group files into commits that make sense per rule 1.
-                - Make multiple file stages and commits, if necessary.
-                - Make sure you cover all files in the diff
-                - IMPORTANT: Each file should appear in ONLY ONE commit. Do not create overlapping commits.
-                - IMPORTANT: Do NOT create a summary commit that includes files already committed individually.
-                - Choose EITHER:
-                a) Multiple small commits (one per logical change/component), OR
-                b) One larger commit for related changes across multiple files
-                But NEVER both for the same set of files.
-                - For CommitMessage:
-                - Set message with:
-                - prefix: The appropriate type from the PrefixType enum
-                - scope: The component name or "", DO NOT include the file extension
-                - breaking: true if breaking change, false otherwise
-                - message: ONLY the description, do NOT include prefix or scope in the message text
+                - GROUP related files into LOGICAL commits based on the type of change
+                - Examples of files that should be grouped together:
+                * Multiple files implementing the same feature
+                * Files modified for the same bug fix
+                * Related configuration and code changes
+                * Test files with the code they test
+                - Each file should appear in ONLY ONE commit
+                - Create multiple commits when changes serve different purposes
+                - For CommitMessages:
+                * prefix: The appropriate type from the PrefixType enum
+                * scope: The component name or "", DO NOT include the file extension please!
+                * breaking: true if breaking change, false otherwise
+                * message: ONLY the description, do NOT include prefix or scope in the message text
                 """
 
 [ai.openai]
-enable = true
+enable = false
 model_name = "gpt-5-nano-2025-08-07"
 max_tokens = 5000
 
 [ai.gemini]
-enable = false
+enable = true
 model_name = "gemini-2.5-flash-lite"
 max_tokens = 5000
 
