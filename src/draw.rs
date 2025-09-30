@@ -71,10 +71,6 @@ impl UI {
             ScrollbarState::new(self.file_paths.len());
         self.update_content_scroll();
 
-        if app_state.cfg.skip_splash {
-            app_state.state = State::DiffView;
-        }
-
         loop {
             terminal.draw(|f| self.render(f, app_state))?;
 
@@ -82,7 +78,7 @@ impl UI {
                 && warmup.elapsed() >= Duration::from_secs(2)
                 && !app_state.cfg.skip_splash
             {
-                app_state.state = State::DiffView;
+                app_state.state = State::DiffView { selected: 0 };
             }
 
             if poll(Duration::from_millis(50))? {
@@ -104,7 +100,7 @@ impl UI {
                         // todo refactor
                         KeyCode::Char('j') | KeyCode::Down => {
                             match &app_state.state {
-                                State::DiffView => {
+                                State::DiffView { .. } => {
                                     if self.in_content_mode {
                                         self.content_scroll = self
                                             .content_scroll
@@ -137,7 +133,7 @@ impl UI {
 
                         KeyCode::Char('k') | KeyCode::Up => {
                             match &app_state.state {
-                                State::DiffView => {
+                                State::DiffView { .. } => {
                                     if self.in_content_mode {
                                         self.content_scroll = self
                                             .content_scroll
@@ -184,14 +180,12 @@ impl UI {
                         }
                         KeyCode::Char('x') => {
                             match &app_state.state {
-                                State::Splash => {}
-                                State::Pending => {}
-                                State::DiffView => {}
                                 State::OpsView(response) => {
                                     app_state.apply_ops(response);
 
                                     break Ok(());
                                 }
+                                _ => {}
                             }
                         }
                         _ => {}
@@ -260,7 +254,7 @@ impl UI {
             State::Pending => {
                 self.draw_pending(frame);
             }
-            State::DiffView => {
+            State::DiffView { .. } => {
                 self.draw_diff_view(frame);
             }
             State::OpsView(resp) => {
