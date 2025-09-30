@@ -7,19 +7,9 @@ use git2::{
 use crate::response::Commit;
 
 pub struct GaiGit {
-    pub repo: Repository,
-    /// We can track changes using this
-    /// where the key is the filename
-    /// (maybe even path?) - for fs::read_to_str
-    /// and status if it was changed or not
-    /// tracked
-    ///
-    /// everything else such as unmodified, ignored
-    /// doesnt get saved here
-    pub file: Vec<String>,
+    pub diffs: HashMap<String, String>,
 
-    pub diffs: HashMap<String, Vec<HunkDiff>>,
-
+    repo: Repository,
     options: StatusOptions,
 }
 
@@ -53,7 +43,7 @@ impl GaiGit {
     /// this could fail on an unitialized directory
     /// for now, im not gonna handle those and we
     /// just straight up panic if we failed to open
-    pub fn new(repo_path: &Path) -> Result<Self, Box<dyn Error>> {
+    pub fn new(repo_path: &str) -> Result<Self, Box<dyn Error>> {
         let repo = Repository::open(repo_path)?;
         let mut options = StatusOptions::new();
 
@@ -66,43 +56,14 @@ impl GaiGit {
         Ok(GaiGit {
             repo,
             options,
-            file: Vec::new(),
             diffs: HashMap::new(),
         })
-    }
-
-    pub fn status(
-        &mut self,
-        to_ignore: &[String],
-    ) -> Result<(), Box<dyn Error>> {
-        let statuses = self.repo.statuses(Some(&mut self.options))?;
-
-        for entry in statuses.iter() {
-            if entry.status() == git2::Status::CURRENT
-                || entry.index_to_workdir().is_none()
-            {
-                continue;
-            }
-
-            if to_ignore
-                .iter()
-                .any(|f| entry.path().unwrap().ends_with(f))
-            {
-                continue;
-            }
-
-            let path = entry.path().unwrap().to_owned();
-
-            self.file.push(path);
-        }
-
-        Ok(())
     }
 
     pub fn create_diffs(
         &mut self,
         to_ignore: &[String],
-    ) -> Result<Vec<String>, git2::Error> {
+    ) -> Result<(), git2::Error> {
         // start this puppy up
         let mut opts = DiffOptions::new();
         opts.include_untracked(true)
@@ -115,7 +76,12 @@ impl GaiGit {
         let diff =
             repo.diff_tree_to_workdir(Some(&head), Some(&mut opts))?;
 
-        let mut files = Vec::new();
+        // after moving this from main, i still need to track
+        // the hunks, so i can group them per file.
+        // this may not be needed in the future
+        // once we add some sort of way to stage
+        // specific hunks similar to git add -p
+        let mut unique_hunks = HashMap::new();
 
         diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
             match delta.status() {
@@ -146,19 +112,38 @@ impl GaiGit {
                 return true;
             }
 
-            let diff_hunks = self
-                .diffs
-                .entry(path.clone())
-                .or_insert_with(Vec::new);
+            let diff_hunks =
+                unique_hunks.entry(path).or_insert_with(Vec::new);
 
             process_file_diff(diff_hunks, &hunk, &line);
-
-            files.push(path);
 
             true
         })?;
 
-        Ok(files)
+        for (path, hunks) in unique_hunks {
+            let mut diff_str = String::new();
+
+            for hunk in hunks {
+                diff_str.push_str(&hunk.header);
+                diff_str.push('\n');
+
+                for line in &hunk.line_diffs {
+                    let prefix = match line.diff_type {
+                        DiffType::Unchanged => ' ',
+                        DiffType::Additions => '+',
+                        DiffType::Deletions => '-',
+                    };
+                    diff_str.push(prefix);
+                    diff_str.push_str(&line.content);
+                }
+                diff_str.push('\n');
+            }
+            if !diff_str.trim().is_empty() {
+                self.diffs.insert(path, diff_str);
+            }
+        }
+
+        Ok(())
     }
 
     pub fn apply_commits(&self, commits: &[Commit]) {
