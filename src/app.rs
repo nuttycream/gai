@@ -5,9 +5,8 @@ use crate::{config::Config, git::GaiGit, response::Response};
 pub struct App {
     pub state: State,
     pub cfg: Config,
-    pub diffs: HashMap<String, String>,
-
     pub gai: GaiGit,
+    pub diffs: HashMap<String, String>,
 }
 
 pub enum State {
@@ -28,7 +27,7 @@ pub enum State {
     /// state where the user can
     /// see what to send
     /// to the AI provider
-    DiffView,
+    DiffView { selected: usize },
 
     /// response view
     OpsView(Response),
