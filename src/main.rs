@@ -1,5 +1,6 @@
 pub mod app;
 pub mod config;
+pub mod consts;
 pub mod draw;
 pub mod git;
 pub mod provider;
