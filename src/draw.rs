@@ -1,8 +1,6 @@
-use std::{
-    error::Error,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
+use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, poll};
 use ratatui::{
     DefaultTerminal, Frame,
@@ -59,7 +57,7 @@ impl UI {
         &mut self,
         mut terminal: DefaultTerminal,
         app_state: &mut App,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let warmup = Instant::now();
 
         self.file_paths = app_state.get_file_paths();
