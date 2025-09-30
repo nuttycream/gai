@@ -1,5 +1,6 @@
-use anyhow::{Result, bail};
+use anyhow::Result;
 use std::collections::HashMap;
+use tokio::sync::mpsc::Receiver;
 
 use crate::{config::Config, git::GaiGit, response::Response};
 
@@ -53,37 +54,25 @@ impl App {
             .unwrap_or_else(|| String::from("no diff found"))
     }
 
-    pub async fn send_request(&mut self) -> Result<Response> {
+    pub async fn send_request(&mut self) {
         let ai = &self.cfg.ai;
 
         let mut diffs = String::new();
         for (file, diff) in &self.diffs {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
         }
-        let extractors = ai.build_requests()?;
 
-        if let Some(gemini) = extractors.gemini {
-            match gemini.extract(&diffs).await {
-                Ok(response) => return Ok(response),
-                Err(e) => eprintln!("Gemini failed: {}", e),
+        let mut rx = ai.get_responses(&diffs).await.unwrap();
+
+        while let Some((provider, resp)) = rx.recv().await {
+            match resp {
+                Ok(resp) => {
+                    println!("{}\n{:#?}", provider, resp);
+                }
+                Err(e) => println!("failed: {e}"),
             }
         }
-
-        if let Some(openai) = extractors.openai {
-            match openai.extract(&diffs).await {
-                Ok(response) => return Ok(response),
-                Err(e) => eprintln!("OpenAI failed: {}", e),
-            }
-        }
-
-        if let Some(claude) = extractors.claude {
-            match claude.extract(&diffs).await {
-                Ok(response) => return Ok(response),
-                Err(e) => eprintln!("Claude failed: {}", e),
-            }
-        }
-
-        bail!("No AI providers enabled or all failed");
+        // ai.get_responses(&diffs).await
     }
 
     pub fn apply_ops(&self, response: &Response) {

@@ -1,13 +1,13 @@
 pub mod app;
 pub mod config;
 pub mod consts;
-pub mod draw;
+//pub mod draw;
 pub mod git;
 pub mod provider;
 pub mod response;
 pub mod utils;
 
-use crate::draw::UI;
+//use crate::draw::UI;
 
 use anyhow::Result;
 use dotenv::dotenv;
@@ -34,11 +34,14 @@ async fn main() -> Result<()> {
         gai,
     };
 
-    let terminal = ratatui::init();
-    let mut ui = UI::default();
-    let result = ui.run(terminal, &mut state).await;
+    state.send_request().await;
 
-    ratatui::restore();
+    // let terminal = ratatui::init();
+    // let mut ui = UI::default();
+    //let result = ui.run(terminal, &mut state).await;
 
-    result
+    //ratatui::restore();
+
+    //result
+    Ok(())
 }

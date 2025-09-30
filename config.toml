@@ -3,34 +3,33 @@ skip_splash = true
 include_untracked = true
 api_key_file = ""
 files_to_ignore = [
-    #"Cargo.lock",
+    "Cargo.lock",
     "package-lock.json",
 ]
 
 [ai]
 capitalize_prefix = false
 include_scope = true
-prompt = "You are an expert at git operations.Create git a logical list of git commits based on diffs and structure."
+system_prompt = "You are an expert at git operations.Create git a logical list of git commits based on diffs and structure."
 include_convention = true
 rules = """
 
-                - GROUP related files into LOGICAL commits based on the type of change
-                - Examples of files that should be grouped together:
-                * Multiple files implementing the same feature
-                * Files modified for the same bug fix
-                * Related configuration and code changes
-                * Test files with the code they test
-                - Each file should appear in ONLY ONE commit
-                - Create multiple commits when changes serve different purposes
-                - For CommitMessages:
-                * prefix: The appropriate type from the PrefixType enum
-                * scope: The component name or "", DO NOT include the file extension please!
-                * breaking: true if breaking change, false otherwise
-                * message: ONLY the description, do NOT include prefix or scope in the message text
-                """
+- GROUP related files into LOGICAL commits based on the type of change
+- Examples of files that should be grouped together:
+* Multiple files implementing the same feature
+* Files modified for the same bug fix
+* Related configuration and code changes
+* Test files with the code they test
+- Each file should appear in ONLY ONE commit
+- Create multiple commits when changes serve different purposes
+- For CommitMessages:
+* prefix: The appropriate type from the PrefixType enum
+* scope: The component name or "", DO NOT include the file extension please!
+* breaking: true if breaking change, false otherwise
+* message: ONLY the description, do NOT include prefix or scope in the message text"""
 
 [ai.openai]
-enable = false
+enable = true
 model_name = "gpt-5-nano-2025-08-07"
 max_tokens = 5000
 

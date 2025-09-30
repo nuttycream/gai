@@ -103,6 +103,7 @@ impl AI {
             let max_tokens = self.gemini.max_tokens;
 
             tokio::spawn(async move {
+                println!("sending req to gemini");
                 let provider = format!("Gemini({})", model_name);
                 let resp = try_gemini(
                     &prompt,
@@ -124,6 +125,7 @@ impl AI {
             let model_name = self.openai.model_name.clone();
 
             tokio::spawn(async move {
+                println!("sending req to openai");
                 let provider = format!("OpenAI({})", model_name);
                 let resp = try_openai(&prompt, &model_name, &diffs)
                     .await
@@ -140,6 +142,7 @@ impl AI {
             let model_name = self.claude.model_name.clone();
 
             tokio::spawn(async move {
+                println!("sending req to claude");
                 let provider = format!("Claude({})", model_name);
                 let resp = try_claude(&prompt, &model_name, &diffs)
                     .await
