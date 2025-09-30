@@ -8,11 +8,11 @@ pub mod utils;
 
 use crate::draw::UI;
 
+use anyhow::Result;
 use dotenv::dotenv;
-use std::error::Error;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     dotenv().ok();
     let cfg = config::Config::init("config.toml")?;
 
@@ -40,6 +40,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ratatui::restore();
 
     result
-
-    //Ok(())
 }
