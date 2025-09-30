@@ -1,8 +1,8 @@
-use std::{collections::HashMap, error::Error, path::Path};
-
+use anyhow::{Result, bail};
 use git2::{
     DiffHunk, DiffLine, DiffOptions, Repository, StatusOptions,
 };
+use std::{collections::HashMap, path::Path};
 
 use crate::response::Commit;
 
@@ -43,14 +43,14 @@ impl GaiGit {
     /// this could fail on an unitialized directory
     /// for now, im not gonna handle those and we
     /// just straight up panic if we failed to open
-    pub fn new(repo_path: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn new(repo_path: &str) -> Result<Self> {
         let repo = Repository::open(repo_path)?;
         let mut options = StatusOptions::new();
 
         options.include_untracked(true);
 
         if repo.statuses(Some(&mut options))?.is_empty() {
-            return Err("no diffs".into());
+            bail!("no diffs");
         }
 
         Ok(GaiGit {
