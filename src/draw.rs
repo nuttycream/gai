@@ -10,9 +10,11 @@ use ratatui::{
     },
     widgets::{
         Block, Borders, List, ListItem, ListState, Paragraph,
-        Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
+        Scrollbar, ScrollbarOrientation, ScrollbarState, Widget,
+        Wrap,
     },
 };
+use strum::{Display, EnumIter, FromRepr};
 
 use crate::{
     app::{App, State},
@@ -35,10 +37,20 @@ pub struct UI {
     content_scroll: u16,
     content_scroll_state: ScrollbarState,
     in_content_mode: bool,
+
+    selected_tab: SelectedAI,
+}
+
+#[derive(Default, Clone, Copy, Display, FromRepr, EnumIter)]
+enum SelectedAI {
+    #[default]
+    Gemini,
+    OpenAI,
+    Claude,
 }
 
 #[derive(Default)]
-pub enum UIActions {
+enum UIActions {
     #[default]
     None,
 
@@ -50,6 +62,33 @@ pub enum UIActions {
     /// it won't be sent as a diff
     /// to the AI
     Remove,
+}
+
+impl Widget for SelectedAI {
+    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer)
+    where
+        Self: Sized,
+    {
+        match self {
+            SelectedAI::Gemini => todo!(),
+            SelectedAI::OpenAI => todo!(),
+            SelectedAI::Claude => todo!(),
+        }
+    }
+}
+
+impl SelectedAI {
+    pub fn previous(self) -> Self {
+        let curr_index = self as usize;
+        let prev_index = curr_index.saturating_sub(1);
+        Self::from_repr(prev_index).unwrap_or(self)
+    }
+
+    pub fn next(self) -> Self {
+        let curr_index = self as usize;
+        let next_index = curr_index.saturating_add(1);
+        Self::from_repr(next_index).unwrap_or(self)
+    }
 }
 
 impl UI {
@@ -244,7 +283,7 @@ impl UI {
             .position(self.content_scroll as usize);
     }
 
-    fn render(&mut self, frame: &mut Frame, app_state: &App) {
+    pub fn render(&mut self, frame: &mut Frame, app_state: &App) {
         match &app_state.state {
             State::Splash => {
                 draw_splash(frame);

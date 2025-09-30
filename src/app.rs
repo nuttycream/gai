@@ -1,8 +1,11 @@
 use anyhow::Result;
 use std::collections::HashMap;
-use tokio::sync::mpsc::Receiver;
 
-use crate::{config::Config, git::GaiGit, response::Response};
+use crate::{
+    config::Config,
+    git::GaiGit,
+    response::{Commit, Response},
+};
 
 pub struct App {
     pub state: State,
@@ -35,7 +38,37 @@ pub enum State {
     OpsView(Response),
 }
 
+/// various ui actions
+enum Action {
+    SelectFile(usize),
+    SelectCommit(usize),
+    ScrollUp,
+    ScrollDown,
+    SendRequest,
+}
+
+/// only specific to gai
+/// like sending/recieving requests
+enum GaiCommand {
+    SendRequest(String),
+    ApplyCommits(Vec<Commit>),
+}
+
 impl App {
+    pub fn update(
+        &mut self,
+        action: Action,
+    ) -> Result<Option<GaiCommand>> {
+        match action {
+            Action::SelectFile(file_idx) => todo!(),
+            Action::SelectCommit(commit_idx) => todo!(),
+            Action::ScrollUp => todo!(),
+            Action::ScrollDown => todo!(),
+            Action::SendRequest => todo!(),
+            //_ => {}
+        }
+    }
+
     pub fn switch_state(&mut self, new_state: State) {
         self.state = new_state;
     }
@@ -72,6 +105,7 @@ impl App {
                 Err(e) => println!("failed: {e}"),
             }
         }
+
         // ai.get_responses(&diffs).await
     }
 
