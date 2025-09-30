@@ -1,4 +1,5 @@
-use std::{collections::HashMap, error::Error};
+use anyhow::{Result, bail};
+use std::collections::HashMap;
 
 use crate::{config::Config, git::GaiGit, response::Response};
 
@@ -52,9 +53,7 @@ impl App {
             .unwrap_or_else(|| String::from("no diff found"))
     }
 
-    pub async fn send_request(
-        &mut self,
-    ) -> Result<Response, Box<dyn Error>> {
+    pub async fn send_request(&mut self) -> Result<Response> {
         let ai = &self.cfg.ai;
 
         let mut diffs = String::new();
@@ -84,7 +83,7 @@ impl App {
             }
         }
 
-        Err("No AI providers enabled or all failed".into())
+        bail!("No AI providers enabled or all failed");
     }
 
     pub fn apply_ops(&self, response: &Response) {
