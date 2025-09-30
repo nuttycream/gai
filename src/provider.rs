@@ -1,5 +1,4 @@
-use std::error::Error;
-
+use anyhow::Result;
 use rig::{
     client::{CompletionClient, ProviderClient},
     extractor::Extractor,
@@ -50,22 +49,21 @@ impl Default for AI {
                 .to_owned(),
 
             rules: "
-                - Make sure commits are atomic focusing on smaller changes.
-                - Make multiple file stages and commits, if necessary.
-                - Make sure you cover all files in the diff
-                - IMPORTANT: Each file should appear in ONLY ONE commit. Do not create overlapping commits.
-                - IMPORTANT: Do NOT create a summary commit that includes files already committed individually.
-                - Choose EITHER:
-                a) Multiple small commits (one per logical change/component), OR
-                b) One larger commit for related changes across multiple files
-                But NEVER both for the same set of files.
-                - For CommitMessage:
-                - Set message with:
-                - prefix: The appropriate type from the PrefixType enum
-                - scope: The component name or \"\", DO NOT include the file extension
-                - breaking: true if breaking change, false otherwise
-                - message: ONLY the description, do NOT include prefix or scope in the message text
+                - GROUP related files into LOGICAL commits based on the type of change
+                - Examples of files that should be grouped together:
+                * Multiple files implementing the same feature
+                * Files modified for the same bug fix
+                * Related configuration and code changes
+                * Test files with the code they test
+                - Each file should appear in ONLY ONE commit
+                - Create multiple commits when changes serve different purposes
+                - For CommitMessages:
+                * prefix: The appropriate type from the PrefixType enum
+                * scope: The component name or \"\", DO NOT include the file extension please!
+                * breaking: true if breaking change, false otherwise
+                * message: ONLY the description, do NOT include prefix or scope in the message text
                 ".to_owned(),
+
 
             openai: AiConfig::new("gpt-5-nano-2025-08-07"),
             claude: AiConfig::new("claude-3-5-haiku-latest"),
@@ -88,9 +86,7 @@ pub struct Extractors {
 }
 
 impl AI {
-    pub fn build_requests(
-        &self,
-    ) -> Result<Extractors, Box<dyn Error>> {
+    pub fn build_requests(&self) -> Result<Extractors> {
         let prompt =
             format!("{}\nRules:\n{}", self.prompt, self.rules);
         let gemini = if self.gemini.enable {
