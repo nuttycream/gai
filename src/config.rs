@@ -1,6 +1,6 @@
-use std::{error::Error, fs, io::ErrorKind};
-
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::{fs, io::ErrorKind};
 
 use crate::provider::AI;
 
@@ -42,7 +42,7 @@ impl Config {
         }
     }
 
-    pub fn init(path: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn init(path: &str) -> Result<Self> {
         let cfg_str = match fs::read_to_string(path) {
             Ok(contents) => contents,
             Err(e) if e.kind() == ErrorKind::NotFound => {

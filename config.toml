@@ -14,6 +14,7 @@ prompt = "You are an expert at git operations.Create git a logical list of git c
 rules = """
 
                 - Make sure commits are atomic focusing on smaller changes.
+                - Group files into commits that make sense per rule 1.
                 - Make multiple file stages and commits, if necessary.
                 - Make sure you cover all files in the diff
                 - IMPORTANT: Each file should appear in ONLY ONE commit. Do not create overlapping commits.
