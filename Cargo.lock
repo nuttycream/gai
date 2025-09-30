@@ -471,7 +471,6 @@ dependencies = [
  "crossterm 0.29.0",
  "dotenv",
  "git2",
- "indoc",
  "ratatui",
  "rig-core",
  "schemars",
