@@ -10,7 +10,6 @@ pub struct GaiGit {
     pub diffs: HashMap<String, String>,
 
     repo: Repository,
-    options: StatusOptions,
 }
 
 #[derive(Debug)]
@@ -55,7 +54,6 @@ impl GaiGit {
 
         Ok(GaiGit {
             repo,
-            options,
             diffs: HashMap::new(),
         })
     }
