@@ -12,7 +12,7 @@ use ratatui::{
     },
     widgets::{
         Block, Borders, List, ListItem, ListState, Paragraph,
-        Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
     },
 };
 
@@ -314,6 +314,7 @@ impl UI {
         );
 
         let content = Paragraph::new(self.current_file.as_str())
+            .wrap(Wrap { trim: true })
             .block(
                 Block::default()
                     .title("commit")
