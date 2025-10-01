@@ -1,11 +1,6 @@
 use crate::app::{Action, State};
 
-use anyhow::Result;
-use ratatui::crossterm::event::{self, Event, KeyCode};
-
-pub fn read_events() -> Result<Event> {
-    Ok(event::read()?)
-}
+use ratatui::crossterm::event::{Event, KeyCode};
 
 pub fn get_tui_action(event: Event, state: &State) -> Option<Action> {
     match event {

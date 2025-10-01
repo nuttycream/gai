@@ -10,9 +10,10 @@ pub mod utils;
 
 use anyhow::Result;
 use dotenv::dotenv;
+use ratatui::crossterm::event::{self, Event};
 
 use crate::{
-    app::{Action, App},
+    app::{Action, App, State},
     draw::UI,
 };
 
@@ -44,17 +45,8 @@ async fn main() -> Result<()> {
         terminal.draw(|f| ui.render(f, &app))?;
 
         tokio::select! {
-            Ok(event) = async { keys::read_events() } => {
-                if let Some(action) = keys::get_tui_action(event, &app.state) {
-                    match action {
-                        Action::Quit => app.running = false,
-                        Action::ScrollUp => ui.scroll_up(&app),
-                        Action::ScrollDown => ui.scroll_down(&app),
-                        Action::FocusLeft => ui.focus_left(&app),
-                        Action::FocusRight => ui.focus_right(&app),
-                        _ => {}
-                    }
-                }
+            Ok(event) = async { event::read() } => {
+                handle_actions(&mut app, event, &mut ui);
             }
         }
     }
@@ -62,4 +54,17 @@ async fn main() -> Result<()> {
     ratatui::restore();
 
     Ok(())
+}
+
+fn handle_actions(app: &mut App, event: Event, ui: &mut UI) {
+    if let Some(action) = keys::get_tui_action(event, &app.state) {
+        match action {
+            Action::Quit => app.running = false,
+            Action::ScrollUp => ui.scroll_up(&app),
+            Action::ScrollDown => ui.scroll_down(&app),
+            Action::FocusLeft => ui.focus_left(&app),
+            Action::FocusRight => ui.focus_right(&app),
+            _ => {}
+        }
+    }
 }
