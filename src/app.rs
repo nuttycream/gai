@@ -1,3 +1,5 @@
+use tokio::sync::mpsc::Sender;
+
 use crate::{config::Config, git::GaiGit, response::Response};
 
 pub struct App {
@@ -21,7 +23,7 @@ pub enum State {
     /// receive the response.
     /// This is usually one continous
     /// moment.
-    Pending,
+    SendingRequest(Sender<Response>),
 
     /// state where the user can
     /// see what to send
@@ -67,7 +69,18 @@ impl App {
         }
     }
 
-    pub fn get_diff_content(&self, path: &str) {}
+    pub async fn switch_state(&mut self, new_state: &State) {
+        match new_state {
+            State::SendingRequest(tx) => {
+                self.send_request().await;
+            }
+
+            State::DiffView { selected } => {}
+            State::OpsView(response) => {}
+
+            _ => {}
+        }
+    }
 
     pub async fn send_request(&mut self) {
         let ai = &self.cfg.ai;

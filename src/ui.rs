@@ -14,7 +14,9 @@ impl UI {
     pub fn render(&mut self, frame: &mut Frame, app: &App) {
         match &app.state {
             crate::app::State::Splash => draw_splash(frame),
-            crate::app::State::Pending => draw_pending(frame),
+            crate::app::State::SendingRequest(_) => {
+                draw_pending(frame)
+            }
             crate::app::State::DiffView { .. } => {
                 draw_diffview(frame)
             }

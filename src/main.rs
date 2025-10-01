@@ -12,15 +12,18 @@ pub mod utils;
 use anyhow::Result;
 use dotenv::dotenv;
 use ratatui::crossterm::event::{self, Event};
+use tokio::sync::mpsc::{self, Sender};
 
 use crate::{
     app::{Action, App},
+    response::Response,
     ui::UI,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
+
     let cfg = config::Config::init("config.toml")?;
 
     let mut gai = git::GaiGit::new(".")?;
@@ -31,12 +34,18 @@ async fn main() -> Result<()> {
     let mut terminal = ratatui::init();
     let mut ui = UI::default();
 
+    let (tx, mut rx) = mpsc::channel(3);
+
     while app.running {
         terminal.draw(|f| ui.render(f, &app))?;
 
         tokio::select! {
             Ok(event) = async { event::read() } => {
-                handle_actions(&mut app, event, &mut ui);
+                handle_actions(&mut app, event, &mut ui, tx.clone()).await;
+            }
+
+            Some(response) = rx.recv() => {
+                app.switch_state(&app::State::OpsView(response)).await;
             }
         }
     }
@@ -46,7 +55,12 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn handle_actions(app: &mut App, event: Event, ui: &mut UI) {
+async fn handle_actions(
+    app: &mut App,
+    event: Event,
+    ui: &mut UI,
+    tx: Sender<Response>,
+) {
     if let Some(action) = keys::get_tui_action(event, &app.state) {
         match action {
             Action::Quit => app.running = false,
@@ -54,6 +68,10 @@ fn handle_actions(app: &mut App, event: Event, ui: &mut UI) {
             Action::ScrollDown => ui.scroll_down(&app),
             Action::FocusLeft => ui.focus_left(&app),
             Action::FocusRight => ui.focus_right(&app),
+            Action::SendRequest => {
+                app.switch_state(&app::State::SendingRequest(tx))
+                    .await;
+            }
             _ => {}
         }
     }
