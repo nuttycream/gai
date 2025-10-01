@@ -51,6 +51,22 @@ pub enum Action {
 }
 
 impl App {
+    pub fn new(cfg: Config, gai: GaiGit) -> Self {
+        let state = if cfg.skip_splash {
+            State::DiffView { selected: 0 }
+        } else {
+            State::Splash
+        };
+
+        Self {
+            running: true,
+            state,
+            cfg,
+            gai,
+            ops: None,
+        }
+    }
+
     pub fn get_diff_content(&self, path: &str) {}
 
     pub async fn send_request(&mut self) {

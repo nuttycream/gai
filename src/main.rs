@@ -26,19 +26,7 @@ async fn main() -> Result<()> {
     let mut gai = git::GaiGit::new(".")?;
     gai.create_diffs(&cfg.files_to_ignore)?;
 
-    let state = if cfg.skip_splash {
-        app::State::DiffView { selected: 0 }
-    } else {
-        app::State::Splash
-    };
-
-    let mut app = App {
-        running: true,
-        state,
-        cfg,
-        gai,
-        ops: None,
-    };
+    let mut app = App::new(cfg, gai);
 
     let mut terminal = ratatui::init();
     let mut ui = UI::default();
