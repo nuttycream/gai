@@ -1,17 +1,10 @@
-use anyhow::Result;
-use std::collections::HashMap;
-
-use crate::{
-    config::Config,
-    git::GaiGit,
-    response::{Commit, Response},
-};
+use crate::{config::Config, git::GaiGit, response::Response};
 
 pub struct App {
+    pub running: bool,
     pub state: State,
     pub cfg: Config,
     pub gai: GaiGit,
-    pub diffs: HashMap<String, String>,
 }
 
 pub enum State {
@@ -39,49 +32,38 @@ pub enum State {
 }
 
 /// various ui actions
-enum Action {
-    SelectFile(usize),
-    SelectCommit(usize),
+pub enum Action {
     ScrollUp,
     ScrollDown,
-    SendRequest,
-}
 
-/// only specific to gai
-/// like sending/recieving requests
-enum GaiCommand {
-    SendRequest(String),
-    ApplyCommits(Vec<Commit>),
+    FocusLeft,
+    FocusRight,
+
+    NextTab,
+    PreviousTab, // shift+tab(?)
+
+    SendRequest,
+    ApplyCommits,
+    RemoveCurrentItem,
+
+    Quit,
 }
 
 impl App {
-    pub fn update(
-        &mut self,
-        action: Action,
-    ) -> Result<Option<GaiCommand>> {
-        match action {
-            Action::SelectFile(file_idx) => todo!(),
-            Action::SelectCommit(commit_idx) => todo!(),
-            Action::ScrollUp => todo!(),
-            Action::ScrollDown => todo!(),
-            Action::SendRequest => todo!(),
-            //_ => {}
-        }
-    }
-
     pub fn switch_state(&mut self, new_state: State) {
         self.state = new_state;
     }
 
     pub fn get_file_paths(&self) -> Vec<String> {
         let mut paths: Vec<String> =
-            self.diffs.keys().cloned().collect();
+            self.gai.diffs.keys().cloned().collect();
         paths.sort();
         paths
     }
 
     pub fn get_diff_content(&self, path: &str) -> String {
-        self.diffs
+        self.gai
+            .diffs
             .get(path)
             .cloned()
             .unwrap_or_else(|| String::from("no diff found"))
@@ -91,7 +73,7 @@ impl App {
         let ai = &self.cfg.ai;
 
         let mut diffs = String::new();
-        for (file, diff) in &self.diffs {
+        for (file, diff) in &self.gai.diffs {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
         }
 

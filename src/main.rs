@@ -3,14 +3,18 @@ pub mod config;
 pub mod consts;
 pub mod draw;
 pub mod git;
+pub mod keys;
 pub mod provider;
 pub mod response;
 pub mod utils;
 
-use crate::draw::UI;
-
 use anyhow::Result;
 use dotenv::dotenv;
+
+use crate::{
+    app::{Action, App},
+    draw::UI,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -19,7 +23,6 @@ async fn main() -> Result<()> {
 
     let mut gai = git::GaiGit::new(".")?;
     gai.create_diffs(&cfg.files_to_ignore)?;
-    let diffs = gai.diffs.to_owned();
 
     let state = if cfg.skip_splash {
         app::State::DiffView { selected: 0 }
@@ -27,24 +30,36 @@ async fn main() -> Result<()> {
         app::State::Splash
     };
 
-    let mut app_state = crate::app::App {
+    let mut app = App {
+        running: true,
         state,
         cfg,
-        diffs,
         gai,
     };
+
+    let mut terminal = ratatui::init();
     let mut ui = UI::default();
-    let terminal = ratatui::init();
 
-    //
-    loop {
+    while app.running {
+        terminal.draw(|f| ui.render(f, &app))?;
 
-        if matches!(app_state.state)
-
+        tokio::select! {
+            Ok(event) = async { keys::read_events() } => {
+                if let Some(action) = keys::get_tui_action(event, &app.state) {
+                    match action {
+                        Action::Quit => app.running = false,
+                        Action::ScrollUp => ui.scroll_up(&app),
+                        Action::ScrollDown => ui.scroll_down(&app),
+                        Action::FocusLeft => ui.focus_left(&app),
+                        Action::FocusRight => ui.focus_right(&app),
+                        _ => {}
+                    }
+                }
+            }
+        }
     }
 
     ratatui::restore();
 
     Ok(())
-
 }
