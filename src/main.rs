@@ -6,6 +6,7 @@ pub mod git;
 pub mod keys;
 pub mod provider;
 pub mod response;
+pub mod ui;
 pub mod utils;
 
 use anyhow::Result;
@@ -13,8 +14,8 @@ use dotenv::dotenv;
 use ratatui::crossterm::event::{self, Event};
 
 use crate::{
-    app::{Action, App, State},
-    draw::UI,
+    app::{Action, App},
+    ui::UI,
 };
 
 #[tokio::main]
@@ -36,6 +37,7 @@ async fn main() -> Result<()> {
         state,
         cfg,
         gai,
+        ops: None,
     };
 
     let mut terminal = ratatui::init();

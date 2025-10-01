@@ -1,60 +1,11 @@
-use ratatui::{
-    Frame,
-    widgets::{ListState, ScrollbarState},
-};
+use ratatui::Frame;
 
-use crate::app::App;
+use crate::response::Response;
 
-#[derive(Default)]
-pub struct UI {
-    file_paths: Vec<String>,
-    file_path_state: ListState,
-    file_scroll_state: ScrollbarState,
+pub fn draw_splash(frame: &mut Frame) {}
 
-    commit_view_state: ListState,
+pub fn draw_pending(frame: &mut Frame) {}
 
-    current_file: String,
-    content_scroll: u16,
-    content_scroll_state: ScrollbarState,
-    in_content_mode: bool,
-}
+pub fn draw_diffview(frame: &mut Frame) {}
 
-impl UI {
-    pub fn render(&mut self, frame: &mut Frame, app: &App) {}
-
-    pub fn scroll_up(&mut self, app: &App) {
-        if self.in_content_mode {
-            self.content_scroll =
-                self.content_scroll.saturating_sub(1);
-            //self.update_content_scroll();
-        } else {
-            self.file_path_state.select_previous();
-            // self.update_curr_diff(app_state);
-            // self.update_file_scroll();
-        }
-    }
-
-    pub fn scroll_down(&mut self, app: &App) {
-        if self.in_content_mode {
-            self.content_scroll =
-                self.content_scroll.saturating_add(1);
-            //self.update_content_scroll();
-        } else {
-            self.file_path_state.select_next();
-            //self.update_curr_diff(app_state);
-            //self.update_file_scroll();
-        }
-    }
-
-    pub fn focus_left(&mut self, app: &App) {
-        self.in_content_mode = false;
-    }
-
-    pub fn focus_right(&mut self, app: &App) {
-        self.in_content_mode = true;
-    }
-
-    pub fn select_item(&mut self, app: &App) -> Option<usize> {
-        None
-    }
-}
+pub fn draw_opsview(frame: &mut Frame, ops: Option<&[Response]>) {}

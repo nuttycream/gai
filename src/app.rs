@@ -5,6 +5,7 @@ pub struct App {
     pub state: State,
     pub cfg: Config,
     pub gai: GaiGit,
+    pub ops: Option<Vec<Response>>,
 }
 
 pub enum State {
@@ -50,24 +51,7 @@ pub enum Action {
 }
 
 impl App {
-    pub fn switch_state(&mut self, new_state: State) {
-        self.state = new_state;
-    }
-
-    pub fn get_file_paths(&self) -> Vec<String> {
-        let mut paths: Vec<String> =
-            self.gai.diffs.keys().cloned().collect();
-        paths.sort();
-        paths
-    }
-
-    pub fn get_diff_content(&self, path: &str) -> String {
-        self.gai
-            .diffs
-            .get(path)
-            .cloned()
-            .unwrap_or_else(|| String::from("no diff found"))
-    }
+    pub fn get_diff_content(&self, path: &str) {}
 
     pub async fn send_request(&mut self) {
         let ai = &self.cfg.ai;
