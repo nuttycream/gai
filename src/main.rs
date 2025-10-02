@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     let mut app = App::new(cfg, gai);
 
     let mut terminal = ratatui::init();
-    let mut ui = UI::default();
+    let mut ui = UI::new();
 
     let (tx, mut rx) = mpsc::channel(3);
 
@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
             }
 
             Some(response) = rx.recv() => {
-                app.switch_state(&app::State::OpsView(response)).await;
+                app.switch_state(app::State::OpsView(response)).await;
             }
         }
     }
@@ -69,7 +69,7 @@ async fn handle_actions(
             Action::FocusLeft => ui.focus_left(&app),
             Action::FocusRight => ui.focus_right(&app),
             Action::SendRequest => {
-                app.switch_state(&app::State::SendingRequest(tx))
+                app.switch_state(app::State::SendingRequest(tx))
                     .await;
             }
             _ => {}

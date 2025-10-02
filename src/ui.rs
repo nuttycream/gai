@@ -1,27 +1,59 @@
 use ratatui::{Frame, widgets::ListState};
 
-use crate::{app::App, draw::*};
+use crate::app::App;
 
 #[derive(Default)]
 pub struct UI {
-    file_path_state: ListState,
+    pub selection_list: Vec<String>,
+    pub selected_state: ListState,
 
-    content_scroll: u16,
-    in_content_mode: bool,
+    pub in_content_mode: bool,
+    pub content_scroll: u16,
+    pub content_text: String,
 }
 
 impl UI {
+    pub fn new() -> Self {
+        let mut selected_state = ListState::default();
+        selected_state.select_first();
+
+        Self {
+            selection_list: Vec::new(),
+            selected_state,
+
+            in_content_mode: false,
+            content_scroll: 0,
+            content_text: String::new(),
+        }
+    }
+
     pub fn render(&mut self, frame: &mut Frame, app: &App) {
         match &app.state {
-            crate::app::State::Splash => draw_splash(frame),
+            crate::app::State::Splash => self.draw_splash(frame),
+
             crate::app::State::SendingRequest(_) => {
-                draw_pending(frame)
+                self.draw_pending(frame)
             }
-            crate::app::State::DiffView { .. } => {
-                draw_diffview(frame)
+
+            crate::app::State::DiffView => {
+                self.selection_list =
+                    app.gai.diffs.clone().into_keys().collect();
+
+                if let Some(selected) = self.selected_state.selected()
+                    && selected < app.gai.diffs.len()
+                    && let Some(diff) = app
+                        .gai
+                        .diffs
+                        .get(&self.selection_list[selected])
+                {
+                    self.content_text = diff.to_owned();
+                }
+
+                self.draw_diffview(frame)
             }
+
             crate::app::State::OpsView { .. } => {
-                draw_opsview(frame, app.ops.as_deref());
+                self.draw_opsview(frame, app.ops.as_deref());
             }
         }
     }
@@ -30,11 +62,8 @@ impl UI {
         if self.in_content_mode {
             self.content_scroll =
                 self.content_scroll.saturating_sub(1);
-            //self.update_content_scroll();
         } else {
-            self.file_path_state.select_previous();
-            // self.update_curr_diff(app_state);
-            // self.update_file_scroll();
+            self.selected_state.select_previous();
         }
     }
 
@@ -42,11 +71,8 @@ impl UI {
         if self.in_content_mode {
             self.content_scroll =
                 self.content_scroll.saturating_add(1);
-            //self.update_content_scroll();
         } else {
-            self.file_path_state.select_next();
-            //self.update_curr_diff(app_state);
-            //self.update_file_scroll();
+            self.selected_state.select_next();
         }
     }
 

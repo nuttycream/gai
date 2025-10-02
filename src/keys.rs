@@ -26,7 +26,7 @@ pub fn get_tui_action(event: Event, state: &State) -> Option<Action> {
             }
 
             KeyCode::Char('p')
-                if matches!(state, State::DiffView { .. }) =>
+                if matches!(state, State::DiffView) =>
             {
                 Some(Action::SendRequest)
             }

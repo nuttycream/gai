@@ -28,7 +28,7 @@ pub enum State {
     /// state where the user can
     /// see what to send
     /// to the AI provider
-    DiffView { selected: usize },
+    DiffView,
 
     /// response view
     OpsView(Response),
@@ -55,7 +55,7 @@ pub enum Action {
 impl App {
     pub fn new(cfg: Config, gai: GaiGit) -> Self {
         let state = if cfg.skip_splash {
-            State::DiffView { selected: 0 }
+            State::DiffView
         } else {
             State::Splash
         };
@@ -69,20 +69,18 @@ impl App {
         }
     }
 
-    pub async fn switch_state(&mut self, new_state: &State) {
-        match new_state {
+    pub async fn switch_state(&mut self, new_state: State) {
+        self.state = new_state;
+
+        match &self.state {
             State::SendingRequest(tx) => {
-                self.send_request().await;
+                self.send_request(tx.clone()).await;
             }
-
-            State::DiffView { selected } => {}
-            State::OpsView(response) => {}
-
             _ => {}
         }
     }
 
-    pub async fn send_request(&mut self) {
+    pub async fn send_request(&mut self, tx: Sender<Response>) {
         let ai = &self.cfg.ai;
 
         let mut diffs = String::new();
@@ -96,6 +94,7 @@ impl App {
             match resp {
                 Ok(resp) => {
                     println!("{}\n{:#?}", provider, resp);
+                    let _ = tx.send(resp).await;
                 }
                 Err(e) => println!("failed: {e}"),
             }

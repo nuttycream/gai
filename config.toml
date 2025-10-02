@@ -29,7 +29,7 @@ rules = """
 * message: ONLY the description, do NOT include prefix or scope in the message text"""
 
 [ai.openai]
-enable = true
+enable = false
 model_name = "gpt-5-nano-2025-08-07"
 max_tokens = 5000
 
