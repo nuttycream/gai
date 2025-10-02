@@ -50,6 +50,11 @@ pub enum Action {
     RemoveCurrentItem,
 
     Quit,
+
+    DiffTab,
+    OpenAITab,
+    ClaudeTab,
+    GeminiTab,
 }
 
 impl App {

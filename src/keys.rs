@@ -37,6 +37,11 @@ pub fn get_tui_action(event: Event, state: &State) -> Option<Action> {
                 Some(Action::ApplyCommits)
             }
 
+            KeyCode::Char('1') => Some(Action::DiffTab),
+            KeyCode::Char('2') => Some(Action::OpenAITab),
+            KeyCode::Char('3') => Some(Action::ClaudeTab),
+            KeyCode::Char('4') => Some(Action::GeminiTab),
+
             _ => None,
         },
 

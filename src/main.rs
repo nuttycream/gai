@@ -6,6 +6,7 @@ pub mod git;
 pub mod keys;
 pub mod provider;
 pub mod response;
+pub mod tabs;
 pub mod ui;
 pub mod utils;
 
@@ -37,7 +38,7 @@ async fn main() -> Result<()> {
     let (tx, mut rx) = mpsc::channel(3);
 
     while app.running {
-        terminal.draw(|f| ui.render(f, &app))?;
+        terminal.draw(|f| f.render_widget(&ui, f.area()))?;
 
         tokio::select! {
             Ok(event) = async { event::read() } => {
@@ -68,6 +69,10 @@ async fn handle_actions(
             Action::ScrollDown => ui.scroll_down(&app),
             Action::FocusLeft => ui.focus_left(&app),
             Action::FocusRight => ui.focus_right(&app),
+            Action::DiffTab => ui.goto_tab(1),
+            Action::OpenAITab => ui.goto_tab(2),
+            Action::ClaudeTab => ui.goto_tab(3),
+            Action::GeminiTab => ui.goto_tab(4),
             Action::SendRequest => {
                 app.switch_state(app::State::SendingRequest(tx))
                     .await;

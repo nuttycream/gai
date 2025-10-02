@@ -1,5 +1,3 @@
-use ratatui::{text::Text, widgets::Widget};
-
 use crate::consts::COMMIT_CONVENTION;
 
 pub fn build_prompt(
@@ -14,27 +12,4 @@ pub fn build_prompt(
     };
 
     format!("{}\nRules:\n{}\n{}", sys_prompt, rules, convention)
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct GaiLogo {}
-
-impl GaiLogo {
-    pub fn new() -> Self {
-        GaiLogo {}
-    }
-}
-
-impl Widget for GaiLogo {
-    fn render(
-        self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-    ) where
-        Self: Sized,
-    {
-        let str = "";
-
-        Text::raw(str).render(area, buf);
-    }
 }

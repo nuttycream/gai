@@ -1,90 +1,107 @@
-use ratatui::{Frame, widgets::ListState};
+use ratatui::{
+    layout::{Constraint, Layout},
+    style::Color,
+    text::Line,
+    widgets::{Tabs, Widget},
+};
+use strum::IntoEnumIterator;
 
-use crate::app::App;
+use crate::{app::App, tabs::SelectedTab};
 
 #[derive(Default)]
 pub struct UI {
-    pub selection_list: Vec<String>,
-    pub selected_state: ListState,
+    selected_tab: SelectedTab,
+}
 
-    pub in_content_mode: bool,
-    pub content_scroll: u16,
-    pub content_text: String,
+// todo, implement this
+// use vertical keys to select
+// tab -> content
+#[derive(Default)]
+enum UIMode {
+    #[default]
+    TabNavigation,
+    Content,
+
+    // todo, special mode
+    // to edit commit message
+    // etc, prolly a popup
+    Edit,
+}
+
+impl Widget for &UI {
+    fn render(
+        self,
+        area: ratatui::prelude::Rect,
+        buf: &mut ratatui::prelude::Buffer,
+    ) where
+        Self: Sized,
+    {
+        use Constraint::{Length, Min};
+        let vertical =
+            Layout::vertical([Length(1), Min(0), Length(1)]);
+        let [header_area, inner_area, footer_area] =
+            vertical.areas(area);
+
+        self.render_tabs(header_area, buf);
+        self.selected_tab.render(inner_area, buf);
+        self.render_footer(footer_area, buf);
+    }
 }
 
 impl UI {
     pub fn new() -> Self {
-        let mut selected_state = ListState::default();
-        selected_state.select_first();
-
         Self {
-            selection_list: Vec::new(),
-            selected_state,
-
-            in_content_mode: false,
-            content_scroll: 0,
-            content_text: String::new(),
+            selected_tab: SelectedTab::Diffs,
         }
     }
 
-    pub fn render(&mut self, frame: &mut Frame, app: &App) {
-        match &app.state {
-            crate::app::State::Splash => self.draw_splash(frame),
+    //pub fn render(&mut self, frame: &mut Frame, app: &App) {}
 
-            crate::app::State::SendingRequest(_) => {
-                self.draw_pending(frame)
-            }
+    pub fn scroll_up(&mut self, app: &App) {}
 
-            crate::app::State::DiffView => {
-                self.selection_list =
-                    app.gai.diffs.clone().into_keys().collect();
-
-                if let Some(selected) = self.selected_state.selected()
-                    && selected < app.gai.diffs.len()
-                    && let Some(diff) = app
-                        .gai
-                        .diffs
-                        .get(&self.selection_list[selected])
-                {
-                    self.content_text = diff.to_owned();
-                }
-
-                self.draw_diffview(frame)
-            }
-
-            crate::app::State::OpsView { .. } => {
-                self.draw_opsview(frame, app.ops.as_deref());
-            }
-        }
-    }
-
-    pub fn scroll_up(&mut self, app: &App) {
-        if self.in_content_mode {
-            self.content_scroll =
-                self.content_scroll.saturating_sub(1);
-        } else {
-            self.selected_state.select_previous();
-        }
-    }
-
-    pub fn scroll_down(&mut self, app: &App) {
-        if self.in_content_mode {
-            self.content_scroll =
-                self.content_scroll.saturating_add(1);
-        } else {
-            self.selected_state.select_next();
-        }
-    }
+    pub fn scroll_down(&mut self, app: &App) {}
 
     pub fn focus_left(&mut self, app: &App) {
-        self.in_content_mode = false;
+        self.selected_tab = self.selected_tab.previous();
     }
 
     pub fn focus_right(&mut self, app: &App) {
-        self.in_content_mode = true;
+        self.selected_tab = self.selected_tab.next();
+    }
+
+    pub fn goto_tab(&mut self, tab: usize) {
+        self.selected_tab =
+            self.selected_tab.find_tab(tab as usize - 1);
     }
 
     pub fn select_item(&mut self, app: &App) -> Option<usize> {
         None
+    }
+
+    fn render_tabs(
+        &self,
+        header_area: ratatui::prelude::Rect,
+        buf: &mut ratatui::prelude::Buffer,
+    ) {
+        let titles = SelectedTab::iter().map(SelectedTab::title);
+        let highlight_style =
+            (Color::default(), self.selected_tab.palette().c700);
+        let selected_tab_index = self.selected_tab as usize;
+        Tabs::new(titles)
+            .highlight_style(highlight_style)
+            .select(selected_tab_index)
+            .padding("", "")
+            .divider(" ")
+            .render(header_area, buf);
+    }
+
+    fn render_footer(
+        &self,
+        footer_area: ratatui::prelude::Rect,
+        buf: &mut ratatui::prelude::Buffer,
+    ) {
+        Line::raw("h / l to change tab | Press q to quit")
+            .centered()
+            .render(footer_area, buf);
     }
 }
