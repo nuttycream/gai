@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
+use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
 use crate::{
     config::Config, git::GaiGit, response::Response,
-    tabs::SelectedTab,
+    tabs::SelectedTab, ui::UI,
 };
 
 pub struct App {
@@ -12,6 +13,8 @@ pub struct App {
     pub state: State,
     pub cfg: Config,
     pub gai: GaiGit,
+    pub ui: UI,
+
     pub responses: HashMap<String, Result<Response, String>>,
 }
 
@@ -33,10 +36,7 @@ pub enum State {
     /// state where the user can
     /// see what to send
     /// to the AI provider
-    DiffView,
-
-    /// response view
-    OpsView(Response),
+    Running,
 }
 
 /// various ui actions
@@ -65,7 +65,7 @@ pub enum Action {
 impl App {
     pub fn new(cfg: Config, gai: GaiGit) -> Self {
         let state = if cfg.skip_splash {
-            State::DiffView
+            State::Running
         } else {
             State::Splash
         };
@@ -75,8 +75,20 @@ impl App {
             state,
             cfg,
             gai,
+            ui: UI::new(),
             responses: HashMap::new(),
         }
+    }
+
+    pub fn run(&mut self, frame: &mut Frame) {
+        let items = &self.get_list(self.ui.selected_tab);
+        let content = &self.get_content(
+            self.ui.selected_tab,
+            items,
+            self.ui.selected_state.selected(),
+        );
+
+        self.ui.render(frame, items, content);
     }
 
     pub async fn send_request(
@@ -98,8 +110,8 @@ impl App {
         });
     }
 
-    pub fn apply_ops(&self, response: &Response) {
-        self.gai.apply_commits(&response.commits);
+    pub fn apply_commits(&self) {
+        //self.gai.apply_commits(&response.commits);
     }
 
     pub fn get_list(&self, selected_tab: SelectedTab) -> Vec<String> {
@@ -156,12 +168,22 @@ impl App {
             SelectedTab::OpenAI
             | SelectedTab::Claude
             | SelectedTab::Gemini => {
-                let provider = match selected_tab {
-                    SelectedTab::OpenAI => "OpenAI",
-                    SelectedTab::Claude => "Claude",
-                    SelectedTab::Gemini => "Gemini",
+                let (provider, enabled) = match selected_tab {
+                    SelectedTab::OpenAI => {
+                        ("OpenAI", self.cfg.ai.openai.enable)
+                    }
+                    SelectedTab::Claude => {
+                        ("Claude", self.cfg.ai.claude.enable)
+                    }
+                    SelectedTab::Gemini => {
+                        ("Gemini", self.cfg.ai.gemini.enable)
+                    }
                     _ => return String::new(),
                 };
+
+                if !enabled {
+                    return "Not Enabled".to_owned();
+                }
 
                 match self
                     .responses
@@ -190,7 +212,7 @@ impl App {
                         }
                     }
                     Some((_, Err(e))) => {
-                        format!("error from provider: {}", e)
+                        format!("Error from provider:\n{}", e)
                     }
                     None => "p to send request".to_owned(),
                 }

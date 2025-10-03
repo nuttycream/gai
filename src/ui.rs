@@ -7,13 +7,13 @@ use ratatui::{
 };
 use strum::IntoEnumIterator;
 
-use crate::{app::App, tabs::SelectedTab};
+use crate::tabs::SelectedTab;
 
 #[derive(Default)]
 pub struct UI {
-    selected_tab: SelectedTab,
+    pub selected_tab: SelectedTab,
 
-    selected_state: ListState,
+    pub selected_state: ListState,
 }
 
 // todo, implement this
@@ -42,20 +42,18 @@ impl UI {
         }
     }
 
-    pub fn render(&mut self, frame: &mut Frame, app: &App) {
+    pub fn render(
+        &mut self,
+        frame: &mut Frame,
+        items: &[String],
+        content: &str,
+    ) {
         use Constraint::{Length, Min};
         let vertical =
             Layout::vertical([Length(1), Min(0), Length(1)])
                 .margin(5);
         let [header_area, inner_area, footer_area] =
             vertical.areas(frame.area());
-
-        let items = &app.get_list(self.selected_tab);
-        let content = &app.get_content(
-            self.selected_tab,
-            items,
-            self.selected_state.selected(),
-        );
 
         self.render_tabs(header_area, frame.buffer_mut());
 

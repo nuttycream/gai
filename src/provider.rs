@@ -116,7 +116,7 @@ impl AI {
                     &diffs,
                 )
                 .await
-                .map_err(|e| e.to_string());
+                .map_err(|e| format!("{:#}", e));
 
                 let _ = tx.send((provider, result)).await;
             });
@@ -133,7 +133,7 @@ impl AI {
                 let provider = format!("OpenAI({})", model_name);
                 let resp = try_openai(&prompt, &model_name, &diffs)
                     .await
-                    .map_err(|e| e.to_string());
+                    .map_err(|e| format!("{:#}", e));
 
                 let _ = tx.send((provider, resp)).await;
             });
@@ -150,7 +150,7 @@ impl AI {
                 let provider = format!("Claude({})", model_name);
                 let resp = try_claude(&prompt, &model_name, &diffs)
                     .await
-                    .map_err(|e| e.to_string());
+                    .map_err(|e| format!("{:#}", e));
 
                 let _ = tx.send((provider, resp)).await;
             });

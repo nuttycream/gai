@@ -17,7 +17,6 @@ use tokio::sync::mpsc::{self, Sender};
 use crate::{
     app::{Action, App},
     response::Response,
-    ui::UI,
 };
 
 #[tokio::main]
@@ -32,16 +31,15 @@ async fn main() -> Result<()> {
     let mut app = App::new(cfg, gai);
 
     let mut terminal = ratatui::init();
-    let mut ui = UI::new();
 
     let (tx, mut rx) = mpsc::channel(3);
 
     while app.running {
-        terminal.draw(|f| ui.render(f, &app))?;
+        terminal.draw(|f| app.run(f))?;
 
         tokio::select! {
             Ok(event) = async { event::read() } => {
-                handle_actions(&mut app, event, &mut ui, tx.clone()).await;
+                handle_actions(&mut app, event, tx.clone()).await;
             }
 
             Some((provider, result)) = rx.recv() => {
@@ -58,10 +56,10 @@ async fn main() -> Result<()> {
 async fn handle_actions(
     app: &mut App,
     event: Event,
-    ui: &mut UI,
     tx: Sender<(String, Result<Response, String>)>,
 ) {
     if let Some(action) = keys::get_tui_action(event) {
+        let ui = &mut app.ui;
         match action {
             Action::Quit => app.running = false,
             Action::ScrollUp => ui.scroll_up(),
@@ -74,6 +72,9 @@ async fn handle_actions(
             Action::GeminiTab => ui.goto_tab(4),
             Action::SendRequest => {
                 app.send_request(tx).await;
+            }
+            Action::ApplyCommits => {
+                app.apply_commits();
             }
             _ => {}
         }
