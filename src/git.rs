@@ -39,7 +39,7 @@ pub enum DiffType {
 }
 
 impl GaiGit {
-    /// this could fail on an unitialized directory
+    /// todo: this could fail on an unitialized directory
     /// for now, im not gonna handle those and we
     /// just straight up panic if we failed to open
     pub fn new(repo_path: &str) -> Result<Self> {

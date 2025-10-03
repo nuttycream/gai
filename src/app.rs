@@ -1,13 +1,16 @@
 use tokio::sync::mpsc::Sender;
 
-use crate::{config::Config, git::GaiGit, response::Response};
+use crate::{
+    config::Config, git::GaiGit, response::Response,
+    tabs::SelectedTab,
+};
 
 pub struct App {
     pub running: bool,
     pub state: State,
     pub cfg: Config,
     pub gai: GaiGit,
-    pub ops: Option<Vec<Response>>,
+    pub responses: Option<Vec<Response>>,
 }
 
 pub enum State {
@@ -70,7 +73,7 @@ impl App {
             state,
             cfg,
             gai,
-            ops: None,
+            responses: None,
         }
     }
 
@@ -92,10 +95,10 @@ impl App {
 
         let mut rx = ai.get_responses(&diffs).await.unwrap();
 
-        while let Some((provider, resp)) = rx.recv().await {
-            match resp {
+        while let Some((provider, result)) = rx.recv().await {
+            match result {
                 Ok(resp) => {
-                    println!("{}\n{:#?}", provider, resp);
+                    //println!("{}\n{:#?}", provider, resp);
                     let _ = tx.send(resp).await;
                 }
                 Err(e) => println!("failed: {e}"),
@@ -107,5 +110,41 @@ impl App {
 
     pub fn apply_ops(&self, response: &Response) {
         self.gai.apply_commits(&response.commits);
+    }
+
+    pub fn get_list(&self, selected_tab: SelectedTab) -> Vec<String> {
+        match selected_tab {
+            SelectedTab::Diffs => {
+                self.gai.diffs.clone().into_keys().collect()
+            }
+            SelectedTab::OpenAI => Vec::new(),
+            SelectedTab::Claude => Vec::new(),
+            SelectedTab::Gemini => Vec::new(),
+        }
+    }
+
+    pub fn get_content(
+        &self,
+        selected_tab: SelectedTab,
+        selection_list: &[String],
+        selected_state_idx: Option<usize>,
+    ) -> String {
+        match selected_tab {
+            SelectedTab::Diffs => {
+                if let Some(selected) = selected_state_idx
+                    && selected < self.gai.diffs.len()
+                    && let Some(diff) =
+                        self.gai.diffs.get(&selection_list[selected])
+                {
+                    diff.to_owned()
+                } else {
+                    "select a file to view it's diff".to_owned()
+                }
+            }
+
+            SelectedTab::OpenAI => String::new(),
+            SelectedTab::Claude => String::new(),
+            SelectedTab::Gemini => String::new(),
+        }
     }
 }

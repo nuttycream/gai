@@ -58,7 +58,7 @@ impl SelectedTab {
 
         format!(" [{idx}] {self} ")
             .fg(tailwind::SLATE.c200)
-            .bg(self.palette().c900)
+            .bg(self.palette().c950)
             .into()
     }
 

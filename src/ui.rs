@@ -14,8 +14,6 @@ pub struct UI {
     selected_tab: SelectedTab,
 
     selected_state: ListState,
-    selection_list: Vec<String>,
-    content_text: String,
 }
 
 // todo, implement this
@@ -40,31 +38,24 @@ impl UI {
 
         Self {
             selected_tab: SelectedTab::Diffs,
-            selection_list: Vec::new(),
-            content_text: String::new(),
             selected_state,
         }
     }
+
     pub fn render(&mut self, frame: &mut Frame, app: &App) {
         use Constraint::{Length, Min};
         let vertical =
-            Layout::vertical([Length(1), Min(0), Length(1)]);
+            Layout::vertical([Length(1), Min(0), Length(1)])
+                .margin(5);
         let [header_area, inner_area, footer_area] =
             vertical.areas(frame.area());
 
-        self.selection_list =
-            app.gai.diffs.clone().into_keys().collect();
-
-        if let Some(selected) = self.selected_state.selected()
-            && selected < app.gai.diffs.len()
-            && let Some(diff) =
-                app.gai.diffs.get(&self.selection_list[selected])
-        {
-            self.content_text = diff.to_owned();
-        };
-
-        let content = &self.content_text;
-        let items = &self.selection_list;
+        let items = &app.get_list(self.selected_tab);
+        let content = &app.get_content(
+            self.selected_tab,
+            items,
+            self.selected_state.selected(),
+        );
 
         self.render_tabs(header_area, frame.buffer_mut());
 
@@ -107,7 +98,7 @@ impl UI {
     ) {
         let titles = SelectedTab::iter().map(SelectedTab::title);
         let highlight_style =
-            (Color::default(), self.selected_tab.palette().c700);
+            (Color::default(), self.selected_tab.palette().c500);
         let selected_tab_index = self.selected_tab as usize;
         Tabs::new(titles)
             .highlight_style(highlight_style)
@@ -122,7 +113,7 @@ impl UI {
         footer_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
     ) {
-        Line::raw("h / l to change tab | Press q to quit")
+        Line::raw("h / l to change tab | j / k to select diffs/commits | q to quit")
             .centered()
             .render(footer_area, buf);
     }
