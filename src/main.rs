@@ -44,8 +44,8 @@ async fn main() -> Result<()> {
                 handle_actions(&mut app, event, &mut ui, tx.clone()).await;
             }
 
-            Some(response) = rx.recv() => {
-                app.switch_state(app::State::OpsView(response)).await;
+            Some((provider, result)) = rx.recv() => {
+                app.responses.insert(provider, result);
             }
         }
     }
@@ -59,9 +59,9 @@ async fn handle_actions(
     app: &mut App,
     event: Event,
     ui: &mut UI,
-    tx: Sender<Response>,
+    tx: Sender<(String, Result<Response, String>)>,
 ) {
-    if let Some(action) = keys::get_tui_action(event, &app.state) {
+    if let Some(action) = keys::get_tui_action(event) {
         match action {
             Action::Quit => app.running = false,
             Action::ScrollUp => ui.scroll_up(),
@@ -73,8 +73,7 @@ async fn handle_actions(
             Action::ClaudeTab => ui.goto_tab(3),
             Action::GeminiTab => ui.goto_tab(4),
             Action::SendRequest => {
-                app.switch_state(app::State::SendingRequest(tx))
-                    .await;
+                app.send_request(tx).await;
             }
             _ => {}
         }

@@ -5,7 +5,7 @@ use ratatui::{
     text::Line,
     widgets::{
         Block, Borders, List, ListItem, ListState, Padding,
-        Paragraph, StatefulWidget, Widget,
+        Paragraph, StatefulWidget, Widget, Wrap,
     },
 };
 use strum::{Display, EnumIter, FromRepr};
@@ -98,13 +98,15 @@ impl SelectedTab {
 
         StatefulWidget::render(list, list_area, buf, selected_state);
 
-        let paragraph = Paragraph::new(content).block(
-            Block::bordered()
-                .title("Content")
-                .borders(Borders::ALL)
-                .padding(Padding::horizontal(1))
-                .border_style(self.palette().c700),
-        );
+        let paragraph = Paragraph::new(content)
+            .block(
+                Block::bordered()
+                    .title("Content")
+                    .borders(Borders::ALL)
+                    .padding(Padding::horizontal(1))
+                    .border_style(self.palette().c700),
+            )
+            .wrap(Wrap { trim: false });
 
         paragraph.render(paragraph_area, buf);
     }

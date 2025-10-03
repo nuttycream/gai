@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use tokio::sync::mpsc::Sender;
 
 use crate::{
@@ -10,7 +12,7 @@ pub struct App {
     pub state: State,
     pub cfg: Config,
     pub gai: GaiGit,
-    pub responses: Option<Vec<Response>>,
+    pub responses: HashMap<String, Result<Response, String>>,
 }
 
 pub enum State {
@@ -73,19 +75,14 @@ impl App {
             state,
             cfg,
             gai,
-            responses: None,
+            responses: HashMap::new(),
         }
     }
 
-    pub async fn switch_state(&mut self, new_state: State) {
-        self.state = new_state;
-
-        if let State::SendingRequest(tx) = &self.state {
-            self.send_request(tx.clone()).await;
-        }
-    }
-
-    pub async fn send_request(&mut self, tx: Sender<Response>) {
+    pub async fn send_request(
+        &mut self,
+        tx: Sender<(String, Result<Response, String>)>,
+    ) {
         let ai = &self.cfg.ai;
 
         let mut diffs = String::new();
@@ -94,18 +91,11 @@ impl App {
         }
 
         let mut rx = ai.get_responses(&diffs).await.unwrap();
-
-        while let Some((provider, result)) = rx.recv().await {
-            match result {
-                Ok(resp) => {
-                    //println!("{}\n{:#?}", provider, resp);
-                    let _ = tx.send(resp).await;
-                }
-                Err(e) => println!("failed: {e}"),
+        tokio::spawn(async move {
+            while let Some(from_the_ai) = rx.recv().await {
+                let _ = tx.send(from_the_ai).await;
             }
-        }
-
-        // ai.get_responses(&diffs).await
+        });
     }
 
     pub fn apply_ops(&self, response: &Response) {
@@ -117,9 +107,31 @@ impl App {
             SelectedTab::Diffs => {
                 self.gai.diffs.clone().into_keys().collect()
             }
-            SelectedTab::OpenAI => Vec::new(),
-            SelectedTab::Claude => Vec::new(),
-            SelectedTab::Gemini => Vec::new(),
+            SelectedTab::OpenAI
+            | SelectedTab::Claude
+            | SelectedTab::Gemini => {
+                let provider = match selected_tab {
+                    SelectedTab::OpenAI => "OpenAI",
+                    SelectedTab::Claude => "Claude",
+                    SelectedTab::Gemini => "Gemini",
+                    _ => return Vec::new(),
+                };
+
+                // for now use an empty vec
+                // to display failed/no responses
+                self.responses
+                    .iter()
+                    .find(|(key, _)| key.starts_with(provider))
+                    .and_then(|(_, result)| result.as_ref().ok())
+                    .map(|response| {
+                        response
+                            .commits
+                            .iter()
+                            .map(|c| c.get_commit_prefix(&self.cfg))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            }
         }
     }
 
@@ -141,10 +153,48 @@ impl App {
                     "select a file to view it's diff".to_owned()
                 }
             }
+            SelectedTab::OpenAI
+            | SelectedTab::Claude
+            | SelectedTab::Gemini => {
+                let provider = match selected_tab {
+                    SelectedTab::OpenAI => "OpenAI",
+                    SelectedTab::Claude => "Claude",
+                    SelectedTab::Gemini => "Gemini",
+                    _ => return String::new(),
+                };
 
-            SelectedTab::OpenAI => String::new(),
-            SelectedTab::Claude => String::new(),
-            SelectedTab::Gemini => String::new(),
+                match self
+                    .responses
+                    .iter()
+                    .find(|(key, _)| key.starts_with(provider))
+                {
+                    Some((_, Ok(response))) => {
+                        if let Some(selected) = selected_state_idx
+                            && selected < response.commits.len()
+                        {
+                            let commit = &response.commits[selected];
+
+                            let mut content = String::new();
+                            content.push_str("files to stage:\n");
+                            for file in &commit.files {
+                                content
+                                    .push_str(&format!("{}\n", file));
+                            }
+                            content.push_str(&format!(
+                                "description:\n{}\n",
+                                commit.get_commit_message(&self.cfg)
+                            ));
+                            content
+                        } else {
+                            "select commit to view details".to_owned()
+                        }
+                    }
+                    Some((_, Err(e))) => {
+                        format!("error from provider: {}", e)
+                    }
+                    None => "p to send request".to_owned(),
+                }
+            }
         }
     }
 }

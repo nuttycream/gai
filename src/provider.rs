@@ -75,10 +75,10 @@ impl Default for AI {
 }
 
 impl AI {
-    /// returns
-    /// Reciever
-    /// with
-    /// <Provider Name, Result<Actual Response, Error If Any>>
+    /// return receiver with:
+    /// * `String` - the ai provider name
+    /// * `Result<Response, String>` - The provider's response `Vec<Commit>` or
+    ///   string based error message
     pub async fn get_responses(
         &self,
         diffs: &str,
