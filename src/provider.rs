@@ -1,9 +1,7 @@
-use std::fs;
-
 use anyhow::Result;
 use rig::{
     client::{CompletionClient, ProviderClient},
-    extractor::Extractor,
+    extractor::ExtractionError,
     providers::{
         anthropic,
         gemini::{
@@ -12,18 +10,23 @@ use rig::{
                 AdditionalParameters, GenerationConfig,
             },
         },
-        openai::{self, responses_api::ResponsesCompletionModel},
+        openai,
     },
 };
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
-use crate::response::Response;
+use crate::{
+    consts::{DEFAULT_RULES, DEFAULT_SYS_PROMPT},
+    response::Response,
+    utils::build_prompt,
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct AI {
     pub capitalize_prefix: bool,
     pub include_scope: bool,
-    pub prompt: String,
+    pub system_prompt: String,
 
     /// conventionalcommits.md
     pub include_convention: bool,
@@ -45,31 +48,21 @@ pub struct AiConfig {
     pub max_tokens: u64,
 }
 
+impl AiConfig {
+    pub fn new(model_name: &str) -> Self {
+        Self {
+            enable: false,
+            model_name: model_name.to_owned(),
+            max_tokens: 5000,
+        }
+    }
+}
+
 impl Default for AI {
     fn default() -> Self {
         Self {
-            prompt: "You are an expert at git operations.\
-            Create git a logical list of git commits \
-            based on diffs and structure."
-                .to_owned(),
-
-            rules: "
-                - GROUP related files into LOGICAL commits based on the type of change
-                - Examples of files that should be grouped together:
-                * Multiple files implementing the same feature
-                * Files modified for the same bug fix
-                * Related configuration and code changes
-                * Test files with the code they test
-                - Each file should appear in ONLY ONE commit
-                - Create multiple commits when changes serve different purposes
-                - For CommitMessages:
-                * prefix: The appropriate type from the PrefixType enum
-                * scope: The component name or \"\", DO NOT include the file extension please!
-                * breaking: true if breaking change, false otherwise
-                * message: ONLY the description, do NOT include prefix or scope in the message text
-                ".to_owned(),
-
-
+            system_prompt: DEFAULT_SYS_PROMPT.to_owned(),
+            rules: DEFAULT_RULES.to_owned(),
             openai: AiConfig::new("gpt-5-nano-2025-08-07"),
             claude: AiConfig::new("claude-3-5-haiku-latest"),
             gemini: AiConfig::new("gemini-2.5-flash-lite"),
@@ -81,89 +74,147 @@ impl Default for AI {
     }
 }
 
-pub struct Extractors {
-    pub gemini: Option<
-        Extractor<gemini::completion::CompletionModel, Response>,
-    >,
-    pub claude: Option<
-        Extractor<anthropic::completion::CompletionModel, Response>,
-    >,
-    pub openai: Option<Extractor<ResponsesCompletionModel, Response>>,
-}
-
 impl AI {
-    pub fn build_requests(&self) -> Result<Extractors> {
-        let convention = if self.include_convention {
-            format!(
-                "Convention:\n{}",
-                fs::read_to_string("conventionalcommits.md")?
-            )
-        } else {
-            "".to_owned()
-        };
-
-        let prompt = format!(
-            "{}\nRules:\n{}\n{}",
-            self.prompt, self.rules, convention
+    /// return receiver with:
+    /// * `String` - the ai provider name
+    /// * `Result<Response, String>` - The provider's response `Vec<Commit>` or
+    ///   string based error message
+    pub async fn get_responses(
+        &self,
+        diffs: &str,
+    ) -> Result<mpsc::Receiver<(String, Result<Response, String>)>>
+    {
+        let prompt = build_prompt(
+            self.include_convention,
+            &self.system_prompt,
+            &self.rules,
         );
 
-        let gemini = if self.gemini.enable {
-            let client = gemini::Client::from_env();
-            let gen_cfg = GenerationConfig {
-                max_output_tokens: Some(self.gemini.max_tokens),
-                ..Default::default()
-            };
+        let (tx, rx) = mpsc::channel(3);
 
-            let cfg =
-                AdditionalParameters::default().with_config(gen_cfg);
+        // according to examples and online refs
+        // tokio::spawn needs a static lifetime
+        // present to own its stuff, which means we
+        // have to clone AND cant use self here
+        // shouldnt be too expensive, but meh
+        // maybe give the futures crate a look?
 
-            Some(
-                client
-                    .extractor::<Response>(&self.gemini.model_name)
-                    .preamble(&prompt)
-                    .additional_params(serde_json::to_value(cfg)?)
-                    .build(),
-            )
-        } else {
-            None
-        };
-        let openai = if self.openai.enable {
-            let client = openai::Client::from_env();
-            Some(
-                client
-                    .extractor::<Response>(&self.openai.model_name)
-                    .preamble(&prompt)
-                    .build(),
-            )
-        } else {
-            None
-        };
-        let claude = if self.claude.enable {
-            let client = anthropic::Client::from_env();
-            Some(
-                client
-                    .extractor::<Response>(&self.claude.model_name)
-                    .preamble(&prompt)
-                    .build(),
-            )
-        } else {
-            None
-        };
-        let extractors = Extractors {
-            gemini,
-            claude,
-            openai,
-        };
-        Ok(extractors)
+        if self.gemini.enable {
+            let tx = tx.clone();
+            let prompt = prompt.clone();
+            let diffs = diffs.to_string();
+            let model_name = self.gemini.model_name.clone();
+            let max_tokens = self.gemini.max_tokens;
+
+            tokio::spawn(async move {
+                // println!("sending req to gemini");
+                let provider = format!("Gemini({})", model_name);
+                let result = try_gemini(
+                    &prompt,
+                    &model_name,
+                    max_tokens,
+                    &diffs,
+                )
+                .await
+                .map_err(|e| e.to_string());
+
+                let _ = tx.send((provider, result)).await;
+            });
+        }
+
+        if self.openai.enable {
+            let tx = tx.clone();
+            let prompt = prompt.clone();
+            let diffs = diffs.to_string();
+            let model_name = self.openai.model_name.clone();
+
+            tokio::spawn(async move {
+                //println!("sending req to openai");
+                let provider = format!("OpenAI({})", model_name);
+                let resp = try_openai(&prompt, &model_name, &diffs)
+                    .await
+                    .map_err(|e| e.to_string());
+
+                let _ = tx.send((provider, resp)).await;
+            });
+        }
+
+        if self.claude.enable {
+            let tx = tx.clone();
+            let prompt = prompt.clone();
+            let diffs = diffs.to_string();
+            let model_name = self.claude.model_name.clone();
+
+            tokio::spawn(async move {
+                //println!("sending req to claude");
+                let provider = format!("Claude({})", model_name);
+                let resp = try_claude(&prompt, &model_name, &diffs)
+                    .await
+                    .map_err(|e| e.to_string());
+
+                let _ = tx.send((provider, resp)).await;
+            });
+        }
+
+        drop(tx);
+
+        Ok(rx)
     }
 }
 
-impl AiConfig {
-    pub fn new(model_name: &str) -> Self {
-        Self {
-            enable: false,
-            model_name: model_name.to_owned(),
-            max_tokens: 5000,
-        }
-    }
+// todo: ideally gemini wouldnt
+// be the only model to accept max_tokens
+// but its the fastest model atm, so after testing
+// make sure you do this bud
+async fn try_gemini(
+    prompt: &str,
+    model_name: &str,
+    max_tokens: u64,
+    diffs: &str,
+) -> Result<Response, ExtractionError> {
+    let client = gemini::Client::from_env();
+    let gen_cfg = GenerationConfig {
+        max_output_tokens: Some(max_tokens),
+        ..Default::default()
+    };
+
+    let cfg = AdditionalParameters::default().with_config(gen_cfg);
+
+    let extractor = client
+        .extractor::<Response>(model_name)
+        .preamble(prompt)
+        .additional_params(serde_json::to_value(cfg)?)
+        .build();
+
+    extractor.extract(diffs).await
+}
+
+async fn try_openai(
+    prompt: &str,
+    model_name: &str,
+    diffs: &str,
+) -> Result<Response, ExtractionError> {
+    let client = openai::Client::from_env();
+
+    let extractor = client
+        .extractor::<Response>(model_name)
+        .preamble(prompt)
+        .build();
+
+    extractor.extract(diffs).await
+}
+
+async fn try_claude(
+    prompt: &str,
+    model_name: &str,
+    diffs: &str,
+) -> Result<Response, ExtractionError> {
+    let client = anthropic::Client::from_env();
+
+    let extractor = client
+        .extractor::<Response>(model_name)
+        .preamble(prompt)
+        .build();
+
+    extractor.extract(diffs).await
 }

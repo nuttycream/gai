@@ -33,12 +33,8 @@
           devShells.default = mkShell {
             name = "gai";
             packages = with pkgs; [
-              asciinema
-              asciinema-agg
               bacon
-              rust-bin.stable.latest.minimal
-              rust-analyzer
-              rustfmt
+              rust-bin.stable.latest.default
             ];
 
             buildInputs = [

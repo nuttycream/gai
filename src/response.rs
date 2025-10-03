@@ -57,7 +57,7 @@ pub enum PrefixType {
 
 impl Response {
     pub fn new(response: &str) -> Self {
-        return serde_json::from_str(response).unwrap();
+        serde_json::from_str(response).unwrap()
     }
 }
 
@@ -86,5 +86,22 @@ impl Commit {
             "{}{}{}: {}",
             prefix, scope, breaking, self.message.message
         )
+    }
+
+    pub fn get_commit_prefix(&self, cfg: &Config) -> String {
+        let prefix = if cfg.ai.capitalize_prefix {
+            format!("{:?}", self.message.prefix)
+        } else {
+            format!("{:?}", self.message.prefix).to_lowercase()
+        };
+
+        let breaking = if self.message.breaking { "!" } else { "" };
+        let scope = if cfg.ai.include_scope {
+            format!("({})", self.message.scope.to_lowercase())
+        } else {
+            "".to_owned()
+        };
+
+        format!("{}{}{}", prefix, breaking, scope)
     }
 }
