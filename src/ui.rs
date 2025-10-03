@@ -97,7 +97,7 @@ impl UI {
 
     pub fn goto_tab(&mut self, tab: usize) {
         self.selected_tab =
-            self.selected_tab.find_tab(tab as usize - 1);
+            self.selected_tab.find_tab(tab.saturating_sub(1));
     }
 
     fn render_tabs(

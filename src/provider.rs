@@ -178,7 +178,7 @@ async fn try_gemini(
 
     let extractor = client
         .extractor::<Response>(model_name)
-        .preamble(&prompt)
+        .preamble(prompt)
         .additional_params(serde_json::to_value(cfg)?)
         .build();
 
@@ -194,7 +194,7 @@ async fn try_openai(
 
     let extractor = client
         .extractor::<Response>(model_name)
-        .preamble(&prompt)
+        .preamble(prompt)
         .build();
 
     extractor.extract(diffs).await
@@ -209,7 +209,7 @@ async fn try_claude(
 
     let extractor = client
         .extractor::<Response>(model_name)
-        .preamble(&prompt)
+        .preamble(prompt)
         .build();
 
     extractor.extract(diffs).await

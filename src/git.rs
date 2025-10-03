@@ -82,20 +82,20 @@ impl GaiGit {
         let mut unique_hunks = HashMap::new();
 
         diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
-            match delta.status() {
-                // Delta::Added => todo!(),
-                // Delta::Deleted => todo!(),
-                // Delta::Modified => todo!(),
-                // Delta::Renamed => todo!(),
-                // Delta::Copied => todo!(),
-                // Delta::Ignored => todo!(),
-                // Delta::Untracked => todo!(),
-                // Delta::Typechange => todo!(),
-                // Delta::Unreadable => todo!(),
-                // Delta::Conflicted => todo!(),
-                // ignore unmodified
+            /* match delta.status() {
+                Delta::Added => todo!(),
+                Delta::Deleted => todo!(),
+                Delta::Modified => todo!(),
+                Delta::Renamed => todo!(),
+                Delta::Copied => todo!(),
+                Delta::Ignored => todo!(),
+                Delta::Untracked => todo!(),
+                Delta::Typechange => todo!(),
+                Delta::Unreadable => todo!(),
+                Delta::Conflicted => todo!(),
+                ignore unmodified
                 _ => {}
-            }
+            } */
 
             let path = delta
                 .new_file()
@@ -156,10 +156,10 @@ impl GaiGit {
 
         index.clear().unwrap();
 
-        if let Ok(head) = self.repo.head() {
-            if let Ok(tree) = head.peel_to_tree() {
-                index.read_tree(&tree).unwrap();
-            }
+        if let Ok(head) = self.repo.head()
+            && let Ok(tree) = head.peel_to_tree()
+        {
+            index.read_tree(&tree).unwrap();
         }
 
         // staging
@@ -199,15 +199,11 @@ impl GaiGit {
                 &sig,
                 &format!(
                     "{}: {}",
-                    match commit.message.prefix {
-                        _ => {
-                            let prefix = format!(
-                                "{:?}",
-                                commit.message.prefix
-                            );
-                            // todo use cfg setting
-                            prefix.to_lowercase()
-                        }
+                    {
+                        let prefix =
+                            format!("{:?}", commit.message.prefix);
+                        // todo use cfg setting
+                        prefix.to_lowercase()
                     },
                     commit.message.message
                 ),

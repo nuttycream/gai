@@ -77,11 +77,8 @@ impl App {
     pub async fn switch_state(&mut self, new_state: State) {
         self.state = new_state;
 
-        match &self.state {
-            State::SendingRequest(tx) => {
-                self.send_request(tx.clone()).await;
-            }
-            _ => {}
+        if let State::SendingRequest(tx) = &self.state {
+            self.send_request(tx.clone()).await;
         }
     }
 

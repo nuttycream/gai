@@ -57,7 +57,7 @@ pub enum PrefixType {
 
 impl Response {
     pub fn new(response: &str) -> Self {
-        return serde_json::from_str(response).unwrap();
+        serde_json::from_str(response).unwrap()
     }
 }
 
