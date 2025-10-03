@@ -4,8 +4,11 @@ use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    config::Config, git::GaiGit, response::Response,
-    tabs::SelectedTab, ui::UI,
+    config::Config,
+    git::GaiGit,
+    response::{Commit, Response},
+    tabs::SelectedTab,
+    ui::UI,
 };
 
 pub struct App {
@@ -19,24 +22,11 @@ pub struct App {
 }
 
 pub enum State {
-    /// initializing gai:
-    /// checks for existing repo
-    /// does a diff check
-    /// and gathers the data
-    /// for the user to send
-    Splash,
-
-    /// state where gai is sending
-    /// a request or waiting to
-    /// receive the response.
-    /// This is usually one continous
-    /// moment.
+    // todo: impl spinner
     SendingRequest(Sender<Response>),
 
-    /// state where the user can
-    /// see what to send
-    /// to the AI provider
     Running,
+    Splash,
 }
 
 /// various ui actions
@@ -81,12 +71,8 @@ impl App {
     }
 
     pub fn run(&mut self, frame: &mut Frame) {
-        let items = &self.get_list(self.ui.selected_tab);
-        let content = &self.get_content(
-            self.ui.selected_tab,
-            items,
-            self.ui.selected_state.selected(),
-        );
+        let items = &self.get_list();
+        let content = &self.get_content();
 
         self.ui.render(frame, items, content);
     }
@@ -111,18 +97,39 @@ impl App {
     }
 
     pub fn apply_commits(&self) {
-        //self.gai.apply_commits(&response.commits);
+        match self.ui.selected_tab {
+            SelectedTab::Diffs => {}
+            SelectedTab::OpenAI
+            | SelectedTab::Claude
+            | SelectedTab::Gemini => {
+                let provider = match self.ui.selected_tab {
+                    SelectedTab::OpenAI => "OpenAI",
+                    SelectedTab::Claude => "Claude",
+                    SelectedTab::Gemini => "Gemini",
+                    _ => return,
+                };
+                let commits: Vec<Commit> = self
+                    .responses
+                    .iter()
+                    .find(|(key, _)| key.starts_with(provider))
+                    .and_then(|(_, result)| result.as_ref().ok())
+                    .map(|response| response.commits.to_owned())
+                    .unwrap_or_default();
+
+                self.gai.apply_commits(&commits);
+            }
+        }
     }
 
-    pub fn get_list(&self, selected_tab: SelectedTab) -> Vec<String> {
-        match selected_tab {
+    pub fn get_list(&self) -> Vec<String> {
+        match self.ui.selected_tab {
             SelectedTab::Diffs => {
                 self.gai.diffs.clone().into_keys().collect()
             }
             SelectedTab::OpenAI
             | SelectedTab::Claude
             | SelectedTab::Gemini => {
-                let provider = match selected_tab {
+                let provider = match self.ui.selected_tab {
                     SelectedTab::OpenAI => "OpenAI",
                     SelectedTab::Claude => "Claude",
                     SelectedTab::Gemini => "Gemini",
@@ -147,12 +154,11 @@ impl App {
         }
     }
 
-    pub fn get_content(
-        &self,
-        selected_tab: SelectedTab,
-        selection_list: &[String],
-        selected_state_idx: Option<usize>,
-    ) -> String {
+    pub fn get_content(&self) -> String {
+        let selection_list = self.get_list();
+        let selected_tab = self.ui.selected_tab;
+        let selected_state_idx = self.ui.selected_state.selected();
+
         match selected_tab {
             SelectedTab::Diffs => {
                 if let Some(selected) = selected_state_idx
