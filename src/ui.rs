@@ -1,8 +1,9 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout},
     style::Color,
     text::Line,
-    widgets::{Tabs, Widget},
+    widgets::{ListState, Tabs, Widget},
 };
 use strum::IntoEnumIterator;
 
@@ -11,13 +12,17 @@ use crate::{app::App, tabs::SelectedTab};
 #[derive(Default)]
 pub struct UI {
     selected_tab: SelectedTab,
+
+    selected_state: ListState,
+    selection_list: Vec<String>,
+    content_text: String,
 }
 
 // todo, implement this
 // use vertical keys to select
 // tab -> content
 #[derive(Default)]
-enum UIMode {
+pub enum UIMode {
     #[default]
     TabNavigation,
     Content,
@@ -28,54 +33,71 @@ enum UIMode {
     Edit,
 }
 
-impl Widget for &UI {
-    fn render(
-        self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-    ) where
-        Self: Sized,
-    {
+impl UI {
+    pub fn new() -> Self {
+        let mut selected_state = ListState::default();
+        selected_state.select_first();
+
+        Self {
+            selected_tab: SelectedTab::Diffs,
+            selection_list: Vec::new(),
+            content_text: String::new(),
+            selected_state,
+        }
+    }
+    pub fn render(&mut self, frame: &mut Frame, app: &App) {
         use Constraint::{Length, Min};
         let vertical =
             Layout::vertical([Length(1), Min(0), Length(1)]);
         let [header_area, inner_area, footer_area] =
-            vertical.areas(area);
+            vertical.areas(frame.area());
 
-        self.render_tabs(header_area, buf);
-        self.selected_tab.render(inner_area, buf);
-        self.render_footer(footer_area, buf);
+        self.selection_list =
+            app.gai.diffs.clone().into_keys().collect();
+
+        if let Some(selected) = self.selected_state.selected()
+            && selected < app.gai.diffs.len()
+            && let Some(diff) =
+                app.gai.diffs.get(&self.selection_list[selected])
+        {
+            self.content_text = diff.to_owned();
+        };
+
+        let content = &self.content_text;
+        let items = &self.selection_list;
+
+        self.render_tabs(header_area, frame.buffer_mut());
+
+        self.selected_tab.render(
+            inner_area,
+            frame.buffer_mut(),
+            items,
+            content,
+            &mut self.selected_state,
+        );
+
+        self.render_footer(footer_area, frame.buffer_mut());
     }
-}
 
-impl UI {
-    pub fn new() -> Self {
-        Self {
-            selected_tab: SelectedTab::Diffs,
-        }
+    pub fn scroll_up(&mut self) {
+        self.selected_state.select_previous();
     }
 
-    //pub fn render(&mut self, frame: &mut Frame, app: &App) {}
+    pub fn scroll_down(&mut self) {
+        self.selected_state.select_next();
+    }
 
-    pub fn scroll_up(&mut self, app: &App) {}
-
-    pub fn scroll_down(&mut self, app: &App) {}
-
-    pub fn focus_left(&mut self, app: &App) {
+    pub fn focus_left(&mut self) {
         self.selected_tab = self.selected_tab.previous();
     }
 
-    pub fn focus_right(&mut self, app: &App) {
+    pub fn focus_right(&mut self) {
         self.selected_tab = self.selected_tab.next();
     }
 
     pub fn goto_tab(&mut self, tab: usize) {
         self.selected_tab =
             self.selected_tab.find_tab(tab as usize - 1);
-    }
-
-    pub fn select_item(&mut self, app: &App) -> Option<usize> {
-        None
     }
 
     fn render_tabs(

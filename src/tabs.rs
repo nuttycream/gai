@@ -1,13 +1,18 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
-    style::{Stylize, palette::tailwind},
+    style::{Modifier, Style, Stylize, palette::tailwind},
     text::Line,
     widgets::{
-        Block, Borders, List, ListItem, Padding, Paragraph, Widget,
+        Block, Borders, List, ListItem, ListState, Padding,
+        Paragraph, StatefulWidget, Widget,
     },
 };
-use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
+use strum::{Display, EnumIter, FromRepr};
+
+const SELECTED_STYLE: Style = Style::new()
+    .bg(tailwind::SLATE.c800)
+    .add_modifier(Modifier::BOLD);
 
 #[derive(Default, Clone, Copy, Display, FromRepr, EnumIter)]
 pub enum SelectedTab {
@@ -18,18 +23,18 @@ pub enum SelectedTab {
     Gemini,
 }
 
-impl Widget for SelectedTab {
-    fn render(self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
-        let items = Vec::new();
-        let content = "Hello Friends!";
-        self.layout(area, buf, items, content);
-    }
-}
-
 impl SelectedTab {
+    pub fn render(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        items: &[String],
+        content: &str,
+        selected_state: &mut ListState,
+    ) {
+        self.render_layout(area, buf, items, content, selected_state);
+    }
+
     /// Get the previous tab, if there is no previous tab return the current tab.
     pub fn previous(self) -> Self {
         let current_index: usize = self as usize;
@@ -57,12 +62,13 @@ impl SelectedTab {
             .into()
     }
 
-    pub fn layout(
+    pub fn render_layout(
         self,
         area: Rect,
         buf: &mut Buffer,
-        items: Vec<&str>,
+        items: &[String],
         content: &str,
+        selected_state: &mut ListState,
     ) {
         let horizontal = Layout::horizontal([
             Constraint::Percentage(25),
@@ -70,23 +76,27 @@ impl SelectedTab {
         ]);
         let [list_area, paragraph_area] = horizontal.areas(area);
 
-        let items: Vec<ListItem> =
-            items.iter().map(|item| ListItem::new(*item)).collect();
+        let items: Vec<ListItem> = items
+            .iter()
+            .map(|item| ListItem::new(item.as_str()))
+            .collect();
 
         let title = match self {
             SelectedTab::Diffs => "Diffs",
             _ => "Commits",
         };
 
-        let list = List::new(items).block(
-            Block::bordered()
-                .title(title)
-                .borders(Borders::ALL)
-                .padding(Padding::horizontal(1))
-                .border_style(self.palette().c700),
-        );
+        let list = List::new(items)
+            .block(
+                Block::bordered()
+                    .title(title)
+                    .borders(Borders::ALL)
+                    .padding(Padding::horizontal(1))
+                    .border_style(self.palette().c700),
+            )
+            .highlight_style(SELECTED_STYLE);
 
-        list.render(list_area, buf);
+        StatefulWidget::render(list, list_area, buf, selected_state);
 
         let paragraph = Paragraph::new(content).block(
             Block::bordered()

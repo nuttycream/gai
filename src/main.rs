@@ -1,7 +1,6 @@
 pub mod app;
 pub mod config;
 pub mod consts;
-pub mod draw;
 pub mod git;
 pub mod keys;
 pub mod provider;
@@ -38,7 +37,7 @@ async fn main() -> Result<()> {
     let (tx, mut rx) = mpsc::channel(3);
 
     while app.running {
-        terminal.draw(|f| f.render_widget(&ui, f.area()))?;
+        terminal.draw(|f| ui.render(f, &app))?;
 
         tokio::select! {
             Ok(event) = async { event::read() } => {
@@ -65,10 +64,10 @@ async fn handle_actions(
     if let Some(action) = keys::get_tui_action(event, &app.state) {
         match action {
             Action::Quit => app.running = false,
-            Action::ScrollUp => ui.scroll_up(&app),
-            Action::ScrollDown => ui.scroll_down(&app),
-            Action::FocusLeft => ui.focus_left(&app),
-            Action::FocusRight => ui.focus_right(&app),
+            Action::ScrollUp => ui.scroll_up(),
+            Action::ScrollDown => ui.scroll_down(),
+            Action::FocusLeft => ui.focus_left(),
+            Action::FocusRight => ui.focus_right(),
             Action::DiffTab => ui.goto_tab(1),
             Action::OpenAITab => ui.goto_tab(2),
             Action::ClaudeTab => ui.goto_tab(3),
