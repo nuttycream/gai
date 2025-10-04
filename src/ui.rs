@@ -111,8 +111,11 @@ impl UI {
         footer_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
     ) {
-        Line::raw("h / l to change tab | j / k to select diffs/commits | q to quit")
-            .centered()
-            .render(footer_area, buf);
+        Line::raw(
+            "h / l to change tab | j / k to select diffs/commits | \
+            d to remove a diff | q to quit",
+        )
+        .centered()
+        .render(footer_area, buf);
     }
 }
