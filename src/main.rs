@@ -9,10 +9,19 @@ pub mod tabs;
 pub mod ui;
 pub mod utils;
 
+use std::time::Duration;
+
 use anyhow::Result;
+use crossterm::event::{
+    Event as CrossTermEvent, EventStream, KeyEvent, KeyEventKind,
+};
 use dotenv::dotenv;
+use futures::{FutureExt, StreamExt};
 use ratatui::crossterm::event::{self, Event};
-use tokio::sync::mpsc::{self, Sender};
+use tokio::{
+    sync::mpsc::{self, Sender},
+    time::interval,
+};
 
 use crate::{
     app::{Action, App},
@@ -34,16 +43,25 @@ async fn main() -> Result<()> {
 
     let (tx, mut rx) = mpsc::channel(3);
 
+    let mut reader = EventStream::new();
+    let mut interval = interval(Duration::from_millis(100));
+
     while app.running {
+        let delay = interval.tick();
         terminal.draw(|f| app.run(f))?;
 
         tokio::select! {
-            Ok(event) = async { event::read() } => {
-                handle_actions(&mut app, event, tx.clone()).await;
+            maybe_event = reader.next().fuse() => {
+                if let Some(Ok(event)) = maybe_event {
+                    handle_actions(&mut app, event, tx.clone()).await;
+                }
             }
 
             Some((provider, result)) = rx.recv() => {
                 app.responses.insert(provider, result);
+            }
+
+            _ = delay => {
             }
         }
     }
@@ -55,28 +73,37 @@ async fn main() -> Result<()> {
 
 async fn handle_actions(
     app: &mut App,
-    event: Event,
+    event: CrossTermEvent,
     tx: Sender<(String, Result<Response, String>)>,
 ) {
-    if let Some(action) = keys::get_tui_action(event) {
-        let ui = &mut app.ui;
-        match action {
-            Action::Quit => app.running = false,
-            Action::ScrollUp => ui.scroll_up(),
-            Action::ScrollDown => ui.scroll_down(),
-            Action::FocusLeft => ui.focus_left(),
-            Action::FocusRight => ui.focus_right(),
-            Action::DiffTab => ui.goto_tab(1),
-            Action::OpenAITab => ui.goto_tab(2),
-            Action::ClaudeTab => ui.goto_tab(3),
-            Action::GeminiTab => ui.goto_tab(4),
-            Action::SendRequest => {
-                app.send_request(tx).await;
+    // this is somewhat jank, but from the ratatui docs
+    // it seems to be the better solution, though
+    // we dont necessarily have an EventHandler that
+    // may come in the future. that way we can pass this along
+    if let CrossTermEvent::Key(key) = event
+        && key.kind == KeyEventKind::Press
+    {
+        let pressed = CrossTermEvent::Key(key);
+        if let Some(action) = keys::get_tui_action(pressed) {
+            let ui = &mut app.ui;
+            match action {
+                Action::Quit => app.running = false,
+                Action::ScrollUp => ui.scroll_up(),
+                Action::ScrollDown => ui.scroll_down(),
+                Action::FocusLeft => ui.focus_left(),
+                Action::FocusRight => ui.focus_right(),
+                Action::DiffTab => ui.goto_tab(1),
+                Action::OpenAITab => ui.goto_tab(2),
+                Action::ClaudeTab => ui.goto_tab(3),
+                Action::GeminiTab => ui.goto_tab(4),
+                Action::SendRequest => {
+                    app.send_request(tx).await;
+                }
+                Action::ApplyCommits => {
+                    app.apply_commits();
+                }
+                _ => {}
             }
-            Action::ApplyCommits => {
-                app.apply_commits();
-            }
-            _ => {}
         }
     }
 }

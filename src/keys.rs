@@ -1,6 +1,6 @@
 use crate::app::Action;
 
-use ratatui::crossterm::event::{Event, KeyCode};
+use crossterm::event::{Event, KeyCode};
 
 pub fn get_tui_action(event: Event) -> Option<Action> {
     match event {
