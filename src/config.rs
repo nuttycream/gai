@@ -18,13 +18,12 @@ pub struct Config {
     pub ai: AI,
     pub api_key_file: String,
 
-    /// files that gai will ignore
-    /// this is separate from .gitignore
+    /// files that gai will be TRUNCATED
     /// you can use this to add specific files
     /// that are not really relevant to send to the AI provider
     /// such as a Cargo.lock or package-lock.json file
     /// which may take up valuable token space
-    pub files_to_ignore: Vec<String>,
+    pub files_to_truncate: Vec<String>,
 }
 
 impl Config {
@@ -35,7 +34,7 @@ impl Config {
             include_untracked: true,
             ai: AI::default(),
             api_key_file: "".to_owned(),
-            files_to_ignore: vec![
+            files_to_truncate: vec![
                 "Cargo.lock".to_owned(),
                 "package-lock.json".to_owned(),
             ],

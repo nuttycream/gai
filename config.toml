@@ -2,7 +2,7 @@ auto_request = false
 skip_splash = true
 include_untracked = true
 api_key_file = ""
-files_to_ignore = [
+files_to_truncate = [
     "Cargo.lock",
     "package-lock.json",
 ]
@@ -13,7 +13,6 @@ include_scope = true
 system_prompt = "You are an expert at git operations.Create git a logical list of git commits based on diffs and structure."
 include_convention = true
 rules = """
-
 - GROUP related files into LOGICAL commits based on the type of change
 - Examples of files that should be grouped together:
 * Multiple files implementing the same feature
@@ -26,15 +25,15 @@ rules = """
 * prefix: The appropriate type from the PrefixType enum
 * scope: The component name or "", DO NOT include the file extension please!
 * breaking: true if breaking change, false otherwise
-* message: ONLY the description, do NOT include prefix or scope in the message text"""
+* message: ONLY the description, do NOT include prefix or scope in the message text. Make sure your descriptions are ACCURATE and VERBOSE that closely align with the changes."""
 
 [ai.openai]
-enable = true
+enable = false
 model_name = "gpt-5-nano-2025-08-07"
 max_tokens = 5000
 
 [ai.gemini]
-enable = true
+enable = false
 model_name = "gemini-2.5-flash-lite"
 max_tokens = 5000
 
