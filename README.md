@@ -4,7 +4,7 @@
 
 # 
 
-gai, pronounced guy, is a git + AI powered TUI that automatically generates
+gai, is a git + AI powered TUI that automatically generates
 commits, commit messages, and branches when appropriate.
 
 It works by taking a diff of your repo and sending an API request to an LLM AI
