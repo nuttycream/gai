@@ -13,11 +13,10 @@ use std::time::Duration;
 
 use anyhow::Result;
 use crossterm::event::{
-    Event as CrossTermEvent, EventStream, KeyEvent, KeyEventKind,
+    Event as CrossTermEvent, EventStream, KeyEventKind,
 };
 use dotenv::dotenv;
 use futures::{FutureExt, StreamExt};
-use ratatui::crossterm::event::{self, Event};
 use tokio::{
     sync::mpsc::{self, Sender},
     time::interval,
@@ -58,6 +57,7 @@ async fn main() -> Result<()> {
             }
 
             Some((provider, result)) = rx.recv() => {
+                app.pending.remove(&provider);
                 app.responses.insert(provider, result);
             }
 
