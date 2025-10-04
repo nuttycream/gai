@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
@@ -19,12 +19,10 @@ pub struct App {
     pub ui: UI,
 
     pub responses: HashMap<String, Result<Response, String>>,
+    pub pending: HashSet<String>,
 }
 
 pub enum State {
-    // todo: impl spinner
-    SendingRequest(Sender<Response>),
-
     Running,
     Splash,
 }
@@ -67,6 +65,7 @@ impl App {
             gai,
             ui: UI::new(),
             responses: HashMap::new(),
+            pending: HashSet::new(),
         }
     }
 
@@ -82,6 +81,19 @@ impl App {
         tx: Sender<(String, Result<Response, String>)>,
     ) {
         let ai = &self.cfg.ai;
+
+        if ai.openai.enable {
+            self.pending
+                .insert(format!("OpenAI({})", ai.openai.model_name));
+        }
+        if ai.claude.enable {
+            self.pending
+                .insert(format!("Claude({})", ai.claude.model_name));
+        }
+        if ai.gemini.enable {
+            self.pending
+                .insert(format!("Gemini({})", ai.gemini.model_name));
+        }
 
         let mut diffs = String::new();
         for (file, diff) in &self.gai.diffs {
@@ -220,7 +232,17 @@ impl App {
                     Some((_, Err(e))) => {
                         format!("Error from provider:\n{}", e)
                     }
-                    None => "p to send request".to_owned(),
+                    None => {
+                        if self
+                            .pending
+                            .iter()
+                            .any(|p| p.starts_with(provider))
+                        {
+                            "Loading...".to_owned()
+                        } else {
+                            "Press p to send a request".to_owned()
+                        }
+                    }
                 }
             }
         }
