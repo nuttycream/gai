@@ -206,7 +206,7 @@ impl GaiGit {
                 Some("HEAD"),
                 &sig,
                 &sig,
-                &commit_msg,
+                commit_msg,
                 &tree,
                 &parents[..],
             )
