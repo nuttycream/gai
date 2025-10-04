@@ -40,7 +40,7 @@ pub enum Action {
 
     SendRequest,
     ApplyCommits,
-    RemoveCurrentItem,
+    RemoveCurrentSelected,
 
     Quit,
 
@@ -140,7 +140,20 @@ impl App {
         }
     }
 
-    pub fn get_list(&self) -> Vec<String> {
+    pub fn remove_selected(&mut self) {
+        if let SelectedTab::Diffs = self.ui.selected_tab {
+            let selection_list = self.get_list();
+            let selected_state_idx =
+                self.ui.selected_state.selected();
+            if let Some(selected) = selected_state_idx
+                && selected < self.gai.file_diffs.len()
+            {
+                self.gai.file_diffs.remove(&selection_list[selected]);
+            }
+        }
+    }
+
+    fn get_list(&self) -> Vec<String> {
         match self.ui.selected_tab {
             SelectedTab::Diffs => {
                 self.gai.file_diffs.clone().into_keys().collect()
@@ -173,7 +186,7 @@ impl App {
         }
     }
 
-    pub fn get_content(&self) -> TabContent {
+    fn get_content(&self) -> TabContent {
         let selection_list = self.get_list();
         let selected_tab = self.ui.selected_tab;
         let selected_state_idx = self.ui.selected_state.selected();

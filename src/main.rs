@@ -105,6 +105,9 @@ async fn handle_actions(
                     // applying commits
                     app.running = false;
                 }
+                Action::RemoveCurrentSelected => {
+                    app.remove_selected();
+                }
                 _ => {}
             }
         }
