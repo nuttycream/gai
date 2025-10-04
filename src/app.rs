@@ -7,7 +7,7 @@ use crate::{
     config::Config,
     git::GaiGit,
     response::{Commit, Response},
-    tabs::SelectedTab,
+    tabs::{SelectedTab, TabContent},
     ui::UI,
 };
 
@@ -71,9 +71,9 @@ impl App {
 
     pub fn run(&mut self, frame: &mut Frame) {
         let items = &self.get_list();
-        let content = &self.get_content();
+        let tab_content = &self.get_content();
 
-        self.ui.render(frame, items, content);
+        self.ui.render(frame, items, tab_content);
     }
 
     pub async fn send_request(
@@ -96,8 +96,15 @@ impl App {
         }
 
         let mut diffs = String::new();
-        for (file, diff) in &self.gai.file_diffs {
+        for (file, diff) in &self.gai.get_file_diffs_as_str() {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
+        }
+
+        for truncated in &self.gai.truncated_files {
+            diffs.push_str(&format!(
+                "Truncated File:\n{}\n",
+                truncated
+            ));
         }
 
         let mut rx = ai.get_responses(&diffs).await.unwrap();
@@ -166,7 +173,7 @@ impl App {
         }
     }
 
-    pub fn get_content(&self) -> String {
+    pub fn get_content(&self) -> TabContent {
         let selection_list = self.get_list();
         let selected_tab = self.ui.selected_tab;
         let selected_state_idx = self.ui.selected_state.selected();
@@ -180,9 +187,11 @@ impl App {
                         .file_diffs
                         .get(&selection_list[selected])
                 {
-                    diff.to_owned()
+                    TabContent::Diff(diff.to_owned())
                 } else {
-                    "select a file to view it's diff".to_owned()
+                    TabContent::Description(
+                        "Select a file to view it's diffs".to_owned(),
+                    )
                 }
             }
             SelectedTab::OpenAI
@@ -198,11 +207,18 @@ impl App {
                     SelectedTab::Gemini => {
                         ("Gemini", self.cfg.ai.gemini.enable)
                     }
-                    _ => return String::new(),
+                    _ => {
+                        return TabContent::Description(
+                            "No matching AI provider (shouldn't see this btw)".to_owned(),
+                        );
+                    }
                 };
 
                 if !enabled {
-                    return "Not Enabled".to_owned();
+                    return TabContent::Description(format!(
+                        "{} Provider not enabled",
+                        provider
+                    ));
                 }
 
                 match self
@@ -226,23 +242,30 @@ impl App {
                                 "description:\n{}\n",
                                 commit.get_commit_message(&self.cfg)
                             ));
-                            content
+                            TabContent::Description(content)
                         } else {
-                            "select commit to view details".to_owned()
+                            TabContent::Description(
+                                "Select Commit to View Description/Details".to_owned()
+                            )
                         }
                     }
-                    Some((_, Err(e))) => {
-                        format!("Error from provider:\n{}", e)
-                    }
+                    Some((_, Err(e))) => TabContent::Description(
+                        format!("Error from provider:\n{}", e),
+                    ),
                     None => {
                         if self
                             .pending
                             .iter()
                             .any(|p| p.starts_with(provider))
                         {
-                            "Loading...".to_owned()
+                            TabContent::Description(
+                                "Loading...".to_owned(),
+                            )
                         } else {
-                            "Press p to send a request".to_owned()
+                            TabContent::Description(
+                                "Press p to send a request"
+                                    .to_owned(),
+                            )
                         }
                     }
                 }

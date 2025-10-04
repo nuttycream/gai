@@ -10,6 +10,8 @@ use ratatui::{
 };
 use strum::{Display, EnumIter, FromRepr};
 
+use crate::git::{DiffType, HunkDiff};
+
 const SELECTED_STYLE: Style = Style::new()
     .bg(tailwind::SLATE.c800)
     .add_modifier(Modifier::BOLD);
@@ -23,16 +25,33 @@ pub enum SelectedTab {
     Gemini,
 }
 
+/// wrapper to determine
+/// if we should display
+/// plain strings (such as a
+/// commit message desc) or structured
+/// diffs, imo, i think this is fine
+/// compared to what i was doing before
+pub enum TabContent {
+    Description(String),
+    Diff(Vec<HunkDiff>),
+}
+
 impl SelectedTab {
     pub fn render(
         self,
         area: Rect,
         buf: &mut Buffer,
         items: &[String],
-        content: &str,
+        tab_content: &TabContent,
         selected_state: &mut ListState,
     ) {
-        self.render_layout(area, buf, items, content, selected_state);
+        self.render_layout(
+            area,
+            buf,
+            items,
+            tab_content,
+            selected_state,
+        );
     }
 
     /// Get the previous tab, if there is no previous tab return the current tab.
@@ -67,7 +86,7 @@ impl SelectedTab {
         area: Rect,
         buf: &mut Buffer,
         items: &[String],
-        content: &str,
+        content: &TabContent,
         selected_state: &mut ListState,
     ) {
         let horizontal = Layout::horizontal([
@@ -98,17 +117,63 @@ impl SelectedTab {
 
         StatefulWidget::render(list, list_area, buf, selected_state);
 
-        let paragraph = Paragraph::new(content)
-            .block(
-                Block::bordered()
-                    .title("Content")
-                    .borders(Borders::ALL)
-                    .padding(Padding::horizontal(1))
-                    .border_style(self.palette().c700),
-            )
-            .wrap(Wrap { trim: false });
+        match content {
+            TabContent::Description(desc) => {
+                let paragraph = Paragraph::new(desc.to_owned())
+                    .block(
+                        Block::bordered()
+                            .title("Content")
+                            .borders(Borders::ALL)
+                            .padding(Padding::horizontal(1))
+                            .border_style(self.palette().c700),
+                    )
+                    .wrap(Wrap { trim: false });
 
-        paragraph.render(paragraph_area, buf);
+                paragraph.render(paragraph_area, buf);
+            }
+            TabContent::Diff(hunk_diffs) => {
+                let mut lines: Vec<Line> = Vec::new();
+
+                for hunk in hunk_diffs {
+                    lines.push(
+                        Line::from(hunk.header.clone())
+                            .bg(tailwind::BLUE.c900),
+                    );
+
+                    for line_diff in &hunk.line_diffs {
+                        let styled_line = match line_diff.diff_type {
+                            DiffType::Additions => Line::from(
+                                format!("+{}", line_diff.content),
+                            )
+                            .bg(tailwind::GREEN.c950),
+                            DiffType::Deletions => Line::from(
+                                format!("-{}", line_diff.content),
+                            )
+                            .bg(tailwind::RED.c950),
+                            DiffType::Unchanged => Line::from(
+                                line_diff.content.to_owned(),
+                            ),
+                        };
+                        lines.push(styled_line);
+                    }
+
+                    // Optional: add spacing between hunks
+                    lines.push(Line::from(""));
+                }
+
+                let paragraph = Paragraph::new(lines)
+                    .block(
+                        Block::bordered()
+                            .title("Content")
+                            .borders(Borders::ALL)
+                            .padding(Padding::horizontal(1))
+                            .border_style(self.palette().c700),
+                    )
+                    .wrap(Wrap { trim: false });
+
+                paragraph.render(paragraph_area, buf);
+            }
+        }
     }
 
     pub const fn palette(self) -> tailwind::Palette {

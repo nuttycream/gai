@@ -7,12 +7,13 @@ use std::{collections::HashMap, path::Path};
 use crate::{config::Config, response::Commit};
 
 pub struct GaiGit {
-    pub file_diffs: HashMap<String, String>,
+    pub file_diffs: HashMap<String, Vec<HunkDiff>>,
+    pub truncated_files: Vec<String>,
 
     repo: Repository,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HunkDiff {
     /// example key (header)
     /// @@ -12,8 +12,9 @@
@@ -23,14 +24,14 @@ pub struct HunkDiff {
     pub line_diffs: Vec<LineDiff>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LineDiff {
     pub diff_type: DiffType,
     pub content: String,
 }
 
 /// taken from diffline::origin
-#[derive(Default, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
 pub enum DiffType {
     #[default]
     Unchanged,
@@ -55,6 +56,7 @@ impl GaiGit {
         Ok(GaiGit {
             repo,
             file_diffs: HashMap::new(),
+            truncated_files: Vec::new(),
         })
     }
 
@@ -106,10 +108,7 @@ impl GaiGit {
                 .to_owned();
 
             if files_to_truncate.iter().any(|f| path.ends_with(f)) {
-                self.file_diffs.insert(
-                    path.clone(),
-                    "TRUNCATED FILE".to_owned(),
-                );
+                self.truncated_files.push(path.clone());
             }
 
             let diff_hunks =
@@ -120,7 +119,14 @@ impl GaiGit {
             true
         })?;
 
-        for (path, hunks) in unique_hunks {
+        self.file_diffs = unique_hunks;
+
+        Ok(())
+    }
+
+    pub fn get_file_diffs_as_str(&self) -> HashMap<String, String> {
+        let mut file_diffs = HashMap::new();
+        for (path, hunks) in &self.file_diffs {
             let mut diff_str = String::new();
 
             for hunk in hunks {
@@ -139,11 +145,11 @@ impl GaiGit {
                 diff_str.push('\n');
             }
             if !diff_str.trim().is_empty() {
-                self.file_diffs.insert(path, diff_str);
+                file_diffs.insert(path.to_owned(), diff_str);
             }
         }
 
-        Ok(())
+        file_diffs
     }
 
     pub fn apply_commits(&self, commits: &[Commit], cfg: &Config) {
