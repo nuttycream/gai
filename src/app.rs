@@ -96,7 +96,7 @@ impl App {
         }
 
         let mut diffs = String::new();
-        for (file, diff) in &self.gai.diffs {
+        for (file, diff) in &self.gai.file_diffs {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
         }
 
@@ -128,7 +128,7 @@ impl App {
                     .map(|response| response.commits.to_owned())
                     .unwrap_or_default();
 
-                self.gai.apply_commits(&commits);
+                self.gai.apply_commits(&commits, &self.cfg);
             }
         }
     }
@@ -136,7 +136,7 @@ impl App {
     pub fn get_list(&self) -> Vec<String> {
         match self.ui.selected_tab {
             SelectedTab::Diffs => {
-                self.gai.diffs.clone().into_keys().collect()
+                self.gai.file_diffs.clone().into_keys().collect()
             }
             SelectedTab::OpenAI
             | SelectedTab::Claude
@@ -174,9 +174,11 @@ impl App {
         match selected_tab {
             SelectedTab::Diffs => {
                 if let Some(selected) = selected_state_idx
-                    && selected < self.gai.diffs.len()
-                    && let Some(diff) =
-                        self.gai.diffs.get(&selection_list[selected])
+                    && selected < self.gai.file_diffs.len()
+                    && let Some(diff) = self
+                        .gai
+                        .file_diffs
+                        .get(&selection_list[selected])
                 {
                     diff.to_owned()
                 } else {

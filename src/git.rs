@@ -4,10 +4,10 @@ use git2::{
 };
 use std::{collections::HashMap, path::Path};
 
-use crate::response::Commit;
+use crate::{config::Config, response::Commit};
 
 pub struct GaiGit {
-    pub diffs: HashMap<String, String>,
+    pub file_diffs: HashMap<String, String>,
 
     repo: Repository,
 }
@@ -54,13 +54,13 @@ impl GaiGit {
 
         Ok(GaiGit {
             repo,
-            diffs: HashMap::new(),
+            file_diffs: HashMap::new(),
         })
     }
 
     pub fn create_diffs(
         &mut self,
-        to_ignore: &[String],
+        files_to_truncate: &[String],
     ) -> Result<(), git2::Error> {
         // start this puppy up
         let mut opts = DiffOptions::new();
@@ -105,9 +105,11 @@ impl GaiGit {
                 .unwrap()
                 .to_owned();
 
-            // skip I think
-            if to_ignore.iter().any(|f| path.ends_with(f)) {
-                return true;
+            if files_to_truncate.iter().any(|f| path.ends_with(f)) {
+                self.file_diffs.insert(
+                    path.clone(),
+                    "TRUNCATED FILE".to_owned(),
+                );
             }
 
             let diff_hunks =
@@ -137,21 +139,21 @@ impl GaiGit {
                 diff_str.push('\n');
             }
             if !diff_str.trim().is_empty() {
-                self.diffs.insert(path, diff_str);
+                self.file_diffs.insert(path, diff_str);
             }
         }
 
         Ok(())
     }
 
-    pub fn apply_commits(&self, commits: &[Commit]) {
+    pub fn apply_commits(&self, commits: &[Commit], cfg: &Config) {
         //println!("{:#?}", self.commits);
         for commit in commits {
-            self.commit(commit);
+            self.commit(commit, cfg);
         }
     }
 
-    fn commit(&self, commit: &Commit) {
+    fn commit(&self, commit: &Commit, cfg: &Config) {
         let mut index = self.repo.index().unwrap();
 
         index.clear().unwrap();
@@ -191,22 +193,14 @@ impl GaiGit {
         }
 
         let sig = self.repo.signature().unwrap();
+        let commit_msg = &commit.get_commit_message(cfg);
 
         self.repo
             .commit(
                 Some("HEAD"),
                 &sig,
                 &sig,
-                &format!(
-                    "{}: {}",
-                    {
-                        let prefix =
-                            format!("{:?}", commit.message.prefix);
-                        // todo use cfg setting
-                        prefix.to_lowercase()
-                    },
-                    commit.message.message
-                ),
+                &commit_msg,
                 &tree,
                 &parents[..],
             )

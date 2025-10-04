@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     let cfg = config::Config::init("config.toml")?;
 
     let mut gai = git::GaiGit::new(".")?;
-    gai.create_diffs(&cfg.files_to_ignore)?;
+    gai.create_diffs(&cfg.files_to_truncate)?;
 
     let mut app = App::new(cfg, gai);
 
@@ -101,6 +101,9 @@ async fn handle_actions(
                 }
                 Action::ApplyCommits => {
                     app.apply_commits();
+                    // for now just exit right after
+                    // applying commits
+                    app.running = false;
                 }
                 _ => {}
             }
