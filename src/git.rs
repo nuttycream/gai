@@ -121,6 +121,49 @@ impl GaiGit {
 
         self.file_diffs = unique_hunks;
 
+        // handle untracked files here
+        // would create a sep func, but lesdodis for now
+        // also i had this before, forgot to re-add after rewrite
+        let mut status_opts = StatusOptions::new();
+        status_opts.include_untracked(true);
+        let statuses = self.repo.statuses(Some(&mut status_opts))?;
+
+        for entry in statuses.iter() {
+            if entry.status().contains(git2::Status::WT_NEW) {
+                let path = entry.path().unwrap();
+
+                if files_to_truncate.iter().any(|f| path.ends_with(f))
+                {
+                    self.truncated_files.push(path.to_owned());
+                    continue;
+                }
+
+                if let Ok(content) = std::fs::read_to_string(path) {
+                    let lines: Vec<LineDiff> = content
+                        .lines()
+                        .map(|line| LineDiff {
+                            diff_type: DiffType::Additions,
+                            content: format!("{}\n", line),
+                        })
+                        .collect();
+
+                    self.file_diffs.insert(
+                        path.to_string(),
+                        vec![HunkDiff {
+                            // just set header as a new file,
+                            // hopefully thats enough context
+                            // for an llm
+                            header: format!(
+                                "new file {}",
+                                lines.len()
+                            ),
+                            line_diffs: lines,
+                        }],
+                    );
+                }
+            }
+        }
+
         Ok(())
     }
 
