@@ -156,7 +156,12 @@ impl App {
     fn get_list(&self) -> Vec<String> {
         match self.ui.selected_tab {
             SelectedTab::Diffs => {
-                self.gai.file_diffs.clone().into_keys().collect()
+                let mut files: Vec<String> =
+                    self.gai.file_diffs.clone().into_keys().collect();
+
+                files.append(&mut self.gai.truncated_files.clone());
+
+                files
             }
             SelectedTab::OpenAI
             | SelectedTab::Claude
@@ -194,13 +199,29 @@ impl App {
         match selected_tab {
             SelectedTab::Diffs => {
                 if let Some(selected) = selected_state_idx
-                    && selected < self.gai.file_diffs.len()
-                    && let Some(diff) = self
-                        .gai
-                        .file_diffs
-                        .get(&selection_list[selected])
+                    && selected < selection_list.len()
                 {
-                    TabContent::Diff(diff.to_owned())
+                    let selected_file = &selection_list[selected];
+
+                    if self
+                        .gai
+                        .truncated_files
+                        .contains(selected_file)
+                    {
+                        TabContent::Description(
+                            "Truncated Per Configuration..."
+                                .to_owned(),
+                        )
+                    } else if let Some(diff) =
+                        self.gai.file_diffs.get(selected_file)
+                    {
+                        TabContent::Diff(diff.to_owned())
+                    } else {
+                        TabContent::Description(
+                            "Select a file to view it's diffs"
+                                .to_owned(),
+                        )
+                    }
                 } else {
                     TabContent::Description(
                         "Select a file to view it's diffs".to_owned(),
