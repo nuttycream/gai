@@ -156,9 +156,6 @@ impl SelectedTab {
                         };
                         lines.push(styled_line);
                     }
-
-                    // Optional: add spacing between hunks
-                    lines.push(Line::from(""));
                 }
 
                 let paragraph = Paragraph::new(lines)
