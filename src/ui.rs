@@ -2,7 +2,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Layout},
     style::Color,
-    text::Line,
+    text::{Line, Text},
     widgets::{ListState, Tabs, Widget},
 };
 use strum::IntoEnumIterator;
@@ -50,7 +50,7 @@ impl UI {
     ) {
         use Constraint::{Length, Min};
         let vertical =
-            Layout::vertical([Length(1), Min(0), Length(1)])
+            Layout::vertical([Length(1), Min(0), Length(2)])
                 .margin(5);
         let [header_area, inner_area, footer_area] =
             vertical.areas(frame.area());
@@ -111,10 +111,10 @@ impl UI {
         footer_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
     ) {
-        Line::raw(
-            "h / l to change tab | j / k to select diffs/commits | \
-            d to remove a diff | q to quit",
-        )
+        Text::from(vec![
+            Line::raw("h / l to change tab | j / k to select diffs/commits |"),
+            Line::raw("d to remove a diff | t to toggle truncation | q to quit"),
+        ])
         .centered()
         .render(footer_area, buf);
     }

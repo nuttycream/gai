@@ -7,10 +7,16 @@ use std::{collections::HashMap, path::Path};
 use crate::{config::Config, response::Commit};
 
 pub struct GaiGit {
-    pub file_diffs: HashMap<String, Vec<HunkDiff>>,
-    pub truncated_files: Vec<String>,
+    /// file name, (should truncate? and vec of hunks)
+    pub files: Vec<GaiFile>,
 
     repo: Repository,
+}
+
+pub struct GaiFile {
+    pub path: String,
+    pub should_truncate: bool,
+    pub hunks: Vec<HunkDiff>,
 }
 
 #[derive(Debug, Clone)]
@@ -55,8 +61,7 @@ impl GaiGit {
 
         Ok(GaiGit {
             repo,
-            file_diffs: HashMap::new(),
-            truncated_files: Vec::new(),
+            files: Vec::new(),
         })
     }
 
@@ -76,12 +81,7 @@ impl GaiGit {
         let diff =
             repo.diff_tree_to_workdir(Some(&head), Some(&mut opts))?;
 
-        // after moving this from main, i still need to track
-        // the hunks, so i can group them per file.
-        // this may not be needed in the future
-        // once we add some sort of way to stage
-        // specific hunks similar to git add -p
-        let mut unique_hunks = HashMap::new();
+        let mut gai_files: Vec<GaiFile> = Vec::new();
 
         diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
             /* match delta.status() {
@@ -107,19 +107,28 @@ impl GaiGit {
                 .unwrap()
                 .to_owned();
 
-            if files_to_truncate.iter().any(|f| path.ends_with(f)) {
-                self.truncated_files.push(path.clone());
-            }
+            let should_truncate =
+                files_to_truncate.iter().any(|f| path.ends_with(f));
 
-            let diff_hunks =
-                unique_hunks.entry(path).or_insert_with(Vec::new);
+            let gai_file =
+                match gai_files.iter_mut().find(|g| g.path == path) {
+                    Some(existing) => existing,
+                    None => {
+                        gai_files.push(GaiFile {
+                            path: path.clone(),
+                            should_truncate,
+                            hunks: Vec::new(),
+                        });
+                        gai_files.last_mut().unwrap()
+                    }
+                };
 
-            process_file_diff(diff_hunks, &hunk, &line);
+            process_file_diff(&mut gai_file.hunks, &hunk, &line);
 
             true
         })?;
 
-        self.file_diffs = unique_hunks;
+        self.files = gai_files;
 
         // handle untracked files here
         // would create a sep func, but lesdodis for now
@@ -131,12 +140,9 @@ impl GaiGit {
         for entry in statuses.iter() {
             if entry.status().contains(git2::Status::WT_NEW) {
                 let path = entry.path().unwrap();
-
-                if files_to_truncate.iter().any(|f| path.ends_with(f))
-                {
-                    self.truncated_files.push(path.to_owned());
-                    continue;
-                }
+                let should_truncate = files_to_truncate
+                    .iter()
+                    .any(|f| path.ends_with(f));
 
                 if let Ok(content) = std::fs::read_to_string(path) {
                     let lines: Vec<LineDiff> = content
@@ -147,19 +153,17 @@ impl GaiGit {
                         })
                         .collect();
 
-                    self.file_diffs.insert(
-                        path.to_string(),
-                        vec![HunkDiff {
-                            // just set header as a new file,
-                            // hopefully thats enough context
-                            // for an llm
+                    self.files.push(GaiFile {
+                        path: path.to_string(),
+                        should_truncate,
+                        hunks: vec![HunkDiff {
                             header: format!(
                                 "new file {}",
                                 lines.len()
                             ),
                             line_diffs: lines,
                         }],
-                    );
+                    });
                 }
             }
         }
@@ -169,10 +173,14 @@ impl GaiGit {
 
     pub fn get_file_diffs_as_str(&self) -> HashMap<String, String> {
         let mut file_diffs = HashMap::new();
-        for (path, hunks) in &self.file_diffs {
+        for gai_file in &self.files {
             let mut diff_str = String::new();
+            if gai_file.should_truncate {
+                diff_str.push_str("Truncated File");
+                continue;
+            }
 
-            for hunk in hunks {
+            for hunk in &gai_file.hunks {
                 diff_str.push_str(&hunk.header);
                 diff_str.push('\n');
 
@@ -188,7 +196,7 @@ impl GaiGit {
                 diff_str.push('\n');
             }
             if !diff_str.trim().is_empty() {
-                file_diffs.insert(path.to_owned(), diff_str);
+                file_diffs.insert(gai_file.path.to_owned(), diff_str);
             }
         }
 

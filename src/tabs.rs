@@ -151,14 +151,11 @@ impl SelectedTab {
                             )
                             .bg(tailwind::RED.c950),
                             DiffType::Unchanged => Line::from(
-                                line_diff.content.to_owned(),
+                                format!(" {}", line_diff.content),
                             ),
                         };
                         lines.push(styled_line);
                     }
-
-                    // Optional: add spacing between hunks
-                    lines.push(Line::from(""));
                 }
 
                 let paragraph = Paragraph::new(lines)

@@ -26,6 +26,9 @@ pub fn get_tui_action(event: Event) -> Option<Action> {
             }
 
             KeyCode::Char('d') => Some(Action::RemoveCurrentSelected),
+            KeyCode::Char('t') => {
+                Some(Action::TruncateCurrentSelected)
+            }
 
             // todo; needs to be selected tab aware
             // here or in main.rs
