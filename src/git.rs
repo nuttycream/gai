@@ -30,6 +30,10 @@ pub struct LineDiff {
     pub content: String,
 }
 
+pub enum FileType {
+    DiffDelta,
+}
+
 /// taken from diffline::origin
 #[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
 pub enum DiffType {
@@ -107,14 +111,17 @@ impl GaiGit {
                 .unwrap()
                 .to_owned();
 
-            if files_to_truncate.iter().any(|f| path.ends_with(f)) {
+            if files_to_truncate.iter().any(|f| path.ends_with(f))
+                && !self.truncated_files.contains(&path)
+            {
                 self.truncated_files.push(path.clone());
+                println!("Adding Truncated File");
+            } else {
+                let diff_hunks =
+                    unique_hunks.entry(path).or_insert_with(Vec::new);
+
+                process_file_diff(diff_hunks, &hunk, &line);
             }
-
-            let diff_hunks =
-                unique_hunks.entry(path).or_insert_with(Vec::new);
-
-            process_file_diff(diff_hunks, &hunk, &line);
 
             true
         })?;
