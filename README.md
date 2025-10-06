@@ -4,12 +4,14 @@
 
 # 
 
-gai, is a git + AI powered TUI that automatically generates
-commits, commit messages, and branches when appropriate.
+gai, is a git + AI powered TUI that automatically generates commits, commit
+messages, and branches when appropriate.
 
-It works by taking a diff of your repo and sending an API request to an LLM AI
-provider, where it takes that response and builds out git operations along with
-messages for you to review and send out - simplifying the process greatly.
+It is yet another entry to the **A**rtificial (intelligence) **S**lop
+**S**oftware initiative (aka. ASS). It works by taking a diff of your repo and
+sending an API request to an LLM AI provider, where it takes that response and
+builds out git operations along with messages for you to review and send out -
+simplifying the process greatly.
 
 > [!NOTE]
 > This is not a complete git replacement. In fact, I recommend heavily relying
