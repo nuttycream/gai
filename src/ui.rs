@@ -113,7 +113,7 @@ impl UI {
     ) {
         Line::raw(
             "h / l to change tab | j / k to select diffs/commits | \
-            d to remove a diff | q to quit",
+            d to remove a diff | t to toggle truncation | q to quit",
         )
         .centered()
         .render(footer_area, buf);

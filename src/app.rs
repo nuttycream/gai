@@ -41,6 +41,7 @@ pub enum Action {
     SendRequest,
     ApplyCommits,
     RemoveCurrentSelected,
+    TruncateCurrentSelected,
 
     Quit,
 
@@ -100,13 +101,6 @@ impl App {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
         }
 
-        for truncated in &self.gai.truncated_files {
-            diffs.push_str(&format!(
-                "Truncated File:\n{}\n",
-                truncated
-            ));
-        }
-
         let mut rx = ai.get_responses(&diffs).await.unwrap();
         tokio::spawn(async move {
             while let Some(from_the_ai) = rx.recv().await {
@@ -146,23 +140,42 @@ impl App {
             let selected_state_idx =
                 self.ui.selected_state.selected();
             if let Some(selected) = selected_state_idx
-                && selected < self.gai.file_diffs.len()
+                && selected < self.gai.files.len()
             {
-                self.gai.file_diffs.remove(&selection_list[selected]);
+                let selected_file = &selection_list[selected];
+                if let Some(pos) = self
+                    .gai
+                    .files
+                    .iter()
+                    .position(|g| g.path == *selected_file)
+                {
+                    self.gai.files.remove(pos);
+                }
+            }
+        }
+    }
+
+    pub fn truncate_selected(&mut self) {
+        if let SelectedTab::Diffs = self.ui.selected_tab {
+            let selected_state_idx =
+                self.ui.selected_state.selected();
+            if let Some(selected) = selected_state_idx
+                && selected < self.gai.files.len()
+            {
+                self.gai.files[selected].should_truncate =
+                    !self.gai.files[selected].should_truncate;
             }
         }
     }
 
     fn get_list(&self) -> Vec<String> {
         match self.ui.selected_tab {
-            SelectedTab::Diffs => {
-                let mut files: Vec<String> =
-                    self.gai.file_diffs.clone().into_keys().collect();
-
-                //files.append(&mut self.gai.truncated_files.clone());
-
-                files
-            }
+            SelectedTab::Diffs => self
+                .gai
+                .files
+                .iter()
+                .map(|g| g.path.to_owned())
+                .collect(),
             SelectedTab::OpenAI
             | SelectedTab::Claude
             | SelectedTab::Gemini => {
@@ -197,37 +210,30 @@ impl App {
         let selected_state_idx = self.ui.selected_state.selected();
 
         match selected_tab {
-            SelectedTab::Diffs => {
-                if let Some(selected) = selected_state_idx
-                    && selected < selection_list.len()
-                {
-                    let selected_file = &selection_list[selected];
-
-                    if self
-                        .gai
-                        .truncated_files
-                        .contains(selected_file)
-                    {
-                        TabContent::Description(
-                            "Truncated Per Configuration..."
-                                .to_owned(),
-                        )
-                    } else if let Some(diff) =
-                        self.gai.file_diffs.get(selected_file)
-                    {
-                        TabContent::Diff(diff.to_owned())
-                    } else {
-                        TabContent::Description(
-                            "Select a file to view it's diffs"
-                                .to_owned(),
-                        )
-                    }
-                } else {
+            SelectedTab::Diffs => selected_state_idx
+                .filter(|&selected| selected < selection_list.len())
+                .and_then(|selected| {
+                    self.gai
+                        .files
+                        .iter()
+                        .find(|gai| {
+                            gai.path == selection_list[selected]
+                        })
+                        .map(|gai| {
+                            if gai.should_truncate {
+                                TabContent::Description(
+                                    "Truncated File".to_owned(),
+                                )
+                            } else {
+                                TabContent::Diff(gai.hunks.clone())
+                            }
+                        })
+                })
+                .unwrap_or_else(|| {
                     TabContent::Description(
                         "Select a file to view it's diffs".to_owned(),
                     )
-                }
-            }
+                }),
             SelectedTab::OpenAI
             | SelectedTab::Claude
             | SelectedTab::Gemini => {

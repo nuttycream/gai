@@ -108,6 +108,9 @@ async fn handle_actions(
                 Action::RemoveCurrentSelected => {
                     app.remove_selected();
                 }
+                Action::TruncateCurrentSelected => {
+                    app.truncate_selected();
+                }
                 _ => {}
             }
         }
