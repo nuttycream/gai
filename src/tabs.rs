@@ -151,7 +151,7 @@ impl SelectedTab {
                             )
                             .bg(tailwind::RED.c950),
                             DiffType::Unchanged => Line::from(
-                                line_diff.content.to_owned(),
+                                format!(" {}", line_diff.content),
                             ),
                         };
                         lines.push(styled_line);
