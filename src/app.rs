@@ -159,7 +159,7 @@ impl App {
                 let mut files: Vec<String> =
                     self.gai.file_diffs.clone().into_keys().collect();
 
-                files.append(&mut self.gai.truncated_files.clone());
+                //files.append(&mut self.gai.truncated_files.clone());
 
                 files
             }
