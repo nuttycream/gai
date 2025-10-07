@@ -240,10 +240,13 @@ impl GaiGit {
 
             if status.contains(git2::Status::WT_MODIFIED)
                 || status.contains(git2::Status::WT_NEW)
-                || status.contains(git2::Status::WT_DELETED)
-                || status.contains(git2::Status::WT_TYPECHANGE)
-                || status.contains(git2::Status::WT_RENAMED)
+            //|| status.contains(git2::Status::WT_DELETED)
+            //|| status.contains(git2::Status::WT_TYPECHANGE)
+            //|| status.contains(git2::Status::WT_RENAMED)
             {
+                // this panics on WT_DELETED etc,
+                // since the path no longer exists
+                // we migh tneed to work around IndexEntries instead
                 index.add_path(path).unwrap();
             }
         }
