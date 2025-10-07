@@ -3,8 +3,9 @@ use git2::{
     DiffHunk, DiffLine, DiffOptions, Repository, StatusOptions,
 };
 use std::{collections::HashMap, path::Path};
+use walkdir::WalkDir;
 
-use crate::{config::Config, response::Commit};
+use crate::{ai::response::Commit, config::Config};
 
 pub struct GaiGit {
     /// file name, (should truncate? and vec of hunks)
@@ -144,26 +145,36 @@ impl GaiGit {
                     .iter()
                     .any(|f| path.ends_with(f));
 
-                if let Ok(content) = std::fs::read_to_string(path) {
-                    let lines: Vec<LineDiff> = content
-                        .lines()
-                        .map(|line| LineDiff {
-                            diff_type: DiffType::Additions,
-                            content: format!("{}\n", line),
-                        })
-                        .collect();
+                for entry in WalkDir::new(path)
+                    .follow_links(true)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                {
+                    if entry.path().is_file()
+                        && let Ok(content) =
+                            std::fs::read_to_string(entry.path())
+                    {
+                        let path = entry.path().to_str().unwrap();
+                        let lines: Vec<LineDiff> = content
+                            .lines()
+                            .map(|line| LineDiff {
+                                diff_type: DiffType::Additions,
+                                content: format!("{}\n", line),
+                            })
+                            .collect();
 
-                    self.files.push(GaiFile {
-                        path: path.to_string(),
-                        should_truncate,
-                        hunks: vec![HunkDiff {
-                            header: format!(
-                                "new file {}",
-                                lines.len()
-                            ),
-                            line_diffs: lines,
-                        }],
-                    });
+                        self.files.push(GaiFile {
+                            path: path.to_owned(),
+                            should_truncate,
+                            hunks: vec![HunkDiff {
+                                header: format!(
+                                    "new file {}",
+                                    lines.len()
+                                ),
+                                line_diffs: lines,
+                            }],
+                        });
+                    }
                 }
             }
         }
@@ -177,6 +188,7 @@ impl GaiGit {
             let mut diff_str = String::new();
             if gai_file.should_truncate {
                 diff_str.push_str("Truncated File");
+                file_diffs.insert(gai_file.path.to_owned(), diff_str);
                 continue;
             }
 
