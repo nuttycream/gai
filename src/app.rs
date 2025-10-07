@@ -7,8 +7,8 @@ use crate::{
     ai::response::{Commit, Response},
     config::Config,
     git::GaiGit,
-    tabs::{SelectedTab, TabContent},
-    ui::UI,
+    tui::tabs::{SelectedTab, TabContent},
+    tui::ui::UI,
 };
 
 pub struct App {

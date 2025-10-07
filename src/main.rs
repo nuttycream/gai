@@ -4,8 +4,7 @@ pub mod config;
 pub mod consts;
 pub mod git;
 pub mod keys;
-pub mod tabs;
-pub mod ui;
+pub mod tui;
 pub mod utils;
 
 use std::time::Duration;
