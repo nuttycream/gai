@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{fs, io::ErrorKind};
 
-use crate::provider::AI;
+use crate::ai::provider::AI;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Config {

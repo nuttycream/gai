@@ -1,10 +1,9 @@
+pub mod ai;
 pub mod app;
 pub mod config;
 pub mod consts;
 pub mod git;
 pub mod keys;
-pub mod provider;
-pub mod response;
 pub mod tabs;
 pub mod ui;
 pub mod utils;
@@ -23,8 +22,8 @@ use tokio::{
 };
 
 use crate::{
+    ai::response::Response,
     app::{Action, App},
-    response::Response,
 };
 
 #[tokio::main]

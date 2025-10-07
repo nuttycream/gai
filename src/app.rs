@@ -4,9 +4,9 @@ use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
 use crate::{
+    ai::response::{Commit, Response},
     config::Config,
     git::GaiGit,
-    response::{Commit, Response},
     tabs::{SelectedTab, TabContent},
     ui::UI,
 };
