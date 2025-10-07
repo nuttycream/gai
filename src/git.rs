@@ -240,6 +240,9 @@ impl GaiGit {
 
             if status.contains(git2::Status::WT_MODIFIED)
                 || status.contains(git2::Status::WT_NEW)
+                || status.contains(git2::Status::WT_DELETED)
+                || status.contains(git2::Status::WT_TYPECHANGE)
+                || status.contains(git2::Status::WT_RENAMED)
             {
                 index.add_path(path).unwrap();
             }
