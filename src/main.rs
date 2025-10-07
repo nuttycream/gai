@@ -2,8 +2,8 @@ pub mod ai;
 pub mod app;
 pub mod config;
 pub mod consts;
+pub mod events;
 pub mod git;
-pub mod keys;
 pub mod tui;
 pub mod utils;
 
@@ -82,7 +82,7 @@ async fn handle_actions(
         && key.kind == KeyEventKind::Press
     {
         let pressed = CrossTermEvent::Key(key);
-        if let Some(action) = keys::get_tui_action(pressed) {
+        if let Some(action) = events::keys::get_tui_action(pressed) {
             let ui = &mut app.ui;
             match action {
                 Action::Quit => app.running = false,
