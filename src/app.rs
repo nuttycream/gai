@@ -6,7 +6,7 @@ use tokio::sync::mpsc::Sender;
 use crate::{
     ai::response::{Commit, Response},
     config::Config,
-    git::GaiGit,
+    git::repo::GaiGit,
     tui::tabs::{SelectedTab, TabContent},
     tui::ui::UI,
 };

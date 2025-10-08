@@ -10,7 +10,7 @@ use ratatui::{
 };
 use strum::{Display, EnumIter, FromRepr};
 
-use crate::git::{DiffType, HunkDiff};
+use crate::git::repo::{DiffType, HunkDiff};
 
 const SELECTED_STYLE: Style = Style::new()
     .bg(tailwind::SLATE.c800)

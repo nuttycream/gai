@@ -23,6 +23,7 @@ use tokio::{
 use crate::{
     ai::response::Response,
     app::{Action, App},
+    git::repo::GaiGit,
 };
 
 #[tokio::main]
@@ -31,7 +32,7 @@ async fn main() -> Result<()> {
 
     let cfg = config::Config::init("config.toml")?;
 
-    let mut gai = git::GaiGit::new(".")?;
+    let mut gai = GaiGit::new(".")?;
     gai.create_diffs(&cfg.files_to_truncate)?;
 
     let mut app = App::new(cfg, gai);
