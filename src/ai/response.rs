@@ -6,12 +6,12 @@ use crate::config::Config;
 #[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct Response {
-    pub commits: Vec<Commit>,
+    pub commits: Vec<GaiCommit>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
-pub struct Commit {
+pub struct GaiCommit {
     // paths to apply commit to
     // ex. git add main.rs doubloon.rs
     pub files: Vec<String>,
@@ -61,7 +61,7 @@ impl Response {
     }
 }
 
-impl Commit {
+impl GaiCommit {
     pub fn get_commit_message(&self, cfg: &Config) -> String {
         let prefix = if cfg.ai.capitalize_prefix {
             format!("{:?}", self.message.prefix)
