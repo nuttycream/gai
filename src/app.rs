@@ -4,7 +4,7 @@ use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    ai::response::{Commit, Response},
+    ai::response::{GaiCommit, Response},
     config::Config,
     git::repo::GaiGit,
     tui::tabs::{SelectedTab, TabContent},
@@ -121,7 +121,7 @@ impl App {
                     SelectedTab::Gemini => "Gemini",
                     _ => return,
                 };
-                let commits: Vec<Commit> = self
+                let commits: Vec<GaiCommit> = self
                     .responses
                     .iter()
                     .find(|(key, _)| key.starts_with(provider))
