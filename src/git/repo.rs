@@ -238,15 +238,20 @@ impl GaiGit {
             let path = Path::new(&path);
             let status = self.repo.status_file(path).unwrap();
 
+            // todo: some changes will implement a combo
+            // ex: modified + renamed
+            // i think we need to explicitly handle those
+            // maybe by storing it in a buffer of some sort
             if status.contains(git2::Status::WT_MODIFIED)
                 || status.contains(git2::Status::WT_NEW)
-            //|| status.contains(git2::Status::WT_DELETED)
-            //|| status.contains(git2::Status::WT_TYPECHANGE)
-            //|| status.contains(git2::Status::WT_RENAMED)
             {
-                // this panics on WT_DELETED etc,
-                // since the path no longer exists
-                // we migh tneed to work around IndexEntries instead
+                index.add_path(path).unwrap();
+            }
+            if status.contains(git2::Status::WT_DELETED) {
+                index.remove_path(path).unwrap();
+            }
+            if status.contains(git2::Status::WT_TYPECHANGE) {
+                index.remove_path(path).unwrap();
                 index.add_path(path).unwrap();
             }
         }
