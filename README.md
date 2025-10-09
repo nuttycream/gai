@@ -4,20 +4,11 @@
 
 # 
 
-gai, is a git + AI powered TUI that automatically generates commits, commit
-messages, and branches when appropriate.
-
-gai is yet another entry to the **A**rtificial (intelligence) **S**lop
-**S**oftware initiative (aka. ASS).
-
-It works by taking a diff of your repo and sending an API request to an LLM AI
-provider, where it takes that response and builds out git operations along with
-messages for you to review and send out - simplifying the process greatly.
+gai, is a git + AI powered TUI that uses the intelligence of LLM's to simplify the process of creating entire commits. From staging files or chunks of code, to creating a verbose and well defined commit message. It simplifies the process of version control with the added benefit of a clean commit history.
 
 > [!NOTE]
-> This is not a complete git replacement. In fact, I recommend heavily relying
-> on the git cli and using this primarily when you don't want to create commit
-> messages.
+> This is not a complete git replacement. I still recommend using the git cli or other git based TUI's for complex operations such as resolving merge conflicts.
+> While it isn't strictly a planned feature, we currently only support operations such as auto staging, committing, and amending.
 
 ## Planned features
 - [x] Per File Staging [#4](https://github.com/nuttycream/gai/issues/4)
