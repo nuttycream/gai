@@ -112,7 +112,7 @@ impl UI {
     ) {
         Text::from(vec![
             Line::raw("h / l to change tab | j / k to select diffs/commits |"),
-            Line::raw("d to remove a diff | t to toggle truncation | q to quit"),
+            Line::raw("d to remove a diff | t to truncate | q to quit"),
         ])
         .centered()
         .render(footer_area, buf);
