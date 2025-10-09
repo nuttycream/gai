@@ -20,20 +20,10 @@ messages for you to review and send out - simplifying the process greatly.
 > messages.
 
 ## Planned features
-
-- [x] Per File Staging - stage and commit per file/s commit messages
-- [ ] Per Hunk Staging - similar to `git add -p`, stage on a per hunk basis,
-      with relevant hunks placed together.
-- [ ] Magic Rebasing - per @water-sucks:
-  - having a ton of staged changes that split cleanly into multiple commits
-  - reworking a branch by formulating some form of rebase plan
-    `git rebase —edit-todo style` or by creating new commits out of a list of
-    hunks or commits on a given branch
-- [ ] Recreate/Amend Existing Commits - take a diff from one point in the commit
-      history to another point, and have the LLM create a clean history, either
-      by recreating/splitting the commits, or by amending them in place.
-- [ ] CLI - optionally skip the tui and provide an (optional)
-      confirmation/dialog to stdout.
-- [ ] GitHub Marketplace App - GH actions bot
-- [ ] IDE extensions - VSCode Integration, one button to stage, commit, verify,
-      and push
+- [ ] Per File Staging [#4](https://github.com/nuttycream/gai/issues/4)
+- [ ] Per Hunk Staging [#5](https://github.com/nuttycream/gai/issues/5)
+- [ ] Magic Rebasing [#6](https://github.com/nuttycream/gai/issues/6)
+- [ ] Recreate/Amend Existing Commits [#7](https://github.com/nuttycream/gai/issues/7)
+- [ ] CLI [#8](https://github.com/nuttycream/gai/issues/8)
+- [ ] GitHub Marketplace App [#9](https://github.com/nuttycream/gai/issues/9)
+- [ ] IDE extensions [#10](https://github.com/nuttycream/gai/issues/10)
