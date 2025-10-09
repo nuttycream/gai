@@ -15,6 +15,7 @@ pub struct GaiCommit {
     // paths to apply commit to
     // ex. git add main.rs doubloon.rs
     pub files: Vec<String>,
+    pub hunk_headers: Vec<String>,
     pub message: CommitMessage,
 }
 
