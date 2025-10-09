@@ -243,10 +243,10 @@ impl App {
                     })
                     .unwrap_or_default();
 
-                return TabList {
+                TabList {
                     main,
                     secondary: None,
-                };
+                }
             }
         }
     }
