@@ -7,8 +7,10 @@ use crate::{
     ai::response::{GaiCommit, Response},
     config::Config,
     git::repo::GaiGit,
-    tui::tabs::{SelectedTab, TabContent},
-    tui::ui::UI,
+    tui::{
+        tabs::{SelectedTab, TabContent, TabList},
+        ui::UI,
+    },
 };
 
 pub struct App {
@@ -19,7 +21,14 @@ pub struct App {
     pub ui: UI,
 
     pub responses: HashMap<String, Result<Response, String>>,
+    /// pending ai responses
     pub pending: HashSet<String>,
+
+    /// failed files/hunks
+    /// that were NOT RETURNED
+    /// by the response
+    pub failed_files: Vec<String>,
+    pub failed_hunks: Vec<String>,
 }
 
 pub enum State {
@@ -67,14 +76,16 @@ impl App {
             ui: UI::new(),
             responses: HashMap::new(),
             pending: HashSet::new(),
+            failed_files: Vec::new(),
+            failed_hunks: Vec::new(),
         }
     }
 
     pub fn run(&mut self, frame: &mut Frame) {
-        let items = &self.get_list();
+        let tab_list = &self.get_list();
         let tab_content = &self.get_content();
 
-        self.ui.render(frame, items, tab_content);
+        self.ui.render(frame, tab_content, tab_list);
     }
 
     pub async fn send_request(
@@ -105,6 +116,7 @@ impl App {
             .get_responses(&diffs, self.cfg.stage_hunks)
             .await
             .unwrap();
+
         tokio::spawn(async move {
             while let Some(from_the_ai) = rx.recv().await {
                 let _ = tx.send(from_the_ai).await;
@@ -139,7 +151,7 @@ impl App {
 
     pub fn remove_selected(&mut self) {
         if let SelectedTab::Diffs = self.ui.selected_tab {
-            let selection_list = self.get_list();
+            let selection_list = self.get_list().main;
             let selected_state_idx =
                 self.ui.selected_state.selected();
             if let Some(selected) = selected_state_idx
@@ -171,14 +183,22 @@ impl App {
         }
     }
 
-    fn get_list(&self) -> Vec<String> {
+    fn get_list(&self) -> TabList {
         match self.ui.selected_tab {
-            SelectedTab::Diffs => self
-                .gai
-                .files
-                .iter()
-                .map(|g| g.path.to_owned())
-                .collect(),
+            SelectedTab::Diffs => {
+                let main = self
+                    .gai
+                    .files
+                    .iter()
+                    .map(|g| g.path.to_owned())
+                    .collect();
+
+                return TabList {
+                    main,
+                    secondary: None,
+                };
+            }
+
             SelectedTab::OpenAI
             | SelectedTab::Claude
             | SelectedTab::Gemini => {
@@ -186,12 +206,18 @@ impl App {
                     SelectedTab::OpenAI => "OpenAI",
                     SelectedTab::Claude => "Claude",
                     SelectedTab::Gemini => "Gemini",
-                    _ => return Vec::new(),
+                    _ => {
+                        return TabList {
+                            main: Vec::new(),
+                            secondary: None,
+                        };
+                    }
                 };
 
                 // for now use an empty vec
                 // to display failed/no responses
-                self.responses
+                let main = self
+                    .responses
                     .iter()
                     .find(|(key, _)| key.starts_with(provider))
                     .and_then(|(_, result)| result.as_ref().ok())
@@ -202,13 +228,18 @@ impl App {
                             .map(|c| c.get_commit_prefix(&self.cfg))
                             .collect()
                     })
-                    .unwrap_or_default()
+                    .unwrap_or_default();
+
+                return TabList {
+                    main,
+                    secondary: None,
+                };
             }
         }
     }
 
     fn get_content(&self) -> TabContent {
-        let selection_list = self.get_list();
+        let selection_list = self.get_list().main;
         let selected_tab = self.ui.selected_tab;
         let selected_state_idx = self.ui.selected_state.selected();
 
