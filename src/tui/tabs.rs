@@ -36,20 +36,29 @@ pub enum TabContent {
     Diff(Vec<HunkDiff>),
 }
 
+/// when we want to display
+/// failed hunks/files
+/// OR
+/// truncated files
+pub struct TabList {
+    pub main: Vec<String>,
+    pub secondary: Option<Vec<String>>,
+}
+
 impl SelectedTab {
     pub fn render(
         self,
         area: Rect,
         buf: &mut Buffer,
-        items: &[String],
         tab_content: &TabContent,
+        tab_list: &TabList,
         selected_state: &mut ListState,
     ) {
         self.render_layout(
             area,
             buf,
-            items,
             tab_content,
+            tab_list,
             selected_state,
         );
     }
@@ -85,8 +94,8 @@ impl SelectedTab {
         self,
         area: Rect,
         buf: &mut Buffer,
-        items: &[String],
         content: &TabContent,
+        tab_list: &TabList,
         selected_state: &mut ListState,
     ) {
         let horizontal = Layout::horizontal([
@@ -95,7 +104,8 @@ impl SelectedTab {
         ]);
         let [list_area, paragraph_area] = horizontal.areas(area);
 
-        let items: Vec<ListItem> = items
+        let items: Vec<ListItem> = tab_list
+            .main
             .iter()
             .map(|item| ListItem::new(item.as_str()))
             .collect();
@@ -105,17 +115,65 @@ impl SelectedTab {
             _ => "Commits",
         };
 
-        let list = List::new(items)
-            .block(
-                Block::bordered()
-                    .title(title)
-                    .borders(Borders::ALL)
-                    .padding(Padding::horizontal(1))
-                    .border_style(self.palette().c700),
-            )
-            .highlight_style(SELECTED_STYLE);
+        let list_block = Block::bordered()
+            .title(title)
+            .borders(Borders::ALL)
+            .padding(Padding::horizontal(1))
+            .border_style(self.palette().c700);
 
-        StatefulWidget::render(list, list_area, buf, selected_state);
+        if let Some(secondary) = &tab_list.secondary {
+            let with_secondary = Layout::vertical([
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ]);
+
+            let [primary_area, secondary_area] =
+                with_secondary.areas(list_area);
+
+            let primary_list = List::new(items)
+                .block(list_block.clone())
+                .highlight_style(SELECTED_STYLE);
+
+            StatefulWidget::render(
+                primary_list,
+                primary_area,
+                buf,
+                selected_state,
+            );
+
+            let secondary_items: Vec<ListItem> = secondary
+                .iter()
+                .map(|item| ListItem::new(item.as_str()))
+                .collect();
+
+            let secondary_list = List::new(secondary_items)
+                .block(list_block.clone())
+                .highlight_style(SELECTED_STYLE);
+
+            StatefulWidget::render(
+                secondary_list,
+                secondary_area,
+                buf,
+                selected_state,
+            );
+        } else {
+            let list = List::new(items)
+                .block(
+                    Block::bordered()
+                        .title(title)
+                        .borders(Borders::ALL)
+                        .padding(Padding::horizontal(1))
+                        .border_style(self.palette().c700),
+                )
+                .highlight_style(SELECTED_STYLE);
+
+            StatefulWidget::render(
+                list,
+                list_area,
+                buf,
+                selected_state,
+            );
+        }
 
         match content {
             TabContent::Description(desc) => {

@@ -7,12 +7,11 @@ use ratatui::{
 };
 use strum::IntoEnumIterator;
 
-use crate::tui::tabs::{SelectedTab, TabContent};
+use crate::tui::tabs::{SelectedTab, TabContent, TabList};
 
 #[derive(Default)]
 pub struct UI {
     pub selected_tab: SelectedTab,
-
     pub selected_state: ListState,
 }
 
@@ -45,8 +44,8 @@ impl UI {
     pub fn render(
         &mut self,
         frame: &mut Frame,
-        items: &[String],
         tab_content: &TabContent,
+        tab_list: &TabList,
     ) {
         use Constraint::{Length, Min};
         let vertical =
@@ -60,8 +59,8 @@ impl UI {
         self.selected_tab.render(
             inner_area,
             frame.buffer_mut(),
-            items,
             tab_content,
+            tab_list,
             &mut self.selected_state,
         );
 
