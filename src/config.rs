@@ -15,6 +15,9 @@ pub struct Config {
     /// should we send untracked files as well?
     pub include_untracked: bool,
 
+    /// should we apply as hunks?
+    pub stage_hunks: bool,
+
     pub ai: AI,
     pub api_key_file: String,
 
@@ -32,6 +35,7 @@ impl Config {
             auto_request: false,
             skip_splash: true,
             include_untracked: true,
+            stage_hunks: false,
             ai: AI::default(),
             api_key_file: "".to_owned(),
             files_to_truncate: vec![
