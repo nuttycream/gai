@@ -20,7 +20,7 @@ messages for you to review and send out - simplifying the process greatly.
 > messages.
 
 ## Planned features
-- [ ] Per File Staging [#4](https://github.com/nuttycream/gai/issues/4)
+- [x] Per File Staging [#4](https://github.com/nuttycream/gai/issues/4)
 - [ ] Per Hunk Staging [#5](https://github.com/nuttycream/gai/issues/5)
 - [ ] Magic Rebasing [#6](https://github.com/nuttycream/gai/issues/6)
 - [ ] Recreate/Amend Existing Commits [#7](https://github.com/nuttycream/gai/issues/7)
