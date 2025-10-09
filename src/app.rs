@@ -202,13 +202,19 @@ impl App {
                     .map(|g| g.path.to_owned())
                     .collect();
 
+                let (secondary, secondary_title) = if secondary
+                    .is_empty()
+                {
+                    (None, None)
+                } else {
+                    (Some(secondary), Some("Truncated".to_owned()))
+                };
+
                 TabList {
                     main,
-                    secondary: if secondary.is_empty() {
-                        None
-                    } else {
-                        Some(secondary)
-                    },
+                    secondary,
+                    main_title: "Files".to_owned(),
+                    secondary_title,
                 }
             }
 
@@ -223,6 +229,8 @@ impl App {
                         return TabList {
                             main: Vec::new(),
                             secondary: None,
+                            main_title: "Commits".to_owned(),
+                            secondary_title: None,
                         };
                     }
                 };
@@ -243,9 +251,31 @@ impl App {
                     })
                     .unwrap_or_default();
 
+                // todo: impl failed
+                let (secondary, secondary_title) =
+                    if self.cfg.stage_hunks {
+                        if self.failed_hunks.is_empty() {
+                            (None, None)
+                        } else {
+                            (
+                                Some(self.failed_hunks.clone()),
+                                Some("Failed Hunks".to_owned()),
+                            )
+                        }
+                    } else if self.failed_files.is_empty() {
+                        (None, None)
+                    } else {
+                        (
+                            Some(self.failed_files.clone()),
+                            Some("Failed Hunks".to_owned()),
+                        )
+                    };
+
                 TabList {
                     main,
-                    secondary: None,
+                    secondary,
+                    main_title: "Commits".to_owned(),
+                    secondary_title,
                 }
             }
         }

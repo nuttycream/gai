@@ -43,6 +43,9 @@ pub enum TabContent {
 pub struct TabList {
     pub main: Vec<String>,
     pub secondary: Option<Vec<String>>,
+
+    pub main_title: String,
+    pub secondary_title: Option<String>,
 }
 
 impl SelectedTab {
@@ -110,17 +113,6 @@ impl SelectedTab {
             .map(|item| ListItem::new(item.as_str()))
             .collect();
 
-        let title = match self {
-            SelectedTab::Diffs => "Diffs",
-            _ => "Commits",
-        };
-
-        let list_block = Block::bordered()
-            .title(title)
-            .borders(Borders::ALL)
-            .padding(Padding::horizontal(1))
-            .border_style(self.palette().c700);
-
         if let Some(secondary) = &tab_list.secondary {
             let with_secondary = Layout::vertical([
                 Constraint::Percentage(50),
@@ -131,7 +123,13 @@ impl SelectedTab {
                 with_secondary.areas(list_area);
 
             let primary_list = List::new(items)
-                .block(list_block.clone())
+                .block(
+                    Block::bordered()
+                        .title(tab_list.main_title.to_owned())
+                        .borders(Borders::ALL)
+                        .padding(Padding::horizontal(1))
+                        .border_style(self.palette().c700),
+                )
                 .highlight_style(SELECTED_STYLE);
 
             StatefulWidget::render(
@@ -147,20 +145,26 @@ impl SelectedTab {
                 .collect();
 
             let secondary_list = List::new(secondary_items)
-                .block(list_block.clone())
+                .block(
+                    Block::bordered()
+                        .title(
+                            tab_list
+                                .secondary_title
+                                .to_owned()
+                                .unwrap(),
+                        )
+                        .borders(Borders::ALL)
+                        .padding(Padding::horizontal(1))
+                        .border_style(self.palette().c700),
+                )
                 .highlight_style(SELECTED_STYLE);
 
-            StatefulWidget::render(
-                secondary_list,
-                secondary_area,
-                buf,
-                selected_state,
-            );
+            Widget::render(secondary_list, secondary_area, buf);
         } else {
             let list = List::new(items)
                 .block(
                     Block::bordered()
-                        .title(title)
+                        .title(tab_list.main_title.to_owned())
                         .borders(Borders::ALL)
                         .padding(Padding::horizontal(1))
                         .border_style(self.palette().c700),
