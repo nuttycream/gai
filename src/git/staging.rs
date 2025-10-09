@@ -1,4 +1,6 @@
-use std::path::Path;
+use std::{path::Path, str::from_utf8};
+
+use git2::{ApplyOptions, DiffOptions};
 
 use crate::{
     ai::response::GaiCommit, config::Config, git::repo::GaiGit,
@@ -23,26 +25,72 @@ impl GaiGit {
             index.read_tree(&tree).unwrap();
         }
 
-        // staging
-        for path in &commit.files {
-            let path = Path::new(&path);
-            let status = self.repo.status_file(path).unwrap();
+        if cfg.stage_hunks {
+            for path in &commit.files {
+                let path = Path::new(&path);
+                let mut diff_opts = DiffOptions::new();
+                diff_opts.pathspec(path);
 
-            // todo: some changes will implement a combo
-            // ex: modified + renamed
-            // i think we need to explicitly handle those
-            // maybe by storing it in a buffer of some sort
-            if status.contains(git2::Status::WT_MODIFIED)
-                || status.contains(git2::Status::WT_NEW)
-            {
-                index.add_path(path).unwrap();
+                let diff = self
+                    .repo
+                    .diff_index_to_workdir(
+                        Some(&index),
+                        Some(&mut diff_opts),
+                    )
+                    .unwrap();
+
+                let selected_headers = &commit.hunk_headers;
+                let mut apply_opts = ApplyOptions::new();
+
+                apply_opts.hunk_callback(|h| {
+                    if let Some(hunk) = h {
+                        let header = from_utf8(hunk.header())
+                            .unwrap()
+                            .trim()
+                            .to_string();
+
+                        let hunk_exists = selected_headers
+                            .iter()
+                            .any(|h| h.trim() == header);
+
+                        return hunk_exists;
+                    }
+                    true
+                });
+
+                match self.repo.apply(
+                    &diff,
+                    git2::ApplyLocation::Index,
+                    Some(&mut apply_opts),
+                ) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("failed to apply commits:{}", e);
+                    }
+                }
             }
-            if status.contains(git2::Status::WT_DELETED) {
-                index.remove_path(path).unwrap();
-            }
-            if status.contains(git2::Status::WT_TYPECHANGE) {
-                index.remove_path(path).unwrap();
-                index.add_path(path).unwrap();
+        } else {
+            // staging per file
+            for path in &commit.files {
+                let path = Path::new(&path);
+                let status = self.repo.status_file(path).unwrap();
+
+                // todo: some changes will implement a combo
+                // ex: modified + renamed
+                // i think we need to explicitly handle those
+                // maybe by storing it in a buffer of some sort
+                if status.contains(git2::Status::WT_MODIFIED)
+                    || status.contains(git2::Status::WT_NEW)
+                {
+                    index.add_path(path).unwrap();
+                }
+                if status.contains(git2::Status::WT_DELETED) {
+                    index.remove_path(path).unwrap();
+                }
+                if status.contains(git2::Status::WT_TYPECHANGE) {
+                    index.remove_path(path).unwrap();
+                    index.add_path(path).unwrap();
+                }
             }
         }
 

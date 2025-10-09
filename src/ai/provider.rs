@@ -82,12 +82,14 @@ impl AI {
     pub async fn get_responses(
         &self,
         diffs: &str,
+        use_hunk: bool,
     ) -> Result<mpsc::Receiver<(String, Result<Response, String>)>>
     {
         let prompt = build_prompt(
             self.include_convention,
             &self.system_prompt,
             &self.rules,
+            use_hunk,
         );
 
         let (tx, rx) = mpsc::channel(3);

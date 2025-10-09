@@ -101,7 +101,10 @@ impl App {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
         }
 
-        let mut rx = ai.get_responses(&diffs).await.unwrap();
+        let mut rx = ai
+            .get_responses(&diffs, self.cfg.stage_hunks)
+            .await
+            .unwrap();
         tokio::spawn(async move {
             while let Some(from_the_ai) = rx.recv().await {
                 let _ = tx.send(from_the_ai).await;

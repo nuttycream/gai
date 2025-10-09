@@ -4,14 +4,33 @@ pub fn build_prompt(
     use_convention: bool,
     sys_prompt: &str,
     rules: &str,
+    use_hunk: bool,
 ) -> String {
-    let convention = if use_convention {
-        format!("Convention:\n{}", COMMIT_CONVENTION)
-    } else {
-        "".to_owned()
-    };
+    let mut prompt = String::new();
 
-    format!("{}\nRules:\n{}\n{}", sys_prompt, rules, convention)
+    prompt.push_str(sys_prompt);
+    prompt.push('\n');
+
+    prompt.push_str(rules);
+    prompt.push('\n');
+
+    if use_convention {
+        prompt.push_str(COMMIT_CONVENTION);
+    }
+
+    prompt.push('\n');
+
+    if use_hunk {
+        prompt.push_str(
+            "fill hunk_headers with specific hunks from each file",
+        );
+    } else {
+        prompt.push_str(
+            "fill out path files, leave hunk_headers empty",
+        );
+    }
+
+    prompt
 }
 
 pub const LOGO: &str = r#"
