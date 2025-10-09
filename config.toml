@@ -1,6 +1,7 @@
 auto_request = false
 skip_splash = true
 include_untracked = true
+stage_hunks = false
 api_key_file = ""
 files_to_truncate = [
     "Cargo.lock",

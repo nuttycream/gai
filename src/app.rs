@@ -4,7 +4,7 @@ use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    ai::response::{Commit, Response},
+    ai::response::{GaiCommit, Response},
     config::Config,
     git::repo::GaiGit,
     tui::tabs::{SelectedTab, TabContent},
@@ -101,7 +101,10 @@ impl App {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
         }
 
-        let mut rx = ai.get_responses(&diffs).await.unwrap();
+        let mut rx = ai
+            .get_responses(&diffs, self.cfg.stage_hunks)
+            .await
+            .unwrap();
         tokio::spawn(async move {
             while let Some(from_the_ai) = rx.recv().await {
                 let _ = tx.send(from_the_ai).await;
@@ -121,7 +124,7 @@ impl App {
                     SelectedTab::Gemini => "Gemini",
                     _ => return,
                 };
-                let commits: Vec<Commit> = self
+                let commits: Vec<GaiCommit> = self
                     .responses
                     .iter()
                     .find(|(key, _)| key.starts_with(provider))
