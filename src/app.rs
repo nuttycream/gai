@@ -190,13 +190,26 @@ impl App {
                     .gai
                     .files
                     .iter()
+                    .filter(|g| !g.should_truncate)
                     .map(|g| g.path.to_owned())
                     .collect();
 
-                return TabList {
+                let secondary: Vec<String> = self
+                    .gai
+                    .files
+                    .iter()
+                    .filter(|g| g.should_truncate)
+                    .map(|g| g.path.to_owned())
+                    .collect();
+
+                TabList {
                     main,
-                    secondary: None,
-                };
+                    secondary: if secondary.is_empty() {
+                        None
+                    } else {
+                        Some(secondary)
+                    },
+                }
             }
 
             SelectedTab::OpenAI
