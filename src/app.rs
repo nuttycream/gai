@@ -142,18 +142,17 @@ impl App {
                     .find(|(key, _)| key.starts_with(provider))
                     .and_then(|(_, result)| result.as_ref().ok())
                     .map(|response| {
-                        let mut commits = Vec::new();
-                        for response_commit in
-                            response.commits.to_owned()
-                        {
-                            commits.push(GaiCommit::from_response(
-                                &response_commit,
-                                self.gai.capitalize_prefix,
-                                self.gai.include_scope,
-                            ));
-                        }
-
-                        commits
+                        response
+                            .commits
+                            .iter()
+                            .map(|response_commit| {
+                                GaiCommit::from_response(
+                                    response_commit,
+                                    self.gai.capitalize_prefix,
+                                    self.gai.include_scope,
+                                )
+                            })
+                            .collect()
                     })
                     .unwrap_or_default();
 
