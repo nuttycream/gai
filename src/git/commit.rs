@@ -36,7 +36,7 @@ impl GaiCommit {
 
             format!(
                 "{}{}{}: {}",
-                prefix, scope, breaking, response.message.description
+                prefix, breaking, scope, response.message.description
             )
         };
         GaiCommit {
