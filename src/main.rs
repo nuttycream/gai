@@ -32,7 +32,13 @@ async fn main() -> Result<()> {
 
     let cfg = config::Config::init("config.toml")?;
 
-    let mut gai = GaiGit::new(".")?;
+    let mut gai = GaiGit::new(
+        ".",
+        cfg.stage_hunks,
+        cfg.ai.capitalize_prefix,
+        cfg.ai.include_scope,
+    )?;
+
     gai.create_diffs(&cfg.files_to_truncate)?;
 
     let mut app = App::new(cfg, gai);

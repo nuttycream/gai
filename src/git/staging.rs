@@ -2,19 +2,17 @@ use std::{path::Path, str::from_utf8};
 
 use git2::{ApplyOptions, DiffOptions};
 
-use crate::{
-    ai::response::GaiCommit, config::Config, git::repo::GaiGit,
-};
+use crate::git::{commit::GaiCommit, repo::GaiGit};
 
 impl GaiGit {
-    pub fn apply_commits(&self, commits: &[GaiCommit], cfg: &Config) {
+    pub fn apply_commits(&self, commits: &[GaiCommit]) {
         //println!("{:#?}", self.commits);
         for commit in commits {
-            self.commit(commit, cfg);
+            self.commit(commit);
         }
     }
 
-    fn commit(&self, commit: &GaiCommit, cfg: &Config) {
+    fn commit(&self, commit: &GaiCommit) {
         let mut index = self.repo.index().unwrap();
 
         index.clear().unwrap();
@@ -25,7 +23,7 @@ impl GaiGit {
             index.read_tree(&tree).unwrap();
         }
 
-        if cfg.stage_hunks {
+        if self.stage_hunks {
             for path in &commit.files {
                 let path = Path::new(&path);
                 let mut diff_opts = DiffOptions::new();
@@ -111,14 +109,15 @@ impl GaiGit {
         }
 
         let sig = self.repo.signature().unwrap();
-        let commit_msg = &commit.get_commit_message(cfg);
+
+        let commit_msg = &commit.message;
 
         self.repo
             .commit(
                 Some("HEAD"),
                 &sig,
                 &sig,
-                commit_msg,
+                &commit_msg,
                 &tree,
                 &parents[..],
             )

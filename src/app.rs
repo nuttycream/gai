@@ -4,9 +4,9 @@ use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    ai::response::{GaiCommit, Response},
+    ai::response::Response,
     config::Config,
-    git::repo::GaiGit,
+    git::{commit::GaiCommit, repo::GaiGit},
     tui::{
         tabs::{SelectedTab, TabContent, TabList},
         ui::UI,
@@ -141,10 +141,23 @@ impl App {
                     .iter()
                     .find(|(key, _)| key.starts_with(provider))
                     .and_then(|(_, result)| result.as_ref().ok())
-                    .map(|response| response.commits.to_owned())
+                    .map(|response| {
+                        let mut commits = Vec::new();
+                        for response_commit in
+                            response.commits.to_owned()
+                        {
+                            commits.push(GaiCommit::from_response(
+                                &response_commit,
+                                self.gai.capitalize_prefix,
+                                self.gai.include_scope,
+                            ));
+                        }
+
+                        commits
+                    })
                     .unwrap_or_default();
 
-                self.gai.apply_commits(&commits, &self.cfg);
+                self.gai.apply_commits(&commits);
             }
         }
     }
@@ -246,7 +259,12 @@ impl App {
                         response
                             .commits
                             .iter()
-                            .map(|c| c.get_commit_prefix(&self.cfg))
+                            .map(|c| {
+                                c.get_commit_prefix(
+                                    self.cfg.ai.capitalize_prefix,
+                                    self.cfg.ai.include_scope,
+                                )
+                            })
                             .collect()
                     })
                     .unwrap_or_default();
@@ -347,17 +365,18 @@ impl App {
                         if let Some(selected) = selected_state_idx
                             && selected < response.commits.len()
                         {
-                            let commit = &response.commits[selected];
+                            let response_commit =
+                                &response.commits[selected];
 
                             let mut content = String::new();
                             content.push_str("files to stage:\n");
-                            for file in &commit.files {
+                            for file in &response_commit.files {
                                 content
                                     .push_str(&format!("{}\n", file));
                             }
                             content.push_str(&format!(
                                 "description:\n{}\n",
-                                commit.get_commit_message(&self.cfg)
+                                response_commit.message.description
                             ));
                             TabContent::Description(content)
                         } else {

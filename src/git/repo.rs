@@ -5,6 +5,11 @@ use std::collections::HashMap;
 pub struct GaiGit {
     pub files: Vec<GaiFile>,
     pub repo: Repository,
+
+    pub stage_hunks: bool,
+
+    pub capitalize_prefix: bool,
+    pub include_scope: bool,
 }
 
 pub struct GaiFile {
@@ -41,7 +46,12 @@ impl GaiGit {
     /// todo: this could fail on an unitialized directory
     /// for now, im not gonna handle those and we
     /// just straight up panic if we failed to open
-    pub fn new(repo_path: &str) -> Result<Self> {
+    pub fn new(
+        repo_path: &str,
+        stage_hunks: bool,
+        capitalize_prefix: bool,
+        include_scope: bool,
+    ) -> Result<Self> {
         let repo = Repository::open(repo_path)?;
         let mut options = StatusOptions::new();
 
@@ -54,6 +64,9 @@ impl GaiGit {
         Ok(GaiGit {
             repo,
             files: Vec::new(),
+            stage_hunks,
+            capitalize_prefix,
+            include_scope,
         })
     }
 
