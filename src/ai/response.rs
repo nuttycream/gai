@@ -63,6 +63,8 @@ impl Response {
 }
 
 impl ResponseCommit {
+    /// only used for UI for now, likely
+    /// need to refactored out
     pub fn get_commit_prefix(
         &self,
         capitalize_prefix: bool,
