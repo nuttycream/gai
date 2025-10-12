@@ -19,7 +19,6 @@ use tokio::sync::mpsc;
 use crate::{
     ai::{response::Response, rules::RuleConfig},
     consts::DEFAULT_SYS_PROMPT,
-    utils::build_prompt,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -78,18 +77,9 @@ impl AI {
     pub async fn get_responses(
         &self,
         diffs: &str,
-        use_hunk: bool,
+        prompt: &str,
     ) -> Result<mpsc::Receiver<(String, Result<Response, String>)>>
     {
-        let rules = self.build_rules();
-
-        let prompt = build_prompt(
-            self.include_convention,
-            &self.system_prompt,
-            &rules,
-            use_hunk,
-        );
-
         let (tx, rx) = mpsc::channel(3);
 
         // according to examples and online refs
@@ -101,8 +91,8 @@ impl AI {
 
         if self.gemini.enable {
             let tx = tx.clone();
-            let prompt = prompt.clone();
-            let diffs = diffs.to_string();
+            let prompt = prompt.to_owned();
+            let diffs = diffs.to_owned();
             let model_name = self.gemini.model_name.clone();
             let max_tokens = self.gemini.max_tokens;
 
@@ -124,8 +114,8 @@ impl AI {
 
         if self.openai.enable {
             let tx = tx.clone();
-            let prompt = prompt.clone();
-            let diffs = diffs.to_string();
+            let prompt = prompt.to_owned();
+            let diffs = diffs.to_owned();
             let model_name = self.openai.model_name.clone();
 
             tokio::spawn(async move {
@@ -141,8 +131,8 @@ impl AI {
 
         if self.claude.enable {
             let tx = tx.clone();
-            let prompt = prompt.clone();
-            let diffs = diffs.to_string();
+            let prompt = prompt.to_owned();
+            let diffs = diffs.to_owned();
             let model_name = self.claude.model_name.clone();
 
             tokio::spawn(async move {
