@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod app;
+pub mod cli;
 pub mod config;
 pub mod consts;
 pub mod events;
@@ -10,6 +11,7 @@ pub mod utils;
 use std::time::Duration;
 
 use anyhow::Result;
+use clap::Parser;
 use crossterm::event::{
     Event as CrossTermEvent, EventStream, KeyEventKind,
 };
@@ -23,12 +25,15 @@ use tokio::{
 use crate::{
     ai::response::Response,
     app::{Action, App},
+    cli::args::Args,
     git::repo::GaiGit,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
+
+    let args = Args::parse();
 
     let cfg = config::Config::init("config.toml")?;
 
@@ -42,6 +47,11 @@ async fn main() -> Result<()> {
     gai.create_diffs(&cfg.files_to_truncate)?;
 
     let mut app = App::new(cfg, gai);
+
+    if args.skip_tui {
+        println!("Skipping tui");
+        return Ok(());
+    }
 
     let mut terminal = ratatui::init();
 
