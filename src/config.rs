@@ -21,6 +21,9 @@ pub struct Config {
     pub ai: AI,
     pub api_key_file: String,
 
+    /// include git repo file tree in request
+    pub include_file_tree: bool,
+
     /// files that gai will be TRUNCATED
     /// you can use this to add specific files
     /// that are not really relevant to send to the AI provider
@@ -35,6 +38,7 @@ impl Config {
             auto_request: false,
             skip_splash: true,
             include_untracked: true,
+            include_file_tree: true,
             stage_hunks: false,
             ai: AI::default(),
             api_key_file: "".to_owned(),

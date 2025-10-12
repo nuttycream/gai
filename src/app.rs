@@ -11,6 +11,7 @@ use crate::{
         tabs::{SelectedTab, TabContent, TabList},
         ui::UI,
     },
+    utils::build_prompt,
 };
 
 pub struct App {
@@ -112,10 +113,21 @@ impl App {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
         }
 
-        let mut rx = ai
-            .get_responses(&diffs, self.cfg.stage_hunks)
-            .await
-            .unwrap();
+        let rules = self.cfg.ai.build_rules();
+
+        let mut prompt = build_prompt(
+            self.cfg.ai.include_convention,
+            &self.cfg.ai.system_prompt,
+            &rules,
+            self.cfg.stage_hunks,
+        );
+
+        // todo wth am i doing
+        if self.cfg.include_file_tree {
+            prompt.push_str(&self.gai.get_repo_tree());
+        }
+
+        let mut rx = ai.get_responses(&diffs, &prompt).await.unwrap();
 
         tokio::spawn(async move {
             while let Some(from_the_ai) = rx.recv().await {

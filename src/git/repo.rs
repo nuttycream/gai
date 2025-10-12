@@ -1,6 +1,7 @@
 use anyhow::{Result, bail};
 use git2::{Repository, StatusOptions};
 use std::collections::HashMap;
+use walkdir::WalkDir;
 
 pub struct GaiGit {
     pub files: Vec<GaiFile>,
@@ -68,6 +69,28 @@ impl GaiGit {
             capitalize_prefix,
             include_scope,
         })
+    }
+
+    pub fn get_repo_tree(&self) -> String {
+        let repo_root =
+            self.repo.workdir().ok_or("not a workdir").unwrap();
+
+        let mut repo_tree = String::new();
+
+        for entry in WalkDir::new(repo_root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            if let Ok(rel_path) = entry.path().strip_prefix(repo_root)
+                && !self.repo.status_should_ignore(rel_path).unwrap()
+            {
+                repo_tree
+                    .push_str(&format!("{}\n", rel_path.display()));
+            }
+        }
+
+        repo_tree
     }
 
     pub fn get_file_diffs_as_str(&self) -> HashMap<String, String> {

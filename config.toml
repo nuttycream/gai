@@ -3,6 +3,7 @@ skip_splash = true
 include_untracked = true
 stage_hunks = false
 api_key_file = ""
+include_file_tree = true
 files_to_truncate = [
     "Cargo.lock",
     "package-lock.json",
