@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
+clap = { version = "4.5.48", default-features = false, features = ["std"] }
 crossterm = { version = "0.29.0", default-features = false, features = ["events", "event-stream"] }
 dotenv = { version = "0.15.0", default-features = false }
 futures = { version = "0.3.31", default-features = false }
