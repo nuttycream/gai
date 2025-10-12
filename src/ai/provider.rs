@@ -17,8 +17,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
 use crate::{
-    ai::response::Response,
-    consts::{DEFAULT_RULES, DEFAULT_SYS_PROMPT},
+    ai::{response::Response, rules::RuleConfig},
+    consts::DEFAULT_SYS_PROMPT,
     utils::build_prompt,
 };
 
@@ -26,19 +26,14 @@ use crate::{
 pub struct AI {
     pub capitalize_prefix: bool,
     pub include_scope: bool,
-    pub system_prompt: String,
 
-    /// conventionalcommits.md
+    pub system_prompt: String,
     pub include_convention: bool,
+    pub rules: RuleConfig,
 
     pub openai: AiConfig,
     pub gemini: AiConfig,
     pub claude: AiConfig,
-
-    // do we want to expose this to the user?
-    // maybe have 'predefined' options
-    // for the rules, that they can toggle
-    pub rules: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -62,7 +57,8 @@ impl Default for AI {
     fn default() -> Self {
         Self {
             system_prompt: DEFAULT_SYS_PROMPT.to_owned(),
-            rules: DEFAULT_RULES.to_owned(),
+            rules: RuleConfig::default(),
+
             openai: AiConfig::new("gpt-5-nano-2025-08-07"),
             claude: AiConfig::new("claude-3-5-haiku-latest"),
             gemini: AiConfig::new("gemini-2.5-flash-lite"),
@@ -85,10 +81,12 @@ impl AI {
         use_hunk: bool,
     ) -> Result<mpsc::Receiver<(String, Result<Response, String>)>>
     {
+        let rules = self.build_rules();
+
         let prompt = build_prompt(
             self.include_convention,
             &self.system_prompt,
-            &self.rules,
+            &rules,
             use_hunk,
         );
 

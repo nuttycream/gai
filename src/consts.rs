@@ -1,21 +1,6 @@
 pub const DEFAULT_SYS_PROMPT: &str = "You are an expert at git operations.\
     Create git a logical list of git commits based on diffs and structure.";
 
-pub const DEFAULT_RULES: &str = "
-    - GROUP related files into LOGICAL commits based on the type of change
-    - Examples of files that should be grouped together:
-    * Multiple files implementing the same feature
-    * Files modified for the same bug fix
-    * Related configuration and code changes
-    * Test files with the code they test
-    - Each file should appear in ONLY ONE commit
-    - Create multiple commits when changes serve different purposes
-    - For CommitMessages:
-    * prefix: The appropriate type from the PrefixType enum
-    * scope: The component name or \"\", DO NOT include the file extension please!
-    * breaking: true if breaking change, false otherwise
-    * message: ONLY the description, do NOT include prefix or scope in the message text. Make sure your descriptions are ACCURATE and VERBOSE that closely align with the changes.";
-
 pub const COMMIT_CONVENTION: &str = "
 # Conventional Commits 1.0.0
 
