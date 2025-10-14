@@ -21,7 +21,7 @@ use crate::{
     consts::DEFAULT_SYS_PROMPT,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AI {
     pub capitalize_prefix: bool,
     pub include_scope: bool,
@@ -35,7 +35,7 @@ pub struct AI {
     pub claude: AiConfig,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AiConfig {
     pub enable: bool,
     pub model_name: String,

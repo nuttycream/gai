@@ -4,7 +4,7 @@ use super::provider::AI;
 
 /// this is rules/constraints to send the ai
 /// along with the prompt
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RuleConfig {
     /// group related files into logical commits based on the type of prefix
     pub group_related_files: bool,
