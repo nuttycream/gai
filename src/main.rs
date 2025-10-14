@@ -25,7 +25,8 @@ use tokio::{
 use crate::{
     ai::response::Response,
     app::{Action, App},
-    cli::args::Args,
+    cli::{Cli, Commands},
+    config::Config,
     git::repo::GaiGit,
 };
 
@@ -33,9 +34,13 @@ use crate::{
 async fn main() -> Result<()> {
     dotenv().ok();
 
-    let args = Args::parse();
+    let mut cfg = config::Config::init("config.toml")?;
 
-    let cfg = config::Config::init("config.toml")?;
+    let args = Cli::parse();
+
+    args.parse_args(&mut cfg);
+
+    println!("{:#?}", cfg);
 
     let mut gai = GaiGit::new(
         ".",
@@ -45,16 +50,22 @@ async fn main() -> Result<()> {
     )?;
 
     gai.create_diffs(&cfg.files_to_truncate)?;
-
-    let mut app = App::new(cfg, gai);
-
-    if args.skip_tui {
-        println!("Skipping tui");
-        return Ok(());
+    match args.command {
+        Some(Commands::Tui) => run_tui(cfg, gai).await?,
+        None => {}
     }
+
+    Ok(())
+}
+
+async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
+    let mut app = App::new(cfg, gai);
 
     let mut terminal = ratatui::init();
 
+    // gonna leave channels here for now
+    // we should only handle one ai response
+    // and just make it synchronous for the cli
     let (tx, mut rx) = mpsc::channel(3);
 
     let mut reader = EventStream::new();
