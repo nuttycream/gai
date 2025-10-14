@@ -1,2 +1,5 @@
-tui:
-    cargo run -- tui
+run *flags:
+    cargo run -- {{flags}}
+
+tui *flags:
+    cargo run -- {{flags}} tui
