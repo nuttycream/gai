@@ -40,8 +40,6 @@ async fn main() -> Result<()> {
 
     args.parse_args(&mut cfg);
 
-    println!("{:#?}", cfg);
-
     let mut gai = GaiGit::new(
         ".",
         cfg.stage_hunks,
