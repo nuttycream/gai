@@ -59,8 +59,9 @@ async fn main() -> Result<()> {
 
     gai.create_diffs(&cfg.files_to_truncate)?;
     match args.command {
-        Some(Commands::Tui) => run_tui(cfg, gai).await?,
-        None => run_cli(cfg, gai).await?,
+        Commands::Tui => run_tui(cfg, gai).await?,
+        Commands::Gemini => run_cli(cfg, gai).await?,
+        _ => {}
     }
 
     Ok(())

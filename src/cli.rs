@@ -4,7 +4,9 @@ use crate::config::Config;
 
 #[derive(Debug, Parser)]
 #[command(name = "gai")]
-#[command(about = "gai cli", long_about = None)]
+#[command(version)]
+#[command(about, long_about = None)]
+#[command(override_usage = "\n  gai [OPTIONS] [COMMAND]")]
 pub struct Cli {
     /// send request on launch
     #[arg(long)]
@@ -111,13 +113,22 @@ pub struct Cli {
     pub claude_max_tokens: Option<u64>,
 
     #[command(subcommand)]
-    pub command: Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// run as tui
+    /// Open Terminal User Interface
     Tui,
+
+    /// Run with Gemini
+    Gemini,
+
+    /// Run with ChatGPT
+    ChatGPT,
+
+    /// Run with Claude
+    Claude,
 }
 
 impl Cli {
