@@ -23,7 +23,9 @@ impl GaiCommit {
 
             let breaking =
                 if response.message.breaking { "!" } else { "" };
-            let scope = if include_scope {
+            let scope = if include_scope
+                && !response.message.scope.is_empty()
+            {
                 // gonna set it to lowercase PERMA
                 // sometimes the AI responds with a scope
                 // that includes the file extension and is capitalized
