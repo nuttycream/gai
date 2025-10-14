@@ -1,0 +1,2 @@
+tui:
+    cargo run -- tui
