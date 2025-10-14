@@ -8,8 +8,6 @@ pub mod git;
 pub mod tui;
 pub mod utils;
 
-use std::time::Duration;
-
 use anyhow::Result;
 use clap::Parser;
 use crossterm::event::{
@@ -17,6 +15,17 @@ use crossterm::event::{
 };
 use dotenv::dotenv;
 use futures::{FutureExt, StreamExt};
+use rig::{
+    client::{CompletionClient, ProviderClient},
+    providers::gemini::{
+        self,
+        completion::gemini_api_types::{
+            AdditionalParameters, GenerationConfig,
+        },
+    },
+};
+use std::io::{self, Write};
+use std::time::Duration;
 use tokio::{
     sync::mpsc::{self, Sender},
     time::interval,
@@ -27,7 +36,8 @@ use crate::{
     app::{Action, App},
     cli::{Cli, Commands},
     config::Config,
-    git::repo::GaiGit,
+    git::{commit::GaiCommit, repo::GaiGit},
+    utils::build_prompt,
 };
 
 #[tokio::main]
@@ -50,8 +60,88 @@ async fn main() -> Result<()> {
     gai.create_diffs(&cfg.files_to_truncate)?;
     match args.command {
         Some(Commands::Tui) => run_tui(cfg, gai).await?,
-        None => {}
+        None => run_cli(cfg, gai).await?,
     }
+
+    Ok(())
+}
+
+async fn run_cli(cfg: Config, gai: GaiGit) -> Result<()> {
+    println!("Sending diffs...");
+
+    let mut diffs = String::new();
+    for (file, diff) in gai.get_file_diffs_as_str() {
+        diffs.push_str(&format!("File:{}\n{}\n", file, diff));
+    }
+
+    let rules = cfg.ai.build_rules();
+
+    let mut prompt = build_prompt(
+        cfg.ai.include_convention,
+        &cfg.ai.system_prompt,
+        &rules,
+        cfg.stage_hunks,
+    );
+
+    if cfg.include_file_tree {
+        prompt.push_str(&gai.get_repo_tree());
+    }
+
+    // gemini for now
+    let client = gemini::Client::from_env();
+    let gen_cfg = GenerationConfig {
+        max_output_tokens: Some(cfg.ai.gemini.max_tokens),
+        ..Default::default()
+    };
+
+    let param_cfg =
+        AdditionalParameters::default().with_config(gen_cfg);
+
+    let extractor = client
+        .extractor::<Response>(&cfg.ai.gemini.model_name)
+        .preamble(&prompt)
+        .additional_params(serde_json::to_value(param_cfg)?)
+        .build();
+
+    let resp = extractor.extract(diffs).await?;
+
+    println!("response commits:");
+    for commit in &resp.commits {
+        println!(
+            "prefix: {}",
+            commit.get_commit_prefix(
+                cfg.ai.capitalize_prefix,
+                cfg.ai.include_scope
+            )
+        );
+        println!("  desc: {}", commit.message.description);
+        println!("  files: {:?}", commit.files);
+    }
+
+    let commits: Vec<GaiCommit> = resp
+        .commits
+        .iter()
+        .map(|resp_commit| {
+            GaiCommit::from_response(
+                resp_commit,
+                gai.capitalize_prefix,
+                gai.include_scope,
+            )
+        })
+        .collect();
+
+    print!("\napply commits? [y/n]: ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    if !input.trim().eq_ignore_ascii_case("y") {
+        println!("no.");
+        return Ok(());
+    }
+
+    gai.apply_commits(&commits);
 
     Ok(())
 }

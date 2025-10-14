@@ -1,5 +1,6 @@
 use crate::ai::response::ResponseCommit;
 
+#[derive(Debug)]
 pub struct GaiCommit {
     pub files: Vec<String>,
     pub hunk_headers: Vec<String>,
