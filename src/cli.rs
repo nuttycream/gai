@@ -76,10 +76,6 @@ pub struct Cli {
     #[arg(long)]
     pub allow_empty_scope: bool,
 
-    /// enable OpenAI
-    #[arg(long)]
-    pub enable_openai: bool,
-
     /// OpenAI model name
     #[arg(long, value_name = "model")]
     pub openai_model: Option<String>,
@@ -87,22 +83,6 @@ pub struct Cli {
     /// OpenAI max tokens
     #[arg(long, value_name = "num")]
     pub openai_max_tokens: Option<u64>,
-
-    /// enable Gemini
-    #[arg(long)]
-    pub enable_gemini: bool,
-
-    /// Gemini model name
-    #[arg(long, value_name = "model")]
-    pub gemini_model: Option<String>,
-
-    /// Gemini max tokens
-    #[arg(long, value_name = "num")]
-    pub gemini_max_tokens: Option<u64>,
-
-    /// enable Claude
-    #[arg(long)]
-    pub enable_claude: bool,
 
     /// Claude model name
     #[arg(long, value_name = "model")]
@@ -119,13 +99,22 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Open Terminal User Interface
-    Tui,
+    Tui {},
 
     /// Run with Gemini
-    Gemini,
+    Gemini {
+        /// Gemini model name
+        #[arg(long, value_name = "model")]
+        model: Option<String>,
+
+        /// Gemini max tokens
+        #[arg(long, value_name = "num")]
+        max_tokens: Option<u64>,
+    },
 
     /// Run with ChatGPT
-    ChatGPT,
+    #[command(visible_alias = "openai")]
+    Chatgpt,
 
     /// Run with Claude
     Claude,
@@ -187,9 +176,6 @@ impl Cli {
             config.ai.rules.allow_empty_scope = true;
         }
 
-        if self.enable_openai {
-            config.ai.openai.enable = true;
-        }
         if let Some(v) = &self.openai_model {
             config.ai.openai.model_name = v.to_owned();
         }
@@ -197,9 +183,6 @@ impl Cli {
             config.ai.openai.max_tokens = v;
         }
 
-        if self.enable_gemini {
-            config.ai.gemini.enable = true;
-        }
         if let Some(v) = &self.gemini_model {
             config.ai.gemini.model_name = v.to_owned();
         }
@@ -207,9 +190,6 @@ impl Cli {
             config.ai.gemini.max_tokens = v;
         }
 
-        if self.enable_claude {
-            config.ai.claude.enable = true;
-        }
         if let Some(v) = &self.claude_model {
             config.ai.claude.model_name = v.to_owned();
         }
