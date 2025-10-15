@@ -1,0 +1,173 @@
+use clap::{Parser, Subcommand};
+
+use crate::config::Config;
+
+#[derive(Debug, Parser)]
+#[command(name = "gai")]
+#[command(version)]
+#[command(about, long_about = None)]
+#[command(override_usage = "\n  gai [OPTIONS] [COMMAND]")]
+pub struct Cli {
+    /// include untracked files
+    #[arg(short = 'u', long)]
+    pub include_untracked: bool,
+
+    /// apply changes as hunks
+    #[arg(short = 'H', long)]
+    pub stage_hunks: bool,
+
+    /// path to API key file
+    #[arg(short = 'k', long, value_name = "file")]
+    pub api_key_file: Option<String>,
+
+    /// include file tree in request
+    #[arg(short = 't', long)]
+    pub include_file_tree: bool,
+
+    /// files to truncate
+    #[arg(short = 'T', long, value_name = "file")]
+    pub truncate_file: Vec<String>,
+
+    /// capitalize commit prefix
+    #[arg(short = 'c', long)]
+    pub capitalize_prefix: bool,
+
+    /// include scope in commits
+    #[arg(short = 's', long)]
+    pub include_scope: bool,
+
+    /// custom system prompt
+    #[arg(short = 'p', long, value_name = "prompt")]
+    pub system_prompt: Option<String>,
+
+    /// use conventional commits
+    #[arg(short = 'C', long)]
+    pub include_convention: bool,
+
+    /// group related files
+    #[arg(short = 'g', long)]
+    pub group_related_files: bool,
+
+    /// don't split files across hunks
+    #[arg(short = 'S', long)]
+    pub no_file_splitting: bool,
+
+    /// separate commits by purpose
+    #[arg(short = 'P', long)]
+    pub separate_by_purpose: bool,
+
+    /// verbose commit descriptions
+    #[arg(short = 'v', long)]
+    pub verbose_descriptions: bool,
+
+    /// exclude file extension in scope
+    #[arg(short = 'e', long)]
+    pub exclude_extension_in_scope: bool,
+
+    /// allow empty scope
+    #[arg(short = 'E', long)]
+    pub allow_empty_scope: bool,
+
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Commands {
+    /// Open Terminal User Interface
+    Tui {
+        /// send request on launch
+        #[arg(long)]
+        auto_request: bool,
+
+        /// skip splash screen
+        #[arg(long)]
+        skip_splash: bool,
+    },
+
+    /// Run with Gemini
+    Gemini {
+        /// Gemini model name
+        #[arg(long, value_name = "model")]
+        model: Option<String>,
+
+        /// Gemini max tokens
+        #[arg(long, value_name = "num")]
+        max_tokens: Option<u64>,
+    },
+
+    /// Run with ChatGPT
+    #[command(visible_alias = "openai")]
+    Chatgpt {
+        /// ChatGpt model name
+        #[arg(long, value_name = "model")]
+        model: Option<String>,
+
+        /// Chatgpt max tokens
+        #[arg(long, value_name = "num")]
+        max_tokens: Option<u64>,
+    },
+
+    /// Run with Claude
+    Claude {
+        /// Claude model name
+        #[arg(long, value_name = "model")]
+        model: Option<String>,
+
+        /// Claude max tokens
+        #[arg(long, value_name = "num")]
+        max_tokens: Option<u64>,
+    },
+}
+
+impl Cli {
+    pub fn parse_args(&self, config: &mut Config) {
+        if self.include_untracked {
+            config.include_untracked = true;
+        }
+        if self.stage_hunks {
+            config.stage_hunks = true;
+        }
+        if let Some(v) = &self.api_key_file {
+            config.api_key_file = v.to_owned();
+        }
+        if self.include_file_tree {
+            config.include_file_tree = true;
+        }
+        if !self.truncate_file.is_empty() {
+            config.files_to_truncate = self.truncate_file.to_owned();
+        }
+
+        if self.capitalize_prefix {
+            config.ai.capitalize_prefix = true;
+        }
+        if self.include_scope {
+            config.ai.include_scope = true;
+        }
+        if let Some(v) = &self.system_prompt {
+            config.ai.system_prompt = v.to_owned();
+        }
+        if self.include_convention {
+            config.ai.include_convention = true;
+        }
+
+        if self.group_related_files {
+            config.ai.rules.group_related_files = true;
+        }
+        if self.no_file_splitting {
+            config.ai.rules.no_file_splitting = true;
+        }
+        if self.separate_by_purpose {
+            config.ai.rules.separate_by_purpose = true;
+        }
+        if self.verbose_descriptions {
+            config.ai.rules.verbose_descriptions = true;
+        }
+        if self.exclude_extension_in_scope {
+            config.ai.rules.exclude_extension_in_scope = true;
+        }
+        if self.allow_empty_scope {
+            config.ai.rules.allow_empty_scope = true;
+        }
+    }
+}

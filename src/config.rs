@@ -4,7 +4,7 @@ use std::{fs, io::ErrorKind};
 
 use crate::ai::provider::AI;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     /// send out the request
     /// upon launching gai
