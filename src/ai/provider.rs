@@ -156,7 +156,7 @@ impl AI {
 // be the only model to accept max_tokens
 // but its the fastest model atm, so after testing
 // make sure you do this bud
-async fn try_gemini(
+pub async fn try_gemini(
     prompt: &str,
     model_name: &str,
     max_tokens: u64,
@@ -179,7 +179,7 @@ async fn try_gemini(
     extractor.extract(diffs).await
 }
 
-async fn try_openai(
+pub async fn try_openai(
     prompt: &str,
     model_name: &str,
     diffs: &str,
@@ -194,7 +194,7 @@ async fn try_openai(
     extractor.extract(diffs).await
 }
 
-async fn try_claude(
+pub async fn try_claude(
     prompt: &str,
     model_name: &str,
     diffs: &str,
