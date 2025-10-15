@@ -34,7 +34,6 @@
             name = "gai";
             packages = with pkgs; [
               just
-              bacon
               rust-bin.stable.latest.default
             ];
 
