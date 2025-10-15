@@ -8,89 +8,65 @@ use crate::config::Config;
 #[command(about, long_about = None)]
 #[command(override_usage = "\n  gai [OPTIONS] [COMMAND]")]
 pub struct Cli {
-    /// send request on launch
-    #[arg(long)]
-    pub auto_request: bool,
-
-    /// skip splash screen
-    #[arg(long)]
-    pub skip_splash: bool,
-
     /// include untracked files
-    #[arg(long)]
+    #[arg(short = 'u', long)]
     pub include_untracked: bool,
 
     /// apply changes as hunks
-    #[arg(long)]
+    #[arg(short = 'H', long)]
     pub stage_hunks: bool,
 
     /// path to API key file
-    #[arg(long, value_name = "file")]
+    #[arg(short = 'k', long, value_name = "file")]
     pub api_key_file: Option<String>,
 
     /// include file tree in request
-    #[arg(long)]
+    #[arg(short = 't', long)]
     pub include_file_tree: bool,
 
     /// files to truncate
-    #[arg(long, value_name = "file")]
+    #[arg(short = 'T', long, value_name = "file")]
     pub truncate_file: Vec<String>,
 
     /// capitalize commit prefix
-    #[arg(long)]
+    #[arg(short = 'c', long)]
     pub capitalize_prefix: bool,
 
     /// include scope in commits
-    #[arg(long)]
+    #[arg(short = 's', long)]
     pub include_scope: bool,
 
     /// custom system prompt
-    #[arg(long, value_name = "prompt")]
+    #[arg(short = 'p', long, value_name = "prompt")]
     pub system_prompt: Option<String>,
 
     /// use conventional commits
-    #[arg(long)]
+    #[arg(short = 'C', long)]
     pub include_convention: bool,
 
     /// group related files
-    #[arg(long)]
+    #[arg(short = 'g', long)]
     pub group_related_files: bool,
 
-    /// don't split files across commits
-    #[arg(long)]
+    /// don't split files across hunks
+    #[arg(short = 'S', long)]
     pub no_file_splitting: bool,
 
     /// separate commits by purpose
-    #[arg(long)]
+    #[arg(short = 'P', long)]
     pub separate_by_purpose: bool,
 
     /// verbose commit descriptions
-    #[arg(long)]
+    #[arg(short = 'v', long)]
     pub verbose_descriptions: bool,
 
     /// exclude file extension in scope
-    #[arg(long)]
+    #[arg(short = 'e', long)]
     pub exclude_extension_in_scope: bool,
 
     /// allow empty scope
-    #[arg(long)]
+    #[arg(short = 'E', long)]
     pub allow_empty_scope: bool,
-
-    /// OpenAI model name
-    #[arg(long, value_name = "model")]
-    pub openai_model: Option<String>,
-
-    /// OpenAI max tokens
-    #[arg(long, value_name = "num")]
-    pub openai_max_tokens: Option<u64>,
-
-    /// Claude model name
-    #[arg(long, value_name = "model")]
-    pub claude_model: Option<String>,
-
-    /// Claude max tokens
-    #[arg(long, value_name = "num")]
-    pub claude_max_tokens: Option<u64>,
 
     #[command(subcommand)]
     pub command: Commands,
@@ -99,7 +75,15 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Open Terminal User Interface
-    Tui {},
+    Tui {
+        /// send request on launch
+        #[arg(long)]
+        auto_request: bool,
+
+        /// skip splash screen
+        #[arg(long)]
+        skip_splash: bool,
+    },
 
     /// Run with Gemini
     Gemini {
@@ -114,20 +98,30 @@ pub enum Commands {
 
     /// Run with ChatGPT
     #[command(visible_alias = "openai")]
-    Chatgpt,
+    Chatgpt {
+        /// ChatGpt model name
+        #[arg(long, value_name = "model")]
+        model: Option<String>,
+
+        /// Chatgpt max tokens
+        #[arg(long, value_name = "num")]
+        max_tokens: Option<u64>,
+    },
 
     /// Run with Claude
-    Claude,
+    Claude {
+        /// Claude model name
+        #[arg(long, value_name = "model")]
+        model: Option<String>,
+
+        /// Claude max tokens
+        #[arg(long, value_name = "num")]
+        max_tokens: Option<u64>,
+    },
 }
 
 impl Cli {
     pub fn parse_args(&self, config: &mut Config) {
-        if self.auto_request {
-            config.auto_request = true;
-        }
-        if self.skip_splash {
-            config.skip_splash = true;
-        }
         if self.include_untracked {
             config.include_untracked = true;
         }
@@ -174,27 +168,6 @@ impl Cli {
         }
         if self.allow_empty_scope {
             config.ai.rules.allow_empty_scope = true;
-        }
-
-        if let Some(v) = &self.openai_model {
-            config.ai.openai.model_name = v.to_owned();
-        }
-        if let Some(v) = self.openai_max_tokens {
-            config.ai.openai.max_tokens = v;
-        }
-
-        if let Some(v) = &self.gemini_model {
-            config.ai.gemini.model_name = v.to_owned();
-        }
-        if let Some(v) = self.gemini_max_tokens {
-            config.ai.gemini.max_tokens = v;
-        }
-
-        if let Some(v) = &self.claude_model {
-            config.ai.claude.model_name = v.to_owned();
-        }
-        if let Some(v) = self.claude_max_tokens {
-            config.ai.claude.max_tokens = v;
         }
     }
 }
