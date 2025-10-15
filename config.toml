@@ -22,6 +22,8 @@ separate_by_purpose = true
 verbose_descriptions = true
 exclude_extension_in_scope = true
 allow_empty_scope = true
+max_header_length = 50
+max_body_length = 72
 
 [ai.openai]
 enable = true
