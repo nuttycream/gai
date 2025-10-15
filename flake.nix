@@ -1,5 +1,5 @@
 {
-  description = "sussg";
+  description = "gai";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -25,9 +25,16 @@
           packages.default = pkgs.rustPlatform.buildRustPackage {
             name = "gai";
             src = ./.;
-            buildInputs = [];
-            nativeBuildInputs = [];
-            cargoHash = lib.fakeHash;
+
+            buildInputs = [
+              openssl
+            ];
+
+            nativeBuildInputs = [
+              pkg-config
+            ];
+
+            cargoHash = "sha256-ArPxM0GD/uhhcEntZ24j4lfAzOUGx2VdnI7Q1TrEkck=";
           };
 
           devShells.default = mkShell {
