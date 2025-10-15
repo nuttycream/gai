@@ -28,8 +28,10 @@ pub struct CommitMessage {
     pub scope: String,
     // !
     pub breaking: bool,
-    // desc
-    pub description: String,
+
+    /// description compoennts
+    pub header: String,
+    pub body: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

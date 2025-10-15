@@ -38,8 +38,16 @@ impl GaiCommit {
             };
 
             format!(
-                "{}{}{}: {}",
-                prefix, breaking, scope, response.message.description
+                "{}{}{}: {}\n{}",
+                prefix,
+                breaking,
+                scope,
+                response.message.header,
+                if response.message.body.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n\n{}", response.message.body)
+                }
             )
         };
         GaiCommit {

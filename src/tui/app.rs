@@ -380,15 +380,22 @@ impl App {
                                 &response.commits[selected];
 
                             let mut content = String::new();
-                            content.push_str("files to stage:\n");
+                            content.push_str("Files to Stage:\n");
                             for file in &response_commit.files {
                                 content
                                     .push_str(&format!("{}\n", file));
                             }
+
                             content.push_str(&format!(
-                                "description:\n{}\n",
-                                response_commit.message.description
+                                "Header:\n{}\n",
+                                response_commit.message.header
                             ));
+
+                            content.push_str(&format!(
+                                "Body:\n{}\n",
+                                response_commit.message.body
+                            ));
+
                             TabContent::Description(content)
                         } else {
                             TabContent::Description(
