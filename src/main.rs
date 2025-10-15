@@ -61,26 +61,57 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+async fn run_provider(
+    cfg: Config,
+    gai: GaiGit,
+    resp: Response,
+) -> Result<()> {
+    println!("response commits:");
+    for commit in &resp.commits {
+        println!(
+            "prefix: {}",
+            commit.get_commit_prefix(
+                cfg.ai.capitalize_prefix,
+                cfg.ai.include_scope
+            )
+        );
+        println!("  header: {}", commit.message.header);
+        println!("  body: {}", commit.message.body);
+        println!("  files: {:?}", commit.files);
+    }
+
+    let commits: Vec<GaiCommit> = resp
+        .commits
+        .iter()
+        .map(|resp_commit| {
+            GaiCommit::from_response(
+                resp_commit,
+                gai.capitalize_prefix,
+                gai.include_scope,
+            )
+        })
+        .collect();
+
+    print!("\napply commits? [y/n]: ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    if !input.trim().eq_ignore_ascii_case("y") {
+        println!("no.");
+        return Ok(());
+    }
+
+    gai.apply_commits(&commits);
+
+    Ok(())
+}
+
 async fn run_gemini(cfg: Config, gai: GaiGit) -> Result<()> {
-    println!("Sending diffs to gemini...");
-
-    let mut diffs = String::new();
-    for (file, diff) in gai.get_file_diffs_as_str() {
-        diffs.push_str(&format!("File:{}\n{}\n", file, diff));
-    }
-
-    let rules = cfg.ai.build_rules();
-
-    let mut prompt = build_prompt(
-        cfg.ai.include_convention,
-        &cfg.ai.system_prompt,
-        &rules,
-        cfg.stage_hunks,
-    );
-
-    if cfg.include_file_tree {
-        prompt.push_str(&gai.get_repo_tree());
-    }
+    println!("Sending diffs to gemini {}", cfg.ai.gemini.model_name);
+    let diffs = build_diffs_string(&gai);
+    let prompt = build_full_prompt(&cfg, &gai);
 
     let gemini = &cfg.ai.gemini;
     let resp = try_gemini(
@@ -91,177 +122,31 @@ async fn run_gemini(cfg: Config, gai: GaiGit) -> Result<()> {
     )
     .await?;
 
-    println!("response commits:");
-    for commit in &resp.commits {
-        println!(
-            "prefix: {}",
-            commit.get_commit_prefix(
-                cfg.ai.capitalize_prefix,
-                cfg.ai.include_scope
-            )
-        );
-        println!("  desc: {}", commit.message.description);
-        println!("  files: {:?}", commit.files);
-    }
-
-    let commits: Vec<GaiCommit> = resp
-        .commits
-        .iter()
-        .map(|resp_commit| {
-            GaiCommit::from_response(
-                resp_commit,
-                gai.capitalize_prefix,
-                gai.include_scope,
-            )
-        })
-        .collect();
-
-    print!("\napply commits? [y/n]: ");
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    if !input.trim().eq_ignore_ascii_case("y") {
-        println!("no.");
-        return Ok(());
-    }
-
-    gai.apply_commits(&commits);
-
-    Ok(())
+    run_provider(cfg, gai, resp).await
 }
 
 async fn run_chatgpt(cfg: Config, gai: GaiGit) -> Result<()> {
-    println!("Sending diffs to chatgpt...");
-
-    let mut diffs = String::new();
-    for (file, diff) in gai.get_file_diffs_as_str() {
-        diffs.push_str(&format!("File:{}\n{}\n", file, diff));
-    }
-
-    let rules = cfg.ai.build_rules();
-
-    let mut prompt = build_prompt(
-        cfg.ai.include_convention,
-        &cfg.ai.system_prompt,
-        &rules,
-        cfg.stage_hunks,
-    );
-
-    if cfg.include_file_tree {
-        prompt.push_str(&gai.get_repo_tree());
-    }
+    println!("Sending diffs to chatgpt {}", cfg.ai.openai.model_name);
+    let diffs = build_diffs_string(&gai);
+    let prompt = build_full_prompt(&cfg, &gai);
 
     let chatgpt = &cfg.ai.openai;
     let resp =
         try_openai(&prompt, &chatgpt.model_name, &diffs).await?;
 
-    println!("response commits:");
-    for commit in &resp.commits {
-        println!(
-            "prefix: {}",
-            commit.get_commit_prefix(
-                cfg.ai.capitalize_prefix,
-                cfg.ai.include_scope
-            )
-        );
-        println!("  desc: {}", commit.message.description);
-        println!("  files: {:?}", commit.files);
-    }
-
-    let commits: Vec<GaiCommit> = resp
-        .commits
-        .iter()
-        .map(|resp_commit| {
-            GaiCommit::from_response(
-                resp_commit,
-                gai.capitalize_prefix,
-                gai.include_scope,
-            )
-        })
-        .collect();
-
-    print!("\napply commits? [y/n]: ");
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    if !input.trim().eq_ignore_ascii_case("y") {
-        println!("no.");
-        return Ok(());
-    }
-
-    gai.apply_commits(&commits);
-
-    Ok(())
+    run_provider(cfg, gai, resp).await
 }
 
 async fn run_claude(cfg: Config, gai: GaiGit) -> Result<()> {
-    println!("Sending diffs to claude...");
-
-    let mut diffs = String::new();
-    for (file, diff) in gai.get_file_diffs_as_str() {
-        diffs.push_str(&format!("File:{}\n{}\n", file, diff));
-    }
-
-    let rules = cfg.ai.build_rules();
-
-    let mut prompt = build_prompt(
-        cfg.ai.include_convention,
-        &cfg.ai.system_prompt,
-        &rules,
-        cfg.stage_hunks,
-    );
-
-    if cfg.include_file_tree {
-        prompt.push_str(&gai.get_repo_tree());
-    }
+    println!("Sending diffs to claude {}", cfg.ai.claude.model_name);
+    let diffs = build_diffs_string(&gai);
+    let prompt = build_full_prompt(&cfg, &gai);
 
     let claude = &cfg.ai.claude;
     let resp =
         try_claude(&prompt, &claude.model_name, &diffs).await?;
 
-    println!("response commits:");
-    for commit in &resp.commits {
-        println!(
-            "prefix: {}",
-            commit.get_commit_prefix(
-                cfg.ai.capitalize_prefix,
-                cfg.ai.include_scope
-            )
-        );
-        println!("  desc: {}", commit.message.description);
-        println!("  files: {:?}", commit.files);
-    }
-
-    let commits: Vec<GaiCommit> = resp
-        .commits
-        .iter()
-        .map(|resp_commit| {
-            GaiCommit::from_response(
-                resp_commit,
-                gai.capitalize_prefix,
-                gai.include_scope,
-            )
-        })
-        .collect();
-
-    print!("\napply commits? [y/n]: ");
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    if !input.trim().eq_ignore_ascii_case("y") {
-        println!("no.");
-        return Ok(());
-    }
-
-    gai.apply_commits(&commits);
-
-    Ok(())
+    run_provider(cfg, gai, resp).await
 }
 
 async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
@@ -347,4 +232,28 @@ async fn handle_actions(
             }
         }
     }
+}
+
+fn build_diffs_string(gai: &GaiGit) -> String {
+    let mut diffs = String::new();
+    for (file, diff) in gai.get_file_diffs_as_str() {
+        diffs.push_str(&format!("File:{}\n{}\n", file, diff));
+    }
+    diffs
+}
+
+fn build_full_prompt(cfg: &Config, gai: &GaiGit) -> String {
+    let rules = cfg.ai.build_rules();
+    let mut prompt = build_prompt(
+        cfg.ai.include_convention,
+        &cfg.ai.system_prompt,
+        &rules,
+        cfg.stage_hunks,
+    );
+
+    if cfg.include_file_tree {
+        prompt.push_str(&gai.get_repo_tree());
+    }
+
+    prompt
 }
