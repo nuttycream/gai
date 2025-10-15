@@ -1,9 +1,7 @@
 pub mod ai;
-pub mod app;
 pub mod cli;
 pub mod config;
 pub mod consts;
-pub mod events;
 pub mod git;
 pub mod tui;
 pub mod utils;
@@ -22,15 +20,16 @@ use tokio::{
     time::interval,
 };
 
+use crate::tui::keys;
 use crate::{
     ai::{
         provider::{try_claude, try_gemini, try_openai},
         response::Response,
     },
-    app::{Action, App},
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
+    tui::app::{Action, App},
     utils::build_prompt,
 };
 
@@ -317,7 +316,7 @@ async fn handle_actions(
         && key.kind == KeyEventKind::Press
     {
         let pressed = CrossTermEvent::Key(key);
-        if let Some(action) = events::keys::get_tui_action(pressed) {
+        if let Some(action) = keys::get_tui_action(pressed) {
             let ui = &mut app.ui;
             match action {
                 Action::Quit => app.running = false,

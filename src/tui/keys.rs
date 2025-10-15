@@ -1,4 +1,4 @@
-use crate::app::Action;
+use crate::tui::app::Action;
 
 use crossterm::event::{Event, KeyCode};
 
