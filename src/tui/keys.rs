@@ -30,8 +30,6 @@ pub fn get_tui_action(event: Event) -> Option<Action> {
                 Some(Action::TruncateCurrentSelected)
             }
 
-            // todo; needs to be selected tab aware
-            // here or in main.rs
             KeyCode::Char('p') => Some(Action::SendRequest),
             KeyCode::Char('x') => Some(Action::ApplyCommits),
 
