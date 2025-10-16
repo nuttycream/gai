@@ -68,6 +68,14 @@ pub struct Cli {
     #[arg(short = 'E', long)]
     pub allow_empty_scope: bool,
 
+    /// max commit message header length
+    #[arg(short = 'm', long, value_name = "u16")]
+    pub max_header_length: Option<u16>,
+
+    /// max commit message body length
+    #[arg(short = 'M', long, value_name = "u16")]
+    pub max_body_length: Option<u16>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -168,6 +176,14 @@ impl Cli {
         }
         if self.allow_empty_scope {
             config.ai.rules.allow_empty_scope = true;
+        }
+
+        if let Some(v) = &self.max_header_length {
+            config.ai.rules.max_header_length = v.to_owned();
+        }
+
+        if let Some(v) = &self.max_body_length {
+            config.ai.rules.max_body_length = v.to_owned();
         }
     }
 }
