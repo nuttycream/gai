@@ -23,6 +23,7 @@ impl GaiGit {
             index.read_tree(&tree).unwrap();
         }
 
+        // todo impl validation and add failed hunks
         if self.stage_hunks {
             for path in &commit.files {
                 let path = Path::new(&path);

@@ -4,7 +4,7 @@ pub fn build_prompt(
     use_convention: bool,
     sys_prompt: &str,
     rules: &str,
-    use_hunk: bool,
+    stage_hunks: bool,
 ) -> String {
     let mut prompt = String::new();
 
@@ -20,15 +20,19 @@ pub fn build_prompt(
 
     prompt.push('\n');
 
-    if use_hunk {
-        prompt.push_str(
-            "fill hunk_headers with specific hunks from each file",
+    if stage_hunks {
+        prompt.push_str("
+            Fill hunk_headers with exact hunk headers from the diffs. \
+            Each hunk can only appear in ONE commit. \
+            Copy headers exactly, do not modify line numbers."
         );
     } else {
         prompt.push_str(
-            "fill out path files, leave hunk_headers empty",
+            "Fill out files with valid paths and leave hunk_headers empty",
         );
     }
+
+    prompt.push('\n');
 
     prompt
 }

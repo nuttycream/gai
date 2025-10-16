@@ -65,7 +65,7 @@ async fn run_provider(
     gai: GaiGit,
     resp: Response,
 ) -> Result<()> {
-    println!("response commits:");
+    println!("Response Commits({}):", resp.commits.len());
     for commit in &resp.commits {
         println!(
             "prefix: {}",
@@ -76,7 +76,11 @@ async fn run_provider(
         );
         println!("  header: {}", commit.message.header);
         println!("  body: {}", commit.message.body);
-        println!("  files: {:?}", commit.files);
+        if gai.stage_hunks {
+            println!("--hunks: {:?}", commit.hunk_headers);
+        } else {
+            println!("--files: {:?}", commit.files);
+        }
     }
 
     let commits: Vec<GaiCommit> = resp
@@ -153,9 +157,6 @@ async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
 
     let mut terminal = ratatui::init();
 
-    // gonna leave channels here for now
-    // we should only handle one ai response
-    // and just make it synchronous for the cli
     let (tx, mut rx) = mpsc::channel(3);
 
     let mut reader = EventStream::new();
@@ -235,14 +236,19 @@ async fn handle_actions(
 
 fn build_diffs_string(gai: &GaiGit) -> String {
     let mut diffs = String::new();
+
     for (file, diff) in gai.get_file_diffs_as_str() {
-        diffs.push_str(&format!("File:{}\n{}\n", file, diff));
+        let file_diff =
+            format!("FileName:{}\nContent:{}\n\n", file, diff);
+        diffs.push_str(&file_diff);
     }
+
     diffs
 }
 
 fn build_full_prompt(cfg: &Config, gai: &GaiGit) -> String {
     let rules = cfg.ai.build_rules();
+
     let mut prompt = build_prompt(
         cfg.ai.include_convention,
         &cfg.ai.system_prompt,
