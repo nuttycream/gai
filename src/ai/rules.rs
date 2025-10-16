@@ -115,7 +115,7 @@ impl AI {
             rules.push_str("  * message: ONLY the description, do NOT include prefix or scope in the message text.");
         }
 
-        rules.push_str("\n");
+        rules.push('\n');
 
         rules
     }
