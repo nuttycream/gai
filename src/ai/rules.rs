@@ -28,7 +28,10 @@ pub struct RuleConfig {
     pub allow_empty_scope: bool,
 
     // todo add hard validation
+    /// max length of commit headers
     pub max_header_length: u16,
+
+    /// max length of commit body
     pub max_body_length: u16,
 }
 
