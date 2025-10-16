@@ -48,12 +48,11 @@ impl GaiGit {
     /// for now, im not gonna handle those and we
     /// just straight up panic if we failed to open
     pub fn new(
-        repo_path: &str,
         stage_hunks: bool,
         capitalize_prefix: bool,
         include_scope: bool,
     ) -> Result<Self> {
-        let repo = Repository::open(repo_path)?;
+        let repo = Repository::open_from_env()?;
         let mut options = StatusOptions::new();
 
         options.include_untracked(true);

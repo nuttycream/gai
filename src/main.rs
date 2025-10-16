@@ -44,7 +44,6 @@ async fn main() -> Result<()> {
     args.parse_args(&mut cfg);
 
     let mut gai = GaiGit::new(
-        ".",
         cfg.stage_hunks,
         cfg.ai.capitalize_prefix,
         cfg.ai.include_scope,
