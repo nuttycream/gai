@@ -20,6 +20,7 @@ use tokio::{
     time::interval,
 };
 
+use crate::ai::response::ResponseCommit;
 use crate::tui::keys;
 use crate::{
     ai::{
@@ -63,7 +64,7 @@ async fn main() -> Result<()> {
 async fn run_provider(
     cfg: Config,
     gai: GaiGit,
-    resp: Response,
+    resp: &mut Response,
 ) -> Result<()> {
     println!("Response Commits({}):", resp.commits.len());
     for commit in &resp.commits {
@@ -74,39 +75,101 @@ async fn run_provider(
                 cfg.ai.include_scope
             )
         );
-        println!("  header: {}", commit.message.header);
-        println!("  body: {}", commit.message.body);
+        println!("--header: {}", commit.message.header);
+        println!("--body: {}", commit.message.body);
         if gai.stage_hunks {
             println!("--hunks: {:?}", commit.hunk_headers);
         } else {
             println!("--files: {:?}", commit.files);
         }
     }
-
-    let commits: Vec<GaiCommit> = resp
-        .commits
-        .iter()
-        .map(|resp_commit| {
-            GaiCommit::from_response(
-                resp_commit,
-                gai.capitalize_prefix,
-                gai.include_scope,
-            )
-        })
-        .collect();
-
-    print!("\napply commits? [y/n]: ");
+    println!("\n[y] Apply Commit/s\n[e] Edit Commit");
     io::stdout().flush()?;
 
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
 
-    if !input.trim().eq_ignore_ascii_case("y") {
-        println!("no.");
+    input = input.trim().to_string();
+
+    if input.eq_ignore_ascii_case("n") {
+        println!("Selected no. Cancelling.");
         return Ok(());
+    } else if input.eq_ignore_ascii_case("y") {
+        let commits: Vec<GaiCommit> = resp
+            .commits
+            .iter()
+            .map(|resp_commit| {
+                GaiCommit::from_response(
+                    resp_commit,
+                    gai.capitalize_prefix,
+                    gai.include_scope,
+                )
+            })
+            .collect();
+
+        gai.apply_commits(&commits);
+    } else if input.eq_ignore_ascii_case("e") {
+        println!(
+            "Select a commit to edit [1 - {}]:",
+            resp.commits.len()
+        );
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        input = input.trim().to_string();
+        match input.parse::<i32>() {
+            Ok(i) => {
+                if (i as usize - 1) < resp.commits.len() {
+                    let commit = &mut resp.commits[i as usize - 1];
+                    edit_commit(commit)?;
+                }
+            }
+            Err(e) => println!("error with input({input}): {e}"),
+        }
     }
 
-    gai.apply_commits(&commits);
+    Ok(())
+}
+
+fn edit_commit(commit: &mut ResponseCommit) -> Result<()> {
+    println!("Selected: {}", commit.message.header);
+    println!("Edit:\n[h/H] Header\n[b/B] Body\n[q/Q] Quit");
+
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    input = input.trim().to_string();
+
+    // todo i might have to use an external crate
+    // like rustyline to edit the string
+    // or use inline ratatui
+    if input.eq_ignore_ascii_case("h") {
+        println!("Editing commit message header...");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        commit.message.header = input.trim().to_string();
+
+        println!("{}", commit.message.header);
+    } else if input.eq_ignore_ascii_case("b") {
+        println!("Editing commit message body...");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        commit.message.body = input.trim().to_string();
+
+        println!("{}", commit.message.body);
+    } else if input.eq_ignore_ascii_case("q") {
+        return Ok(());
+    }
 
     Ok(())
 }
@@ -117,7 +180,7 @@ async fn run_gemini(cfg: Config, gai: GaiGit) -> Result<()> {
     let prompt = build_full_prompt(&cfg, &gai);
 
     let gemini = &cfg.ai.gemini;
-    let resp = try_gemini(
+    let mut resp = try_gemini(
         &prompt,
         &gemini.model_name,
         gemini.max_tokens,
@@ -125,7 +188,7 @@ async fn run_gemini(cfg: Config, gai: GaiGit) -> Result<()> {
     )
     .await?;
 
-    run_provider(cfg, gai, resp).await
+    run_provider(cfg, gai, &mut resp).await
 }
 
 async fn run_chatgpt(cfg: Config, gai: GaiGit) -> Result<()> {
@@ -134,10 +197,10 @@ async fn run_chatgpt(cfg: Config, gai: GaiGit) -> Result<()> {
     let prompt = build_full_prompt(&cfg, &gai);
 
     let chatgpt = &cfg.ai.openai;
-    let resp =
+    let mut resp =
         try_openai(&prompt, &chatgpt.model_name, &diffs).await?;
 
-    run_provider(cfg, gai, resp).await
+    run_provider(cfg, gai, &mut resp).await
 }
 
 async fn run_claude(cfg: Config, gai: GaiGit) -> Result<()> {
@@ -146,10 +209,10 @@ async fn run_claude(cfg: Config, gai: GaiGit) -> Result<()> {
     let prompt = build_full_prompt(&cfg, &gai);
 
     let claude = &cfg.ai.claude;
-    let resp =
+    let mut resp =
         try_claude(&prompt, &claude.model_name, &diffs).await?;
 
-    run_provider(cfg, gai, resp).await
+    run_provider(cfg, gai, &mut resp).await
 }
 
 async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
