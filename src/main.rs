@@ -78,12 +78,15 @@ async fn run_provider(
         println!("--header: {}", commit.message.header);
         println!("--body: {}", commit.message.body);
         if gai.stage_hunks {
-            println!("--hunks: {:?}", commit.hunk_headers);
+            println!("--hunks: {:#?}", commit.hunk_headers);
         } else {
-            println!("--files: {:?}", commit.files);
+            println!("--files: {:#?}", commit.files);
         }
     }
-    println!("\n[y] Apply Commit/s\n[e] Edit Commit");
+    println!(
+        "\n[y/Y] Apply Commit/s\n[e/E] Edit Commit\n[q/Q] Cancel/Quit"
+    );
+
     io::stdout().flush()?;
 
     let mut input = String::new();
@@ -92,7 +95,7 @@ async fn run_provider(
     input = input.trim().to_string();
 
     if input.eq_ignore_ascii_case("n") {
-        println!("Selected no. Cancelling.");
+        println!("Quitting");
         return Ok(());
     } else if input.eq_ignore_ascii_case("y") {
         let commits: Vec<GaiCommit> = resp
