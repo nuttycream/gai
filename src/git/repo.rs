@@ -3,6 +3,24 @@ use git2::{Repository, StatusOptions};
 use std::collections::HashMap;
 use walkdir::WalkDir;
 
+// todo
+// here's the plan
+// gonna need to rewrite some of this
+// after testing i found out that hunk headers
+// may change, after committing
+// but its dependent on whether or not
+// the LLM organizses it in a way that avoids changing the
+// lines in a hunk. from testing, apply_opts hunk callback
+// will fail on certain hunks and skip it, because
+// it may not exist because it was changed
+//
+// so my plan is to create a a different way to track
+// hunks, storing a hash of that hunks content
+// then using that to compare with content from the hunks as we
+// go through them
+// if that hunk matches the hash that belongs to this commit
+// then apply it.
+// hopefully this method works
 pub struct GaiGit {
     pub files: Vec<GaiFile>,
     pub repo: Repository,
