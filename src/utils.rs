@@ -21,10 +21,10 @@ pub fn build_prompt(
     prompt.push('\n');
 
     if stage_hunks {
-        prompt.push_str("
-            Fill hunk_headers with exact hunk headers from the diffs. \
-            Each hunk can only appear in ONE commit. \
-            Copy headers exactly, do not modify line numbers."
+        prompt.push_str(
+        "Fill hunk_ids with the HUNK_ID values shown in the diffs (format: \"filepath:index\").\
+        Each hunk can only appear in ONE commit.\
+        Ex.: [\"src/main.rs:0\", \"src/git/repo.rs:1\"]",
         );
     } else {
         prompt.push_str(

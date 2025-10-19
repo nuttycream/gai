@@ -3,7 +3,7 @@ use crate::ai::response::ResponseCommit;
 #[derive(Debug)]
 pub struct GaiCommit {
     pub files: Vec<String>,
-    pub hunk_headers: Vec<String>,
+    pub hunk_ids: Vec<String>,
     pub message: String,
 }
 
@@ -52,7 +52,7 @@ impl GaiCommit {
         };
         GaiCommit {
             files: response.files.to_owned(),
-            hunk_headers: response.hunk_headers.to_owned(),
+            hunk_ids: response.hunk_ids.to_owned(),
             message,
         }
     }

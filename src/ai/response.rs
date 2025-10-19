@@ -13,9 +13,12 @@ pub struct ResponseCommit {
     // paths to apply commit to
     // ex. git add main.rs doubloon.rs
     pub files: Vec<String>,
-    // hunk headers per file
+
+    // hunk "ids" per file, more like
+    // indices
     // when stage_hunks is enabled
-    pub hunk_headers: Vec<String>,
+    // ex: src/main.rs:0
+    pub hunk_ids: Vec<String>,
     pub message: CommitMessage,
 }
 

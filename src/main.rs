@@ -78,7 +78,7 @@ async fn run_provider(
         println!("--header: {}", commit.message.header);
         println!("--body: {}", commit.message.body);
         if gai.stage_hunks {
-            println!("--hunks: {:#?}", commit.hunk_headers);
+            println!("--hunks: {:#?}", commit.hunk_ids);
         } else {
             println!("--files: {:#?}", commit.files);
         }
