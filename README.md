@@ -9,7 +9,7 @@ gai, is a git + AI powered TUI that uses the intelligence of LLM's to simplify t
 ## Planned features
 - [x] Per File Staging [#4](https://github.com/nuttycream/gai/issues/4)
 - [x] CLI [#8](https://github.com/nuttycream/gai/issues/8)
-- [ ] Per Hunk Staging [#5](https://github.com/nuttycream/gai/issues/5)
+- [x] Per Hunk Staging [#5](https://github.com/nuttycream/gai/issues/5)
 - [ ] Magic Rebasing [#6](https://github.com/nuttycream/gai/issues/6)
 - [ ] Magic Bisect [#12](https://github.com/nuttycream/gai/issues/12)
 - [ ] Recreate/Amend Existing Commits [#7](https://github.com/nuttycream/gai/issues/7)
