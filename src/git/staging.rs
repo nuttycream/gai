@@ -1,8 +1,9 @@
-use std::{path::Path, str::from_utf8};
+use std::path::Path;
 
-use git2::{ApplyOptions, DiffOptions};
-
-use crate::git::{commit::GaiCommit, repo::GaiGit};
+use crate::git::{
+    commit::GaiCommit,
+    repo::{DiffType, GaiGit},
+};
 
 impl GaiGit {
     pub fn apply_commits(&self, commits: &[GaiCommit]) {
@@ -25,72 +26,12 @@ impl GaiGit {
 
         // todo impl validation and add failed hunks
         if self.stage_hunks {
-            for path in &commit.files {
-                let path = Path::new(&path);
-                let mut diff_opts = DiffOptions::new();
-                diff_opts.pathspec(path);
-
-                let diff = self
-                    .repo
-                    .diff_index_to_workdir(
-                        Some(&index),
-                        Some(&mut diff_opts),
-                    )
-                    .unwrap();
-
-                let selected_headers = &commit.hunk_headers;
-                let mut apply_opts = ApplyOptions::new();
-
-                apply_opts.hunk_callback(|h| {
-                    if let Some(hunk) = h {
-                        let header = from_utf8(hunk.header())
-                            .unwrap()
-                            .trim()
-                            .to_string();
-
-                        let hunk_exists = selected_headers
-                            .iter()
-                            .any(|h| h.trim() == header);
-
-                        return hunk_exists;
-                    }
-                    true
-                });
-
-                match self.repo.apply(
-                    &diff,
-                    git2::ApplyLocation::Index,
-                    Some(&mut apply_opts),
-                ) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        println!("failed to apply commits:{}", e);
-                    }
-                }
-            }
+            // going to bypass the index
+            // and instead use the stored hunks
+            // from create_diffs to create patches
+            self.stage_hunks(commit);
         } else {
-            // staging per file
-            for path in &commit.files {
-                let path = Path::new(&path);
-                let status = self.repo.status_file(path).unwrap();
-
-                // todo: some changes will implement a combo
-                // ex: modified + renamed
-                // i think we need to explicitly handle those
-                // maybe by storing it in a buffer of some sort
-                if status.contains(git2::Status::WT_MODIFIED)
-                    || status.contains(git2::Status::WT_NEW)
-                {
-                    index.add_path(path).unwrap();
-                }
-                if status.contains(git2::Status::WT_DELETED) {
-                    index.remove_path(path).unwrap();
-                }
-                if status.contains(git2::Status::WT_TYPECHANGE) {
-                    index.remove_path(path).unwrap();
-                    index.add_path(path).unwrap();
-                }
-            }
+            self.stage_files(&mut index, commit);
         }
 
         index.write().unwrap();
@@ -123,5 +64,131 @@ impl GaiGit {
                 &parents[..],
             )
             .unwrap();
+    }
+
+    pub fn stage_hunks(&self, commit: &GaiCommit) {
+        let patch = self.create_patches(&commit.hunk_ids);
+
+        match git2::Diff::from_buffer(patch.as_bytes()) {
+            Ok(diff) => {
+                match self.repo.apply(
+                    &diff,
+                    git2::ApplyLocation::Index,
+                    None,
+                ) {
+                    Ok(_) => println!("Staged and Applied Hunks!"),
+                    Err(e) => {
+                        println!("failed to stage hunks: {}", e);
+
+                        std::fs::write("failed.patch", &patch)
+                            .unwrap()
+                    }
+                }
+            }
+
+            Err(e) => println!("failed parse patches: {}", e),
+        }
+    }
+
+    fn stage_files(
+        &self,
+        index: &mut git2::Index,
+        commit: &GaiCommit,
+    ) {
+        for path in &commit.files {
+            let path = Path::new(&path);
+            let status = self.repo.status_file(path).unwrap();
+
+            // todo: some changes will implement a combo
+            // ex: modified + renamed
+            // i think we need to explicitly handle those
+            // maybe by storing it in a buffer of some sort
+            if status.contains(git2::Status::WT_MODIFIED)
+                || status.contains(git2::Status::WT_NEW)
+            {
+                index.add_path(path).unwrap();
+            }
+            if status.contains(git2::Status::WT_DELETED) {
+                index.remove_path(path).unwrap();
+            }
+            if status.contains(git2::Status::WT_TYPECHANGE) {
+                index.remove_path(path).unwrap();
+                index.add_path(path).unwrap();
+            }
+        }
+    }
+
+    fn create_patches(&self, hunk_ids: &[String]) -> String {
+        let mut patch = String::new();
+        let mut current_file = String::new();
+
+        for hunk_id in hunk_ids {
+            // this may be relatively flimsy
+            // todo: ideally we want to build out the schemars
+            // based on a predetermined set and instead of having
+            // an LLM 'write' it out, it can just choose it from the
+            // set
+            let Some((file_path, index_str)) =
+                hunk_id.split_once(':')
+            else {
+                println!("not a valid hunk_id format:{}", hunk_id);
+                continue;
+            };
+
+            let Ok(i) = index_str.parse::<usize>() else {
+                println!("not a valid hunk_index:{}", index_str);
+                continue;
+            };
+
+            let Some(file) =
+                self.files.iter().find(|f| f.path == file_path)
+            else {
+                println!("not a valid file: {}", file_path);
+                continue;
+            };
+
+            let Some(hunk) = file.hunks.get(i) else {
+                println!(
+                    "le hunk {} not found in file {}",
+                    i, file_path
+                );
+
+                continue;
+            };
+
+            // creating a patch
+            // the other methods, using a hunk hash
+            // or using headers, kinda sucked
+            // manually creating patches
+            // helps, since we can also print them out
+            // if they lets say fail
+            if current_file != file_path {
+                patch.push_str(&format!(
+                    "diff --git a/{} b/{}\n",
+                    file_path, file_path
+                ));
+                patch.push_str(&format!("--- a/{}\n", file_path));
+                patch.push_str(&format!("+++ b/{}\n", file_path));
+                current_file = file_path.to_string();
+            }
+
+            patch.push_str(&hunk.header);
+            if !hunk.header.ends_with('\n') {
+                patch.push('\n');
+            }
+
+            for line in &hunk.line_diffs {
+                let prefix = match line.diff_type {
+                    DiffType::Additions => '+',
+                    DiffType::Deletions => '-',
+                    DiffType::Unchanged => ' ',
+                };
+
+                patch.push(prefix);
+                patch.push_str(&line.content);
+            }
+        }
+
+        patch
     }
 }
