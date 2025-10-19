@@ -120,7 +120,11 @@ impl GaiGit {
                 continue;
             }
 
-            for hunk in &gai_file.hunks {
+            for (i, hunk) in gai_file.hunks.iter().enumerate() {
+                diff_str.push_str(&format!(
+                    "Hunk_id[{}:{}]\n",
+                    gai_file.path, i
+                ));
                 diff_str.push_str(&hunk.header);
                 diff_str.push('\n');
 
