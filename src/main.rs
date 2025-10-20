@@ -13,6 +13,7 @@ use crossterm::event::{
 };
 use dotenv::dotenv;
 use futures::{FutureExt, StreamExt};
+use indicatif::ProgressBar;
 use std::io::{self, Write};
 use std::time::Duration;
 use tokio::{
@@ -53,9 +54,9 @@ async fn main() -> Result<()> {
     gai.create_diffs(&cfg.files_to_truncate)?;
     match args.command {
         Commands::Tui { .. } => run_tui(cfg, gai).await?,
-        Commands::Gemini { .. } => run_gemini(cfg, gai).await?,
-        Commands::Chatgpt { .. } => run_chatgpt(cfg, gai).await?,
-        Commands::Claude { .. } => run_claude(cfg, gai).await?,
+        Commands::Commit { .. } => run_gemini(cfg, gai).await?,
+        Commands::Find { .. } => println!("Not yet implemented"),
+        Commands::Rebase {} => println!("Not yet implemented"),
     }
 
     Ok(())
@@ -178,6 +179,9 @@ fn edit_commit(commit: &mut ResponseCommit) -> Result<()> {
 }
 
 async fn run_gemini(cfg: Config, gai: GaiGit) -> Result<()> {
+    let bar = ProgressBar::new_spinner();
+    bar.enable_steady_tick(Duration::from_millis(100));
+
     println!("Sending diffs to gemini {}", cfg.ai.gemini.model_name);
     let diffs = build_diffs_string(&gai);
     let prompt = build_full_prompt(&cfg, &gai);
@@ -190,6 +194,8 @@ async fn run_gemini(cfg: Config, gai: GaiGit) -> Result<()> {
         &diffs,
     )
     .await?;
+
+    bar.finish();
 
     run_provider(cfg, gai, &mut resp).await
 }
