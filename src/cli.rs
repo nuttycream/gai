@@ -93,39 +93,14 @@ pub enum Commands {
         skip_splash: bool,
     },
 
-    /// Run with Gemini
-    Gemini {
-        /// Gemini model name
-        #[arg(long, value_name = "model")]
-        model: Option<String>,
+    /// Create commits
+    Commit {},
 
-        /// Gemini max tokens
-        #[arg(long, value_name = "num")]
-        max_tokens: Option<u64>,
-    },
+    /// Rebase commits
+    Rebase {},
 
-    /// Run with ChatGPT
-    #[command(visible_alias = "openai")]
-    Chatgpt {
-        /// ChatGpt model name
-        #[arg(long, value_name = "model")]
-        model: Option<String>,
-
-        /// Chatgpt max tokens
-        #[arg(long, value_name = "num")]
-        max_tokens: Option<u64>,
-    },
-
-    /// Run with Claude
-    Claude {
-        /// Claude model name
-        #[arg(long, value_name = "model")]
-        model: Option<String>,
-
-        /// Claude max tokens
-        #[arg(long, value_name = "num")]
-        max_tokens: Option<u64>,
-    },
+    /// Find a specific commit
+    Find {},
 }
 
 impl Cli {
