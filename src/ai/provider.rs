@@ -1,18 +1,24 @@
-use strum::{Display, EnumIter, EnumString, IntoStaticStr};
+use std::collections::HashMap;
 
-use crate::ai::response::Response;
+use rig::providers::openai;
+use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter, IntoEnumIterator};
+
+use crate::config::ProviderConfig;
+
+use super::response::Response;
 
 #[derive(
-    Debug,
     Clone,
     Copy,
+    Debug,
     Hash,
     Eq,
     PartialEq,
     EnumIter,
-    EnumString,
     Display,
-    IntoStaticStr,
+    Serialize,
+    Deserialize,
 )]
 pub enum Provider {
     OpenAI,
@@ -23,6 +29,28 @@ pub enum Provider {
 impl Provider {
     pub fn name(&self, model: &str) -> String {
         format!("{} ({})", self, model)
+    }
+
+    pub fn new() -> HashMap<Provider, ProviderConfig> {
+        let mut providers = HashMap::new();
+        for provider in Provider::iter() {
+            match provider {
+                Provider::OpenAI => providers.insert(
+                    provider,
+                    ProviderConfig::new("gpt-5-nano"),
+                ),
+                Provider::Gemini => providers.insert(
+                    provider,
+                    ProviderConfig::new("gemini-2.5-flash-lite"),
+                ),
+                Provider::Claude => providers.insert(
+                    provider,
+                    ProviderConfig::new("claude-3-5-haiku"),
+                ),
+            };
+        }
+
+        providers
     }
 
     pub async fn extract(

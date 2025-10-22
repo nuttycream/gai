@@ -2,13 +2,13 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, io::ErrorKind};
 
-use crate::consts::{COMMIT_CONVENTION, DEFAULT_SYS_PROMPT};
+use crate::ai::provider::Provider;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
+    ai: AiConfig,
     gai: GaiConfig,
     tui: TuiConfig,
-    ai: AiConfig,
 }
 
 impl Config {
@@ -19,6 +19,7 @@ impl Config {
         let cfg_str = match fs::read_to_string(path) {
             Ok(contents) => contents,
             Err(e) if e.kind() == ErrorKind::NotFound => {
+                println!("No config.toml found. Creating anew.");
                 let def = Config::default();
                 let def_toml = toml::to_string_pretty(&def)?;
                 fs::write(path, &def_toml)?;
@@ -33,14 +34,14 @@ impl Config {
 }
 
 /// gai git specific settings
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct GaiConfig {
     /// should we apply as hunks?
     pub stage_hunks: bool,
 }
 
 /// tui specific settings
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TuiConfig {
     /// send out the request
     /// upon launching gai
@@ -54,6 +55,9 @@ pub struct TuiConfig {
 /// anything dealing with the LLM request
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AiConfig {
+    /// provider specific configuration
+    pub providers: HashMap<Provider, ProviderConfig>,
+
     /// this is what tells the llm
     /// how to behave
     pub system_prompt: Option<String>,
@@ -83,9 +87,6 @@ pub struct AiConfig {
 
     /// ai response constraint/rules
     pub rules: RuleConfig,
-
-    /// provider specific configuration
-    pub providers: Providers,
 }
 
 /// this is rules/constraints to send the ai
@@ -123,46 +124,24 @@ pub struct RuleConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Providers {
-    pub openai: ProviderConfig,
-    pub gemini: ProviderConfig,
-    pub claude: ProviderConfig,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct ProviderConfig {
     pub enable: bool,
     pub model: String,
     pub max_tokens: u32,
 }
 
-impl Default for GaiConfig {
-    fn default() -> Self {
-        Self { stage_hunks: false }
-    }
-}
-
-impl Default for TuiConfig {
-    fn default() -> Self {
-        Self {
-            auto_request: false,
-            skip_splash: false,
-        }
-    }
-}
-
 impl Default for AiConfig {
     fn default() -> Self {
         Self {
-            system_prompt: Some(DEFAULT_SYS_PROMPT.to_owned()),
-            commit_convention: Some(COMMIT_CONVENTION.to_owned()),
+            system_prompt: None,
+            commit_convention: None,
             include_convention: true,
             include_file_tree: true,
             include_git_status: true,
             include_untracked: true,
             files_to_truncate: vec![],
             rules: RuleConfig::default(),
-            providers: Providers::default(),
+            providers: Provider::new(),
         }
     }
 }
@@ -182,18 +161,8 @@ impl Default for RuleConfig {
     }
 }
 
-impl Default for Providers {
-    fn default() -> Self {
-        Self {
-            openai: ProviderConfig::new("gpt-5-nano"),
-            gemini: ProviderConfig::new("claude-3-5-haiku"),
-            claude: ProviderConfig::new("gemini-2.5-flash-lite"),
-        }
-    }
-}
-
 impl ProviderConfig {
-    fn new(model_name: &str) -> Self {
+    pub fn new(model_name: &str) -> Self {
         Self {
             enable: false,
             model: model_name.to_owned(),
