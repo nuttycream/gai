@@ -6,9 +6,9 @@ use crate::ai::provider::Provider;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
-    ai: AiConfig,
-    gai: GaiConfig,
-    tui: TuiConfig,
+    pub ai: AiConfig,
+    pub gai: GaiConfig,
+    pub tui: TuiConfig,
 }
 
 impl Config {
@@ -60,6 +60,9 @@ pub struct AiConfig {
 
     /// this is what tells the llm
     /// how to behave
+    /// Defaults to NONE and will use
+    /// the default_sys_prompt
+    /// this is only for overriding
     pub system_prompt: Option<String>,
 
     /// commit convention v1 override
@@ -141,7 +144,7 @@ impl Default for AiConfig {
             include_untracked: true,
             files_to_truncate: vec![],
             rules: RuleConfig::default(),
-            providers: Provider::new(),
+            providers: Provider::create_defaults(),
         }
     }
 }

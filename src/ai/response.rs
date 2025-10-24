@@ -1,9 +1,21 @@
+use std::collections::HashMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::ai::provider::Provider;
+
+/// response object along with any errors
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Response {
+    pub errors: Option<Vec<String>>,
+    pub response_schema: HashMap<Provider, ResponseSchema>,
+}
+
+/// response object that a provider will respond with
 #[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
-pub struct Response {
+pub struct ResponseSchema {
     pub commits: Vec<ResponseCommit>,
 }
 
@@ -61,7 +73,7 @@ pub enum PrefixType {
     Revert,
 }
 
-impl Response {
+impl ResponseSchema {
     pub fn new(response: &str) -> Self {
         serde_json::from_str(response).unwrap()
     }

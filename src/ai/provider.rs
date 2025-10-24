@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use rig::providers::openai;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter, IntoEnumIterator};
+use strum::{Display, EnumIter, IntoEnumIterator, IntoStaticStr};
 
-use crate::config::ProviderConfig;
-
-use super::response::Response;
+use crate::{
+    ai::response::Response,
+    config::ProviderConfig,
+    consts::{CHATGPT_DEFAULT, CLAUDE_DEFAULT, GEMINI_DEFAULT},
+};
 
 #[derive(
     Clone,
@@ -31,21 +32,21 @@ impl Provider {
         format!("{} ({})", self, model)
     }
 
-    pub fn new() -> HashMap<Provider, ProviderConfig> {
+    pub fn create_defaults() -> HashMap<Provider, ProviderConfig> {
         let mut providers = HashMap::new();
         for provider in Provider::iter() {
             match provider {
                 Provider::OpenAI => providers.insert(
                     provider,
-                    ProviderConfig::new("gpt-5-nano"),
+                    ProviderConfig::new(CHATGPT_DEFAULT),
                 ),
                 Provider::Gemini => providers.insert(
                     provider,
-                    ProviderConfig::new("gemini-2.5-flash-lite"),
+                    ProviderConfig::new(GEMINI_DEFAULT),
                 ),
                 Provider::Claude => providers.insert(
                     provider,
-                    ProviderConfig::new("claude-3-5-haiku"),
+                    ProviderConfig::new(CLAUDE_DEFAULT),
                 ),
             };
         }
