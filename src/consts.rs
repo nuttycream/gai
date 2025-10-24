@@ -1,34 +1,11 @@
+pub const CHATGPT_DEFAULT: &str = "gpt-5-nano";
+pub const CLAUDE_DEFAULT: &str = "claude-3-5-haiku";
+pub const GEMINI_DEFAULT: &str = "gemini-2.5-flash";
+
 pub const DEFAULT_SYS_PROMPT: &str = "You are an expert at git operations.\
     Create git a logical list of git commits based on diffs and structure.";
 
-pub const LOGO: &str = r#"
-                           :o#@@@#s'                                
-                          ?Q@@@@@@@g,                               
-                         `d@@@@@@@QQs                V#############g
-                          tQQQQQQQQQs                6QQQ@@@@@@@Q@@Q
-                          `\dQQQQQQQQv`              `````o@@@#'````
-                 |UD8RDe`   ,#QQQOBQQQm'                  u@@@N`    
-       `,;;^!;_''QQW&&8m`   ,g###i>D###d;                 f@@@g`    
-    ,zOQ@@@QQQQQgQa`        'Rggg/ ,GggNWi`               ]@@@g`    
-  'e@@@QPs\??/FKQQ#2'       'H88R\  `vD&Wgo'              }@@@&`    
- ,Q@@@s`        ,g##H"      'KHdd|    "e%D8d?`            tQ@@8`    
- F@@@8`          jNNgt      '9KKp?     .sd%DRf'           tQ@@8`    
- S@@@O           sNgWj      'k99U=       ^9%%Rh/|^'       zQQ@R`    
- =@@@Q"          PNg&|      'PkkPr        :p%R8&ggg\`     zQQ@R`    
- `F@@@g?.      ,tNgWF`      'hkkPr        |H%R8&gNN#\     zQQ@R`    
-   ^OQ@QQdPeeP%##NP^`       'k9U6=        7%DR&WgN##z     zQQ@R`    
-    '7#Q#&N#N8qal_         '\pKpp}`       'V8&WgNN#P'     tQ@@8`    
-  ;KQQ7~` ```             ?p%HHdddh;       `;seUPj?`      }Q@@8`    
- ~Q@@2                   :R&88RRDDDp'                     }@@@&`    
- 'B@@@QHkXGmeeeVofs\;'   'KNgggggggG`                !///iO@@@Qs777i
-  '}Q@@@@@@@QQQQQQQQQBX;  ,oN####Nf'                 6Q@@@@@@@@@@@@@
-`rm#Qj>^^!!!;;;;^=7GQQQQ|   '!??^,                   ;\|\\\\///////\
-e@@Q:               ^QQQO`                                          
-@@@Q.               :Q@QH`                                          
-#@@@O:            ,iN@@Q?                                           
-:O@@@@QD9hXXXPkqDQ@@@@O;                                            
-  _iVH#Q@@@@@@@@QWqS\,
-"#;
+pub const LOGO: &str = r#""#;
 
 pub const COMMIT_CONVENTION: &str = "
 # Conventional Commits 1.0.0

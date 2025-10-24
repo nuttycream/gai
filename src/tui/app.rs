@@ -4,7 +4,7 @@ use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    ai::response::Response,
+    ai::response::ResponseSchema,
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     tui::{
@@ -21,7 +21,7 @@ pub struct App {
     pub gai: GaiGit,
     pub ui: UI,
 
-    pub responses: HashMap<String, Result<Response, String>>,
+    pub responses: HashMap<String, Result<ResponseSchema, String>>,
     /// pending ai responses
     pub pending: HashSet<String>,
 
@@ -91,7 +91,7 @@ impl App {
 
     pub async fn send_request(
         &mut self,
-        tx: Sender<(String, Result<Response, String>)>,
+        tx: Sender<(String, Result<ResponseSchema, String>)>,
     ) {
         let ai = &self.cfg.ai;
 
