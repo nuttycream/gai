@@ -11,27 +11,29 @@ use clap::Parser;
 use crossterm::event::{
     Event as CrossTermEvent, EventStream, KeyEventKind,
 };
+use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use futures::{FutureExt, StreamExt};
-use std::io::{self, Write};
+use indicatif::ProgressBar;
 use std::time::Duration;
 use tokio::{
     sync::mpsc::{self, Sender},
     time::interval,
 };
 
-use crate::ai::response::ResponseCommit;
-use crate::tui::keys;
 use crate::{
     ai::{
-        provider::{try_claude, try_gemini, try_openai},
-        response::Response,
+        provider::Provider,
+        response::{Response, get_response},
     },
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
-    tui::app::{Action, App},
-    utils::build_prompt,
+    tui::{
+        app::{Action, App},
+        keys,
+    },
+    utils::{build_diffs_string, build_prompt},
 };
 
 #[tokio::main]
@@ -45,177 +47,181 @@ async fn main() -> Result<()> {
     args.parse_args(&mut cfg);
 
     let mut gai = GaiGit::new(
-        cfg.stage_hunks,
-        cfg.ai.capitalize_prefix,
-        cfg.ai.include_scope,
+        cfg.gai.stage_hunks,
+        cfg.gai.commit_config.capitalize_prefix,
+        cfg.gai.commit_config.include_scope,
     )?;
 
-    gai.create_diffs(&cfg.files_to_truncate)?;
+    gai.create_diffs(&cfg.ai.files_to_truncate)?;
     match args.command {
         Commands::Tui { .. } => run_tui(cfg, gai).await?,
-        Commands::Gemini { .. } => run_gemini(cfg, gai).await?,
-        Commands::Chatgpt { .. } => run_chatgpt(cfg, gai).await?,
-        Commands::Claude { .. } => run_claude(cfg, gai).await?,
+        Commands::Commit { skip_confirmation } => {
+            run_commit(cfg, gai, args, skip_confirmation).await?
+        }
+        Commands::Find { .. } => println!("Not yet implemented"),
+        Commands::Rebase {} => println!("Not yet implemented"),
+        Commands::Bisect {} => println!("Not yet implemented"),
     }
 
     Ok(())
 }
 
-async fn run_provider(
+async fn run_commit(
     cfg: Config,
     gai: GaiGit,
-    resp: &mut Response,
+    args: Cli,
+    skip_confirmation: bool,
 ) -> Result<()> {
-    println!("Response Commits({}):", resp.commits.len());
-    for commit in &resp.commits {
-        println!(
-            "prefix: {}",
-            commit.get_commit_prefix(
-                cfg.ai.capitalize_prefix,
-                cfg.ai.include_scope
-            )
-        );
-        println!("--header: {}", commit.message.header);
-        println!("--body: {}", commit.message.body);
-        if gai.stage_hunks {
-            println!("--hunks: {:#?}", commit.hunk_ids);
-        } else {
-            println!("--files: {:#?}", commit.files);
+    loop {
+        let bar = ProgressBar::new_spinner();
+        bar.enable_steady_tick(Duration::from_millis(50));
+
+        let mut prompt = build_prompt(&cfg);
+        if cfg.ai.include_file_tree {
+            prompt.push_str(&gai.get_repo_tree());
         }
-    }
-    println!(
-        "\n[y/Y] Apply Commit/s\n[e/E] Edit Commit\n[q/Q] Cancel/Quit"
-    );
 
-    io::stdout().flush()?;
+        let diffs = build_diffs_string(gai.get_file_diffs_as_str());
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
+        let provider = if args.gemini {
+            Provider::Gemini
+        } else if args.chatgpt {
+            Provider::OpenAI
+        } else if args.claude {
+            Provider::Claude
+        } else {
+            [Provider::Gemini, Provider::OpenAI, Provider::Claude]
+                .iter()
+                .find(|p| {
+                    cfg.ai.providers.get(p).is_some_and(|c| c.enable)
+                })
+                .cloned()
+                .ok_or({
+                    anyhow::anyhow!("No AI Providers are enabled")
+                })?
+        };
 
-    input = input.trim().to_string();
+        let provider_cfg = cfg
+            .ai
+            .providers
+            .get(&provider)
+            .expect("somehow did not find provider config");
 
-    if input.eq_ignore_ascii_case("n") {
-        println!("Quitting");
-        return Ok(());
-    } else if input.eq_ignore_ascii_case("y") {
+        bar.set_message(format!(
+            "Awaiting response from {}",
+            provider_cfg.model
+        ));
+
+        let resp = get_response(
+            &diffs,
+            &prompt,
+            provider,
+            provider_cfg.to_owned(),
+        )
+        .await;
+
+        let errs = resp.errors;
+
+        if !errs.is_empty() {
+            bar.finish_with_message(
+                "Done! But Gai received an error from the provider:",
+            );
+
+            errs.iter().for_each(|e| {
+                println!("{:#}", e);
+            });
+
+            if Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("Retry?")
+                .interact()
+                .unwrap()
+            {
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        bar.finish_with_message("Done! Received a response");
+
+        let resp = resp.response_schema.get(&provider).unwrap();
+
+        if resp.commits.is_empty() {
+            if Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("No commits found... retry?")
+                .interact()
+                .unwrap()
+            {
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        println!("Response Commits({}):", resp.commits.len());
+        for commit in &resp.commits {
+            println!(
+                "Prefix: {}",
+                commit.get_commit_prefix(
+                    cfg.gai.commit_config.capitalize_prefix,
+                    cfg.gai.commit_config.include_scope
+                )
+            );
+            println!("--Header: {}", commit.message.header);
+            println!("--Body: {}", commit.message.body);
+            if gai.stage_hunks {
+                println!("--Hunks: {:#?}", commit.hunk_ids);
+            } else {
+                println!("--Files: {:#?}", commit.files);
+            }
+            println!();
+        }
+
         let commits: Vec<GaiCommit> = resp
             .commits
             .iter()
             .map(|resp_commit| {
                 GaiCommit::from_response(
                     resp_commit,
-                    gai.capitalize_prefix,
-                    gai.include_scope,
+                    cfg.gai.commit_config.capitalize_prefix,
+                    cfg.gai.commit_config.include_scope,
                 )
             })
             .collect();
 
-        gai.apply_commits(&commits);
-    } else if input.eq_ignore_ascii_case("e") {
-        println!(
-            "Select a commit to edit [1 - {}]:",
-            resp.commits.len()
-        );
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-
-        input = input.trim().to_string();
-        match input.parse::<i32>() {
-            Ok(i) => {
-                if (i as usize - 1) < resp.commits.len() {
-                    let commit = &mut resp.commits[i as usize - 1];
-                    edit_commit(commit)?;
-                }
-            }
-            Err(e) => println!("error with input({input}): {e}"),
+        if skip_confirmation {
+            println!("Skipping confirmation and applying commits...");
+            gai.apply_commits(&commits);
+            break;
         }
+
+        let options = ["Apply All", "Edit Commit", "Retry", "Exit"];
+
+        let selection = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select an option:")
+            .items(options)
+            .default(0)
+            .interact()
+            .unwrap();
+
+        if selection == 0 {
+            println!("Applying Commits...");
+            gai.apply_commits(&commits);
+        } else if selection == 1 {
+            println!("Editing Commits");
+            break;
+        } else if selection == 2 {
+            println!("Retrying...");
+            continue;
+        } else if selection == 3 {
+            println!("Exiting");
+            break;
+        }
+
+        break;
     }
 
     Ok(())
-}
-
-fn edit_commit(commit: &mut ResponseCommit) -> Result<()> {
-    println!("Selected: {}", commit.message.header);
-    println!("Edit:\n[h/H] Header\n[b/B] Body\n[q/Q] Quit");
-
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    input = input.trim().to_string();
-
-    // todo i might have to use an external crate
-    // like rustyline to edit the string
-    // or use inline ratatui
-    if input.eq_ignore_ascii_case("h") {
-        println!("Editing commit message header...");
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-
-        commit.message.header = input.trim().to_string();
-
-        println!("{}", commit.message.header);
-    } else if input.eq_ignore_ascii_case("b") {
-        println!("Editing commit message body...");
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-
-        commit.message.body = input.trim().to_string();
-
-        println!("{}", commit.message.body);
-    } else if input.eq_ignore_ascii_case("q") {
-        return Ok(());
-    }
-
-    Ok(())
-}
-
-async fn run_gemini(cfg: Config, gai: GaiGit) -> Result<()> {
-    println!("Sending diffs to gemini {}", cfg.ai.gemini.model_name);
-    let diffs = build_diffs_string(&gai);
-    let prompt = build_full_prompt(&cfg, &gai);
-
-    let gemini = &cfg.ai.gemini;
-    let mut resp = try_gemini(
-        &prompt,
-        &gemini.model_name,
-        gemini.max_tokens,
-        &diffs,
-    )
-    .await?;
-
-    run_provider(cfg, gai, &mut resp).await
-}
-
-async fn run_chatgpt(cfg: Config, gai: GaiGit) -> Result<()> {
-    println!("Sending diffs to chatgpt {}", cfg.ai.openai.model_name);
-    let diffs = build_diffs_string(&gai);
-    let prompt = build_full_prompt(&cfg, &gai);
-
-    let chatgpt = &cfg.ai.openai;
-    let mut resp =
-        try_openai(&prompt, &chatgpt.model_name, &diffs).await?;
-
-    run_provider(cfg, gai, &mut resp).await
-}
-
-async fn run_claude(cfg: Config, gai: GaiGit) -> Result<()> {
-    println!("Sending diffs to claude {}", cfg.ai.claude.model_name);
-    let diffs = build_diffs_string(&gai);
-    let prompt = build_full_prompt(&cfg, &gai);
-
-    let claude = &cfg.ai.claude;
-    let mut resp =
-        try_claude(&prompt, &claude.model_name, &diffs).await?;
-
-    run_provider(cfg, gai, &mut resp).await
 }
 
 async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
@@ -241,7 +247,7 @@ async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
 
             Some((provider, result)) = rx.recv() => {
                 app.pending.remove(&provider);
-                app.responses.insert(provider, result);
+                //app.responses.insert(provider, result);
             }
 
             _ = delay => {
@@ -280,7 +286,7 @@ async fn handle_actions(
                 Action::ClaudeTab => ui.goto_tab(3),
                 Action::GeminiTab => ui.goto_tab(4),
                 Action::SendRequest => {
-                    app.send_request(tx).await;
+                    //app.send_request(tx).await;
                 }
                 Action::ApplyCommits => {
                     app.apply_commits();
@@ -298,33 +304,4 @@ async fn handle_actions(
             }
         }
     }
-}
-
-fn build_diffs_string(gai: &GaiGit) -> String {
-    let mut diffs = String::new();
-
-    for (file, diff) in gai.get_file_diffs_as_str() {
-        let file_diff =
-            format!("FileName:{}\nContent:{}\n\n", file, diff);
-        diffs.push_str(&file_diff);
-    }
-
-    diffs
-}
-
-fn build_full_prompt(cfg: &Config, gai: &GaiGit) -> String {
-    let rules = cfg.ai.build_rules();
-
-    let mut prompt = build_prompt(
-        cfg.ai.include_convention,
-        &cfg.ai.system_prompt,
-        &rules,
-        cfg.stage_hunks,
-    );
-
-    if cfg.include_file_tree {
-        prompt.push_str(&gai.get_repo_tree());
-    }
-
-    prompt
 }

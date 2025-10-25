@@ -1,5 +1,11 @@
+pub const CHATGPT_DEFAULT: &str = "gpt-5-nano";
+pub const CLAUDE_DEFAULT: &str = "claude-3-5-haiku";
+pub const GEMINI_DEFAULT: &str = "gemini-2.5-flash";
+
 pub const DEFAULT_SYS_PROMPT: &str = "You are an expert at git operations.\
     Create git a logical list of git commits based on diffs and structure.";
+
+pub const LOGO: &str = r#""#;
 
 pub const COMMIT_CONVENTION: &str = "
 # Conventional Commits 1.0.0

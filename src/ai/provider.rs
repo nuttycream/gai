@@ -1,7 +1,8 @@
-use anyhow::Result;
+use std::collections::HashMap;
+
+use rig::extractor::{ExtractionError, Extractor};
 use rig::{
     client::{CompletionClient, ProviderClient},
-    extractor::ExtractionError,
     providers::{
         anthropic,
         gemini::{
@@ -14,197 +15,109 @@ use rig::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use strum::{Display, EnumIter, IntoEnumIterator};
 
 use crate::{
-    ai::{response::Response, rules::RuleConfig},
-    consts::DEFAULT_SYS_PROMPT,
+    ai::response::ResponseSchema,
+    config::ProviderConfig,
+    consts::{CHATGPT_DEFAULT, CLAUDE_DEFAULT, GEMINI_DEFAULT},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AI {
-    pub capitalize_prefix: bool,
-    pub include_scope: bool,
-
-    pub system_prompt: String,
-    pub include_convention: bool,
-    pub rules: RuleConfig,
-
-    pub openai: AiConfig,
-    pub gemini: AiConfig,
-    pub claude: AiConfig,
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    EnumIter,
+    Display,
+    Serialize,
+    Deserialize,
+)]
+pub enum Provider {
+    OpenAI,
+    Gemini,
+    Claude,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AiConfig {
-    pub enable: bool,
-    pub model_name: String,
-    pub max_tokens: u64,
-}
-
-impl AiConfig {
-    pub fn new(model_name: &str) -> Self {
-        Self {
-            enable: false,
-            model_name: model_name.to_owned(),
-            max_tokens: 5000,
-        }
+impl Provider {
+    pub fn name(&self, model: &str) -> String {
+        format!("{} ({})", self, model)
     }
-}
 
-impl Default for AI {
-    fn default() -> Self {
-        Self {
-            system_prompt: DEFAULT_SYS_PROMPT.to_owned(),
-            rules: RuleConfig::default(),
-
-            openai: AiConfig::new("gpt-5-nano-2025-08-07"),
-            claude: AiConfig::new("claude-3-5-haiku-latest"),
-            gemini: AiConfig::new("gemini-2.5-flash-lite"),
-
-            include_convention: true,
-            capitalize_prefix: false,
-            include_scope: true,
+    pub fn create_defaults() -> HashMap<Provider, ProviderConfig> {
+        let mut providers = HashMap::new();
+        for provider in Provider::iter() {
+            match provider {
+                Provider::OpenAI => providers.insert(
+                    provider,
+                    ProviderConfig::new(CHATGPT_DEFAULT),
+                ),
+                Provider::Gemini => providers.insert(
+                    provider,
+                    ProviderConfig::new(GEMINI_DEFAULT),
+                ),
+                Provider::Claude => providers.insert(
+                    provider,
+                    ProviderConfig::new(CLAUDE_DEFAULT),
+                ),
+            };
         }
-    }
-}
 
-impl AI {
-    /// return receiver with:
-    /// * `String` - the ai provider name
-    /// * `Result<Response, String>` - The provider's response `Vec<Commit>` or
-    ///   string based error message
-    pub async fn get_responses(
+        providers
+    }
+
+    pub async fn extract(
         &self,
-        diffs: &str,
         prompt: &str,
-    ) -> Result<mpsc::Receiver<(String, Result<Response, String>)>>
-    {
-        let (tx, rx) = mpsc::channel(3);
+        model: &str,
+        max_tokens: u64,
+        diffs: &str,
+    ) -> Result<ResponseSchema, ExtractionError> {
+        match self {
+            Provider::OpenAI => {
+                let client = openai::Client::from_env();
 
-        // according to examples and online refs
-        // tokio::spawn needs a static lifetime
-        // present to own its stuff, which means we
-        // have to clone AND cant use self here
-        // shouldnt be too expensive, but meh
-        // maybe give the futures crate a look?
+                let extractor = client
+                    .extractor::<ResponseSchema>(model)
+                    .max_tokens(max_tokens)
+                    .preamble(prompt)
+                    .build();
 
-        if self.gemini.enable {
-            let tx = tx.clone();
-            let prompt = prompt.to_owned();
-            let diffs = diffs.to_owned();
-            let model_name = self.gemini.model_name.clone();
-            let max_tokens = self.gemini.max_tokens;
+                extractor.extract(diffs).await
+            }
+            Provider::Gemini => {
+                let client = gemini::Client::from_env();
+                let gen_cfg = GenerationConfig {
+                    max_output_tokens: Some(max_tokens),
+                    ..Default::default()
+                };
 
-            tokio::spawn(async move {
-                // println!("sending req to gemini");
-                let provider = format!("Gemini({})", model_name);
-                let result = try_gemini(
-                    &prompt,
-                    &model_name,
-                    max_tokens,
-                    &diffs,
-                )
-                .await
-                .map_err(|e| format!("{:#}", e));
+                let cfg = AdditionalParameters::default()
+                    .with_config(gen_cfg);
 
-                let _ = tx.send((provider, result)).await;
-            });
+                let extractor = client
+                    .extractor::<ResponseSchema>(model)
+                    .preamble(prompt)
+                    .additional_params(
+                        serde_json::to_value(cfg).unwrap(),
+                    )
+                    .build();
+
+                extractor.extract(diffs).await
+            }
+            Provider::Claude => {
+                let client = anthropic::Client::from_env();
+
+                let extractor = client
+                    .extractor::<ResponseSchema>(model)
+                    .max_tokens(max_tokens)
+                    .preamble(prompt)
+                    .build();
+
+                extractor.extract(diffs).await
+            }
         }
-
-        if self.openai.enable {
-            let tx = tx.clone();
-            let prompt = prompt.to_owned();
-            let diffs = diffs.to_owned();
-            let model_name = self.openai.model_name.clone();
-
-            tokio::spawn(async move {
-                //println!("sending req to openai");
-                let provider = format!("OpenAI({})", model_name);
-                let resp = try_openai(&prompt, &model_name, &diffs)
-                    .await
-                    .map_err(|e| format!("{:#}", e));
-
-                let _ = tx.send((provider, resp)).await;
-            });
-        }
-
-        if self.claude.enable {
-            let tx = tx.clone();
-            let prompt = prompt.to_owned();
-            let diffs = diffs.to_owned();
-            let model_name = self.claude.model_name.clone();
-
-            tokio::spawn(async move {
-                //println!("sending req to claude");
-                let provider = format!("Claude({})", model_name);
-                let resp = try_claude(&prompt, &model_name, &diffs)
-                    .await
-                    .map_err(|e| format!("{:#}", e));
-
-                let _ = tx.send((provider, resp)).await;
-            });
-        }
-
-        drop(tx);
-
-        Ok(rx)
     }
-}
-
-// todo: ideally gemini wouldnt
-// be the only model to accept max_tokens
-// but its the fastest model atm, so after testing
-// make sure you do this bud
-pub async fn try_gemini(
-    prompt: &str,
-    model_name: &str,
-    max_tokens: u64,
-    diffs: &str,
-) -> Result<Response, ExtractionError> {
-    let client = gemini::Client::from_env();
-    let gen_cfg = GenerationConfig {
-        max_output_tokens: Some(max_tokens),
-        ..Default::default()
-    };
-
-    let cfg = AdditionalParameters::default().with_config(gen_cfg);
-
-    let extractor = client
-        .extractor::<Response>(model_name)
-        .preamble(prompt)
-        .additional_params(serde_json::to_value(cfg)?)
-        .build();
-
-    extractor.extract(diffs).await
-}
-
-pub async fn try_openai(
-    prompt: &str,
-    model_name: &str,
-    diffs: &str,
-) -> Result<Response, ExtractionError> {
-    let client = openai::Client::from_env();
-
-    let extractor = client
-        .extractor::<Response>(model_name)
-        .preamble(prompt)
-        .build();
-
-    extractor.extract(diffs).await
-}
-
-pub async fn try_claude(
-    prompt: &str,
-    model_name: &str,
-    diffs: &str,
-) -> Result<Response, ExtractionError> {
-    let client = anthropic::Client::from_env();
-
-    let extractor = client
-        .extractor::<Response>(model_name)
-        .preamble(prompt)
-        .build();
-
-    extractor.extract(diffs).await
 }

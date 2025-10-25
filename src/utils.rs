@@ -1,26 +1,50 @@
-use crate::consts::COMMIT_CONVENTION;
+use std::collections::HashMap;
 
-pub fn build_prompt(
-    use_convention: bool,
-    sys_prompt: &str,
-    rules: &str,
-    stage_hunks: bool,
-) -> String {
-    let mut prompt = String::new();
+use crate::{
+    config::{Config, RuleConfig},
+    consts::{COMMIT_CONVENTION, DEFAULT_SYS_PROMPT},
+};
 
-    prompt.push_str(sys_prompt);
-    prompt.push('\n');
+pub fn build_diffs_string(diffs: HashMap<String, String>) -> String {
+    let mut diffs_str = String::new();
 
-    prompt.push_str(rules);
-    prompt.push('\n');
-
-    if use_convention {
-        prompt.push_str(COMMIT_CONVENTION);
+    for (file, diff) in diffs {
+        let file_diff =
+            format!("FileName:{}\nContent:{}\n\n", file, diff);
+        diffs_str.push_str(&file_diff);
     }
 
+    diffs_str
+}
+
+/// builds the semi-complete prompt
+pub fn build_prompt(cfg: &Config) -> String {
+    let mut prompt = String::new();
+
+    let rules = build_rules(&cfg.ai.rules);
+
+    if let Some(sys_prompt) = &cfg.ai.system_prompt {
+        prompt.push_str(sys_prompt);
+    } else {
+        prompt.push_str(DEFAULT_SYS_PROMPT);
+    };
+
     prompt.push('\n');
 
-    if stage_hunks {
+    prompt.push_str(&rules);
+    prompt.push('\n');
+
+    if cfg.ai.include_convention {
+        if let Some(commit_conv) = &cfg.ai.commit_convention {
+            prompt.push_str(commit_conv);
+        } else {
+            prompt.push_str(COMMIT_CONVENTION);
+        }
+
+        prompt.push('\n');
+    }
+
+    if cfg.gai.stage_hunks {
         prompt.push_str(
         "Fill hunk_ids with the HUNK_ID values shown in the diffs (format: \"filepath:index\").\
         Each hunk can only appear in ONE commit.\
@@ -32,36 +56,86 @@ pub fn build_prompt(
         );
     }
 
+    // get repo tree is builtin to gai.
+    // todo make it independent
+    // + this build_prompt and build_rules
+    // should be in ai/
+    // since it'll only be used there
+    /* if cfg.ai.include_file_tree {
+        prompt.push_str(get_repo_tree);
+    } */
+
     prompt.push('\n');
 
     prompt
 }
 
-pub const LOGO: &str = r#"
-                           :o#@@@#s'                                
-                          ?Q@@@@@@@g,                               
-                         `d@@@@@@@QQs                V#############g
-                          tQQQQQQQQQs                6QQQ@@@@@@@Q@@Q
-                          `\dQQQQQQQQv`              `````o@@@#'````
-                 |UD8RDe`   ,#QQQOBQQQm'                  u@@@N`    
-       `,;;^!;_''QQW&&8m`   ,g###i>D###d;                 f@@@g`    
-    ,zOQ@@@QQQQQgQa`        'Rggg/ ,GggNWi`               ]@@@g`    
-  'e@@@QPs\??/FKQQ#2'       'H88R\  `vD&Wgo'              }@@@&`    
- ,Q@@@s`        ,g##H"      'KHdd|    "e%D8d?`            tQ@@8`    
- F@@@8`          jNNgt      '9KKp?     .sd%DRf'           tQ@@8`    
- S@@@O           sNgWj      'k99U=       ^9%%Rh/|^'       zQQ@R`    
- =@@@Q"          PNg&|      'PkkPr        :p%R8&ggg\`     zQQ@R`    
- `F@@@g?.      ,tNgWF`      'hkkPr        |H%R8&gNN#\     zQQ@R`    
-   ^OQ@QQdPeeP%##NP^`       'k9U6=        7%DR&WgN##z     zQQ@R`    
-    '7#Q#&N#N8qal_         '\pKpp}`       'V8&WgNN#P'     tQ@@8`    
-  ;KQQ7~` ```             ?p%HHdddh;       `;seUPj?`      }Q@@8`    
- ~Q@@2                   :R&88RRDDDp'                     }@@@&`    
- 'B@@@QHkXGmeeeVofs\;'   'KNgggggggG`                !///iO@@@Qs777i
-  '}Q@@@@@@@QQQQQQQQQBX;  ,oN####Nf'                 6Q@@@@@@@@@@@@@
-`rm#Qj>^^!!!;;;;^=7GQQQQ|   '!??^,                   ;\|\\\\///////\
-e@@Q:               ^QQQO`                                          
-@@@Q.               :Q@QH`                                          
-#@@@O:            ,iN@@Q?                                           
-:O@@@@QD9hXXXPkqDQ@@@@O;                                            
-  _iVH#Q@@@@@@@@QWqS\,
-"#;
+fn build_rules(cfg: &RuleConfig) -> String {
+    let mut rules = String::new();
+
+    if cfg.group_related_files {
+        rules.push_str("- GROUP related files into LOGICAL commits based on the type of change");
+        rules.push_str(
+            "- Examples of files that should be grouped together:",
+        );
+        rules.push_str(
+            "  * Multiple files implementing the same feature",
+        );
+        rules.push_str("  * Files modified for the same bug fix");
+        rules.push_str("  * Related configuration and code changes");
+        rules.push_str("  * Test files with the code they test");
+    }
+
+    if cfg.no_file_splitting {
+        rules
+            .push_str("- Each file should appear in ONLY ONE commit");
+    }
+
+    if cfg.separate_by_purpose {
+        rules.push_str("- Create SEPARATE commits when changes serve DIFFERENT purposes");
+    }
+
+    rules.push_str("- For CommitMessages:");
+    rules.push_str(
+        "  * prefix: The appropriate type from the PrefixType enum",
+    );
+
+    let header = format!(
+        "  * header: Keep under {} characters total (including type and scope)",
+        cfg.max_header_length
+    );
+    rules.push_str(&header);
+
+    let body = format!(
+        "  * body: Wrap lines at {} characters. Provide detailed context.",
+        cfg.max_body_length
+    );
+    rules.push_str(&body);
+
+    if cfg.allow_empty_scope {
+        if cfg.exclude_extension_in_scope {
+            rules.push_str("  * scope: The component name or \"\", DO NOT include the file extension");
+        } else {
+            rules.push_str("  * scope: The component name or \"\"");
+        }
+    } else if cfg.exclude_extension_in_scope {
+        rules.push_str("  * scope: The component name, DO NOT include the file extension");
+    } else {
+        rules.push_str("  * scope: The component name");
+    }
+
+    rules.push_str(
+        "  * breaking: true if breaking change, false otherwise",
+    );
+
+    if cfg.verbose_descriptions {
+        rules.push_str("  * message: ONLY the description, do NOT include prefix or scope in the message text. \
+                Make sure your descriptions are ACCURATE and VERBOSE that closely align with the changes.");
+    } else {
+        rules.push_str("  * message: ONLY the description, do NOT include prefix or scope in the message text.");
+    }
+
+    rules.push('\n');
+
+    rules
+}
