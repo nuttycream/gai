@@ -38,6 +38,28 @@ impl Config {
 pub struct GaiConfig {
     /// should we apply as hunks?
     pub stage_hunks: bool,
+    pub commit_config: CommitConfig,
+}
+
+/// commit message specific settings
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CommitConfig {
+    /// prefix will be capitalized like feat -> Feat
+    pub capitalize_prefix: bool,
+
+    /// the ai can respond with scopes
+    /// instead of making it optional in the Schema
+    /// (not all models support this)
+    /// define it here before we commit
+    pub include_scope: bool,
+
+    /// use breaking symbol
+    pub include_breaking: bool,
+
+    /// breaking override defaults to "!"
+    pub breaking_symbol: Option<char>,
+    // todo make hashmap for customizable prefix types
+    // todo allow user customizable format
 }
 
 /// tui specific settings
@@ -160,6 +182,17 @@ impl Default for RuleConfig {
             allow_empty_scope: true,
             max_header_length: 52,
             max_body_length: 72,
+        }
+    }
+}
+
+impl Default for CommitConfig {
+    fn default() -> Self {
+        Self {
+            capitalize_prefix: true,
+            include_scope: true,
+            include_breaking: true,
+            breaking_symbol: None,
         }
     }
 }
