@@ -76,6 +76,18 @@ pub struct Cli {
     #[arg(short = 'M', long, value_name = "u16")]
     pub max_body_length: Option<u16>,
 
+    /// Force use ChatGPT
+    #[arg(long)]
+    pub chatgpt: bool,
+
+    /// Force use Gemini
+    #[arg(long)]
+    pub gemini: bool,
+
+    /// Force use Claude
+    #[arg(long)]
+    pub claude: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -94,71 +106,31 @@ pub enum Commands {
     },
 
     /// Create commits
-    Commit {},
+    Commit {
+        /// Skips the confirmation prompt and applies
+        /// the commits
+        #[arg(short = 'y', long)]
+        skip_confirmation: bool,
+    },
 
     /// Rebase commits
     Rebase {},
 
     /// Find a specific commit
-    Find {},
+    Find {
+        /// Insert range for commits to search from
+        #[arg(long)]
+        range: Option<u32>,
+
+        /// Prompt to search for
+        #[arg(long)]
+        prompt: String,
+    },
+
+    /// Initiate interactive bisect
+    Bisect {},
 }
 
 impl Cli {
-    pub fn parse_args(&self, config: &mut Config) {
-        if self.include_untracked {
-            config.include_untracked = true;
-        }
-        if self.stage_hunks {
-            config.stage_hunks = true;
-        }
-        if let Some(v) = &self.api_key_file {
-            config.api_key_file = v.to_owned();
-        }
-        if self.include_file_tree {
-            config.include_file_tree = true;
-        }
-        if !self.truncate_file.is_empty() {
-            config.files_to_truncate = self.truncate_file.to_owned();
-        }
-
-        if self.capitalize_prefix {
-            config.ai.capitalize_prefix = true;
-        }
-        if self.include_scope {
-            config.ai.include_scope = true;
-        }
-        if let Some(v) = &self.system_prompt {
-            config.ai.system_prompt = v.to_owned();
-        }
-        if self.include_convention {
-            config.ai.include_convention = true;
-        }
-
-        if self.group_related_files {
-            config.ai.rules.group_related_files = true;
-        }
-        if self.no_file_splitting {
-            config.ai.rules.no_file_splitting = true;
-        }
-        if self.separate_by_purpose {
-            config.ai.rules.separate_by_purpose = true;
-        }
-        if self.verbose_descriptions {
-            config.ai.rules.verbose_descriptions = true;
-        }
-        if self.exclude_extension_in_scope {
-            config.ai.rules.exclude_extension_in_scope = true;
-        }
-        if self.allow_empty_scope {
-            config.ai.rules.allow_empty_scope = true;
-        }
-
-        if let Some(v) = &self.max_header_length {
-            config.ai.rules.max_header_length = v.to_owned();
-        }
-
-        if let Some(v) = &self.max_body_length {
-            config.ai.rules.max_body_length = v.to_owned();
-        }
-    }
+    pub fn parse_args(&self, config: &mut Config) {}
 }

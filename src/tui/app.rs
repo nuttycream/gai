@@ -4,7 +4,7 @@ use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    ai::response::ResponseSchema,
+    ai::response::{Response, ResponseSchema, get_responses},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     tui::{
@@ -24,12 +24,6 @@ pub struct App {
     pub responses: HashMap<String, Result<ResponseSchema, String>>,
     /// pending ai responses
     pub pending: HashSet<String>,
-
-    /// failed files/hunks
-    /// that were NOT RETURNED
-    /// by the response
-    pub failed_files: Vec<String>,
-    pub failed_hunks: Vec<String>,
 }
 
 pub enum State {
@@ -63,7 +57,7 @@ pub enum Action {
 
 impl App {
     pub fn new(cfg: Config, gai: GaiGit) -> Self {
-        let state = if cfg.skip_splash {
+        let state = if cfg.tui.skip_splash {
             State::Running
         } else {
             State::Splash
@@ -77,8 +71,6 @@ impl App {
             ui: UI::new(),
             responses: HashMap::new(),
             pending: HashSet::new(),
-            failed_files: Vec::new(),
-            failed_hunks: Vec::new(),
         }
     }
 
@@ -89,45 +81,24 @@ impl App {
         self.ui.render(frame, tab_content, tab_list);
     }
 
-    pub async fn send_request(
-        &mut self,
-        tx: Sender<(String, Result<ResponseSchema, String>)>,
-    ) {
+    pub async fn send_request(&mut self, tx: Sender<Response>) {
         let ai = &self.cfg.ai;
-
-        if ai.openai.enable {
-            self.pending
-                .insert(format!("OpenAI({})", ai.openai.model_name));
-        }
-        if ai.claude.enable {
-            self.pending
-                .insert(format!("Claude({})", ai.claude.model_name));
-        }
-        if ai.gemini.enable {
-            self.pending
-                .insert(format!("Gemini({})", ai.gemini.model_name));
-        }
 
         let mut diffs = String::new();
         for (file, diff) in &self.gai.get_file_diffs_as_str() {
             diffs.push_str(&format!("File:{}\n{}\n", file, diff));
         }
 
-        let rules = self.cfg.ai.build_rules();
-
-        let mut prompt = build_prompt(
-            self.cfg.ai.include_convention,
-            &self.cfg.ai.system_prompt,
-            &rules,
-            self.cfg.stage_hunks,
-        );
+        let mut prompt = build_prompt(&self.cfg);
 
         // todo wth am i doing
-        if self.cfg.include_file_tree {
+        if ai.include_file_tree {
             prompt.push_str(&self.gai.get_repo_tree());
         }
 
-        let mut rx = ai.get_responses(&diffs, &prompt).await.unwrap();
+        let mut rx =
+            get_responses(&diffs, &prompt, ai.providers.to_owned())
+                .await;
 
         tokio::spawn(async move {
             while let Some(from_the_ai) = rx.recv().await {
@@ -272,8 +243,14 @@ impl App {
                             .iter()
                             .map(|c| {
                                 c.get_commit_prefix(
-                                    self.cfg.ai.capitalize_prefix,
-                                    self.cfg.ai.include_scope,
+                                    self.cfg
+                                        .gai
+                                        .commit_config
+                                        .capitalize_prefix,
+                                    self.cfg
+                                        .gai
+                                        .commit_config
+                                        .include_scope,
                                 )
                             })
                             .collect()
@@ -281,30 +258,11 @@ impl App {
                     .unwrap_or_default();
 
                 // todo: impl failed
-                let (secondary, secondary_title) =
-                    if self.cfg.stage_hunks {
-                        if self.failed_hunks.is_empty() {
-                            (None, None)
-                        } else {
-                            (
-                                Some(self.failed_hunks.clone()),
-                                Some("Failed Hunks".to_owned()),
-                            )
-                        }
-                    } else if self.failed_files.is_empty() {
-                        (None, None)
-                    } else {
-                        (
-                            Some(self.failed_files.clone()),
-                            Some("Failed Hunks".to_owned()),
-                        )
-                    };
-
                 TabList {
                     main,
-                    secondary,
+                    secondary: None,
                     main_title: "Commits".to_owned(),
-                    secondary_title,
+                    secondary_title: None,
                 }
             }
         }
@@ -328,102 +286,96 @@ impl App {
                         .map(|gai| {
                             if gai.should_truncate {
                                 TabContent::Description(
-                                    "Truncated File".to_owned(),
+                                    "Truncated File",
                                 )
                             } else {
                                 TabContent::Diff(gai.hunks.clone())
                             }
                         })
                 })
-                .unwrap_or_else(|| {
+                .unwrap_or({
                     TabContent::Description(
-                        "Select a file to view it's diffs".to_owned(),
+                        "Select a file to view it's diffs",
                     )
                 }),
             SelectedTab::OpenAI
             | SelectedTab::Claude
             | SelectedTab::Gemini => {
-                let (provider, enabled) = match selected_tab {
-                    SelectedTab::OpenAI => {
-                        ("OpenAI", self.cfg.ai.openai.enable)
-                    }
-                    SelectedTab::Claude => {
-                        ("Claude", self.cfg.ai.claude.enable)
-                    }
-                    SelectedTab::Gemini => {
-                        ("Gemini", self.cfg.ai.gemini.enable)
-                    }
-                    _ => {
-                        return TabContent::Description(
-                            "No matching AI provider (shouldn't see this btw)".to_owned(),
-                        );
-                    }
-                };
-
-                if !enabled {
-                    return TabContent::Description(format!(
-                        "{} Provider not enabled",
-                        provider
-                    ));
-                }
-
-                match self
-                    .responses
-                    .iter()
-                    .find(|(key, _)| key.starts_with(provider))
-                {
-                    Some((_, Ok(response))) => {
-                        if let Some(selected) = selected_state_idx
-                            && selected < response.commits.len()
-                        {
-                            let response_commit =
-                                &response.commits[selected];
-
-                            let mut content = String::new();
-                            content.push_str("Files to Stage:\n");
-                            for file in &response_commit.files {
-                                content
-                                    .push_str(&format!("{}\n", file));
-                            }
-
-                            content.push_str(&format!(
-                                "Header:\n{}\n",
-                                response_commit.message.header
-                            ));
-
-                            content.push_str(&format!(
-                                "Body:\n{}\n",
-                                response_commit.message.body
-                            ));
-
-                            TabContent::Description(content)
-                        } else {
-                            TabContent::Description(
-                                "Select Commit to View Description/Details".to_owned()
-                            )
-                        }
-                    }
-                    Some((_, Err(e))) => TabContent::Description(
-                        format!("Error from provider:\n{}", e),
-                    ),
-                    None => {
-                        if self
-                            .pending
-                            .iter()
-                            .any(|p| p.starts_with(provider))
-                        {
-                            TabContent::Description(
-                                "Loading...".to_owned(),
-                            )
-                        } else {
-                            TabContent::Description(
-                                "Press p to send a request"
-                                    .to_owned(),
-                            )
-                        }
-                    }
-                }
+                TabContent::Description("Broken")
             }
         }
     }
 }
+
+/*
+fn handle_providers(providers: HashMap<Provider, ProviderConfig>) {
+    let (provider, enabled) = match selected_tab {
+        SelectedTab::OpenAI => ("OpenAI", self.cfg.ai.openai.enable),
+        SelectedTab::Claude => ("Claude", self.cfg.ai.claude.enable),
+        SelectedTab::Gemini => ("Gemini", self.cfg.ai.gemini.enable),
+        _ => {
+            return TabContent::Description(
+                "No matching AI provider (shouldn't see this btw)"
+                    .to_owned(),
+            );
+        }
+    };
+
+    if !enabled {
+        return TabContent::Description(format!(
+            "{} Provider not enabled",
+            provider
+        ));
+    }
+
+    match self
+        .responses
+        .iter()
+        .find(|(key, _)| key.starts_with(provider))
+    {
+        Some((_, Ok(response))) => {
+            if let Some(selected) = selected_state_idx
+                && selected < response.commits.len()
+            {
+                let response_commit = &response.commits[selected];
+
+                let mut content = String::new();
+                content.push_str("Files to Stage:\n");
+                for file in &response_commit.files {
+                    content.push_str(&format!("{}\n", file));
+                }
+
+                content.push_str(&format!(
+                    "Header:\n{}\n",
+                    response_commit.message.header
+                ));
+
+                content.push_str(&format!(
+                    "Body:\n{}\n",
+                    response_commit.message.body
+                ));
+
+                TabContent::Description(content)
+            } else {
+                TabContent::Description(
+                    "Select Commit to View Description/Details"
+                        .to_owned(),
+                )
+            }
+        }
+        Some((_, Err(e))) => TabContent::Description(format!(
+            "Error from provider:\n{}",
+            e
+        )),
+        None => {
+            if self.pending.iter().any(|p| p.starts_with(provider)) {
+                TabContent::Description("Loading...".to_owned())
+            } else {
+                TabContent::Description(
+                    "Press p to send a request".to_owned(),
+                )
+            }
+        }
+    }
+}
+*/

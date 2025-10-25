@@ -148,11 +148,11 @@ pub struct RuleConfig {
     pub max_body_length: u16,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProviderConfig {
     pub enable: bool,
     pub model: String,
-    pub max_tokens: u32,
+    pub max_tokens: u64,
 }
 
 impl Default for AiConfig {
