@@ -1,10 +1,24 @@
 use std::collections::HashMap;
 
+use rig::extractor::{ExtractionError, Extractor};
+use rig::{
+    client::{CompletionClient, ProviderClient},
+    providers::{
+        anthropic,
+        gemini::{
+            self,
+            completion::gemini_api_types::{
+                AdditionalParameters, GenerationConfig,
+            },
+        },
+        openai,
+    },
+};
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter, IntoEnumIterator, IntoStaticStr};
+use strum::{Display, EnumIter, IntoEnumIterator};
 
 use crate::{
-    ai::response::Response,
+    ai::response::ResponseSchema,
     config::ProviderConfig,
     consts::{CHATGPT_DEFAULT, CLAUDE_DEFAULT, GEMINI_DEFAULT},
 };
@@ -58,13 +72,52 @@ impl Provider {
         &self,
         prompt: &str,
         model: &str,
-        max_tokens: u32,
+        max_tokens: u64,
         diffs: &str,
-    ) -> Response {
+    ) -> Result<ResponseSchema, ExtractionError> {
         match self {
-            Provider::OpenAI => todo!(),
-            Provider::Gemini => todo!(),
-            Provider::Claude => todo!(),
+            Provider::OpenAI => {
+                let client = openai::Client::from_env();
+
+                let extractor = client
+                    .extractor::<ResponseSchema>(model)
+                    .max_tokens(max_tokens)
+                    .preamble(prompt)
+                    .build();
+
+                extractor.extract(diffs).await
+            }
+            Provider::Gemini => {
+                let client = gemini::Client::from_env();
+                let gen_cfg = GenerationConfig {
+                    max_output_tokens: Some(max_tokens),
+                    ..Default::default()
+                };
+
+                let cfg = AdditionalParameters::default()
+                    .with_config(gen_cfg);
+
+                let extractor = client
+                    .extractor::<ResponseSchema>(model)
+                    .preamble(prompt)
+                    .additional_params(
+                        serde_json::to_value(cfg).unwrap(),
+                    )
+                    .build();
+
+                extractor.extract(diffs).await
+            }
+            Provider::Claude => {
+                let client = anthropic::Client::from_env();
+
+                let extractor = client
+                    .extractor::<ResponseSchema>(model)
+                    .max_tokens(max_tokens)
+                    .preamble(prompt)
+                    .build();
+
+                extractor.extract(diffs).await
+            }
         }
     }
 }

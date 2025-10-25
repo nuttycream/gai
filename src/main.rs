@@ -11,28 +11,27 @@ use clap::Parser;
 use crossterm::event::{
     Event as CrossTermEvent, EventStream, KeyEventKind,
 };
+use dialoguer::{Confirm, theme::ColorfulTheme};
 use dotenv::dotenv;
 use futures::{FutureExt, StreamExt};
 use indicatif::ProgressBar;
-use std::io::{self, Write};
 use std::time::Duration;
 use tokio::{
     sync::mpsc::{self, Sender},
     time::interval,
 };
 
-use crate::ai::response::ResponseCommit;
-use crate::tui::keys;
 use crate::{
-    ai::{
-        provider::{try_claude, try_gemini, try_openai},
-        response::Response,
-    },
+    ai::response::Response,
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     tui::app::{Action, App},
-    utils::build_prompt,
+    utils::{build_diffs_string, build_prompt},
+};
+use crate::{
+    ai::{provider::Provider, response::get_response},
+    tui::keys,
 };
 
 #[tokio::main]
@@ -46,182 +45,145 @@ async fn main() -> Result<()> {
     args.parse_args(&mut cfg);
 
     let mut gai = GaiGit::new(
-        cfg.stage_hunks,
-        cfg.ai.capitalize_prefix,
-        cfg.ai.include_scope,
+        cfg.gai.stage_hunks,
+        cfg.gai.commit_config.capitalize_prefix,
+        cfg.gai.commit_config.include_scope,
     )?;
 
-    gai.create_diffs(&cfg.files_to_truncate)?;
+    gai.create_diffs(&cfg.ai.files_to_truncate)?;
     match args.command {
         Commands::Tui { .. } => run_tui(cfg, gai).await?,
-        Commands::Commit { .. } => run_gemini(cfg, gai).await?,
+        Commands::Commit { skip_confirmation } => {
+            run_commit(cfg, gai, args, skip_confirmation).await?
+        }
         Commands::Find { .. } => println!("Not yet implemented"),
         Commands::Rebase {} => println!("Not yet implemented"),
+        Commands::Bisect {} => println!("Not yet implemented"),
     }
 
     Ok(())
 }
 
-async fn run_provider(
+async fn run_commit(
     cfg: Config,
     gai: GaiGit,
-    resp: &mut Response,
+    args: Cli,
+    skip_confirmation: bool,
 ) -> Result<()> {
-    println!("Response Commits({}):", resp.commits.len());
-    for commit in &resp.commits {
-        println!(
-            "prefix: {}",
-            commit.get_commit_prefix(
-                cfg.ai.capitalize_prefix,
-                cfg.ai.include_scope
-            )
-        );
-        println!("--header: {}", commit.message.header);
-        println!("--body: {}", commit.message.body);
-        if gai.stage_hunks {
-            println!("--hunks: {:#?}", commit.hunk_ids);
-        } else {
-            println!("--files: {:#?}", commit.files);
+    loop {
+        let mut prompt = build_prompt(&cfg);
+        let diffs = build_diffs_string(gai.get_file_diffs_as_str());
+
+        if cfg.ai.include_file_tree {
+            prompt.push_str(&gai.get_repo_tree());
         }
-    }
-    println!(
-        "\n[y/Y] Apply Commit/s\n[e/E] Edit Commit\n[q/Q] Cancel/Quit"
-    );
 
-    io::stdout().flush()?;
+        if args.gemini {
+            let provider =
+                cfg.ai.providers.get(&Provider::Gemini).unwrap();
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
+            let bar = ProgressBar::new_spinner().with_message(
+                format!("Sending Diffs to {}", provider.model),
+            );
 
-    input = input.trim().to_string();
+            bar.enable_steady_tick(Duration::from_millis(100));
 
-    if input.eq_ignore_ascii_case("n") {
-        println!("Quitting");
-        return Ok(());
-    } else if input.eq_ignore_ascii_case("y") {
-        let commits: Vec<GaiCommit> = resp
-            .commits
-            .iter()
-            .map(|resp_commit| {
-                GaiCommit::from_response(
-                    resp_commit,
-                    gai.capitalize_prefix,
-                    gai.include_scope,
-                )
-            })
-            .collect();
+            let resp = get_response(
+                &diffs,
+                &prompt,
+                Provider::Gemini,
+                provider.to_owned(),
+            )
+            .await;
 
-        gai.apply_commits(&commits);
-    } else if input.eq_ignore_ascii_case("e") {
-        println!(
-            "Select a commit to edit [1 - {}]:",
-            resp.commits.len()
-        );
-        io::stdout().flush()?;
+            bar.finish();
 
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+            let errs = resp.errors;
 
-        input = input.trim().to_string();
-        match input.parse::<i32>() {
-            Ok(i) => {
-                if (i as usize - 1) < resp.commits.len() {
-                    let commit = &mut resp.commits[i as usize - 1];
-                    edit_commit(commit)?;
+            if !errs.is_empty() {
+                let mut errs_strs = String::new();
+                errs_strs.push_str(
+                    "Gai encountered error/s from the AI provider:\n",
+                );
+                errs.iter().for_each(|e| {
+                    errs_strs.push_str(e);
+                });
+
+                println!("{errs_strs}");
+
+                if Confirm::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Retry?")
+                    .interact()
+                    .unwrap()
+                {
+                    continue;
+                } else {
+                    break;
                 }
             }
-            Err(e) => println!("error with input({input}): {e}"),
+            let resp =
+                resp.response_schema.get(&Provider::Gemini).unwrap();
+
+            if resp.commits.is_empty() {
+                if Confirm::with_theme(&ColorfulTheme::default())
+                    .with_prompt("No commits found... retry?")
+                    .interact()
+                    .unwrap()
+                {
+                    continue;
+                } else {
+                    break;
+                }
+            }
+
+            println!("Response Commits({}):", resp.commits.len());
+            for commit in &resp.commits {
+                println!(
+                    "Prefix: {}",
+                    commit.get_commit_prefix(
+                        cfg.gai.commit_config.capitalize_prefix,
+                        cfg.gai.commit_config.include_scope
+                    )
+                );
+                println!("--Header: {}", commit.message.header);
+                println!("--Body: {}", commit.message.body);
+                if gai.stage_hunks {
+                    println!("--Hunks: {:#?}", commit.hunk_ids);
+                } else {
+                    println!("--Files: {:#?}", commit.files);
+                }
+            }
+
+            let commits: Vec<GaiCommit> = resp
+                .commits
+                .iter()
+                .map(|resp_commit| {
+                    GaiCommit::from_response(
+                        resp_commit,
+                        cfg.gai.commit_config.capitalize_prefix,
+                        cfg.gai.commit_config.include_scope,
+                    )
+                })
+                .collect();
+
+            if skip_confirmation {
+                println!("Applying commits...");
+                gai.apply_commits(&commits);
+            } else if Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("Apply Commits?")
+                .interact()
+                .unwrap()
+            {
+                gai.apply_commits(&commits);
+            } else {
+                break;
+            }
         }
+
+        break;
     }
 
     Ok(())
-}
-
-fn edit_commit(commit: &mut ResponseCommit) -> Result<()> {
-    println!("Selected: {}", commit.message.header);
-    println!("Edit:\n[h/H] Header\n[b/B] Body\n[q/Q] Quit");
-
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    input = input.trim().to_string();
-
-    // todo i might have to use an external crate
-    // like rustyline to edit the string
-    // or use inline ratatui
-    if input.eq_ignore_ascii_case("h") {
-        println!("Editing commit message header...");
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-
-        commit.message.header = input.trim().to_string();
-
-        println!("{}", commit.message.header);
-    } else if input.eq_ignore_ascii_case("b") {
-        println!("Editing commit message body...");
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-
-        commit.message.body = input.trim().to_string();
-
-        println!("{}", commit.message.body);
-    } else if input.eq_ignore_ascii_case("q") {
-        return Ok(());
-    }
-
-    Ok(())
-}
-
-async fn run_gemini(cfg: Config, gai: GaiGit) -> Result<()> {
-    let bar = ProgressBar::new_spinner();
-    bar.enable_steady_tick(Duration::from_millis(100));
-
-    println!("Sending diffs to gemini {}", cfg.ai.gemini.model_name);
-    let diffs = build_diffs_string(&gai);
-    let prompt = build_full_prompt(&cfg, &gai);
-
-    let gemini = &cfg.ai.gemini;
-    let mut resp = try_gemini(
-        &prompt,
-        &gemini.model_name,
-        gemini.max_tokens,
-        &diffs,
-    )
-    .await?;
-
-    bar.finish();
-
-    run_provider(cfg, gai, &mut resp).await
-}
-
-async fn run_chatgpt(cfg: Config, gai: GaiGit) -> Result<()> {
-    println!("Sending diffs to chatgpt {}", cfg.ai.openai.model_name);
-    let diffs = build_diffs_string(&gai);
-    let prompt = build_full_prompt(&cfg, &gai);
-
-    let chatgpt = &cfg.ai.openai;
-    let mut resp =
-        try_openai(&prompt, &chatgpt.model_name, &diffs).await?;
-
-    run_provider(cfg, gai, &mut resp).await
-}
-
-async fn run_claude(cfg: Config, gai: GaiGit) -> Result<()> {
-    println!("Sending diffs to claude {}", cfg.ai.claude.model_name);
-    let diffs = build_diffs_string(&gai);
-    let prompt = build_full_prompt(&cfg, &gai);
-
-    let claude = &cfg.ai.claude;
-    let mut resp =
-        try_claude(&prompt, &claude.model_name, &diffs).await?;
-
-    run_provider(cfg, gai, &mut resp).await
 }
 
 async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
@@ -247,7 +209,7 @@ async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
 
             Some((provider, result)) = rx.recv() => {
                 app.pending.remove(&provider);
-                app.responses.insert(provider, result);
+                //app.responses.insert(provider, result);
             }
 
             _ = delay => {
@@ -286,7 +248,7 @@ async fn handle_actions(
                 Action::ClaudeTab => ui.goto_tab(3),
                 Action::GeminiTab => ui.goto_tab(4),
                 Action::SendRequest => {
-                    app.send_request(tx).await;
+                    //app.send_request(tx).await;
                 }
                 Action::ApplyCommits => {
                     app.apply_commits();
@@ -304,33 +266,4 @@ async fn handle_actions(
             }
         }
     }
-}
-
-fn build_diffs_string(gai: &GaiGit) -> String {
-    let mut diffs = String::new();
-
-    for (file, diff) in gai.get_file_diffs_as_str() {
-        let file_diff =
-            format!("FileName:{}\nContent:{}\n\n", file, diff);
-        diffs.push_str(&file_diff);
-    }
-
-    diffs
-}
-
-fn build_full_prompt(cfg: &Config, gai: &GaiGit) -> String {
-    let rules = cfg.ai.build_rules();
-
-    let mut prompt = build_prompt(
-        cfg.ai.include_convention,
-        &cfg.ai.system_prompt,
-        &rules,
-        cfg.stage_hunks,
-    );
-
-    if cfg.include_file_tree {
-        prompt.push_str(&gai.get_repo_tree());
-    }
-
-    prompt
 }

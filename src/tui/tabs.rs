@@ -32,7 +32,7 @@ pub enum SelectedTab {
 /// diffs, imo, i think this is fine
 /// compared to what i was doing before
 pub enum TabContent {
-    Description(String),
+    Description(&'static str),
     Diff(Vec<HunkDiff>),
 }
 

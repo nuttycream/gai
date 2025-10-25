@@ -1,7 +1,21 @@
+use std::collections::HashMap;
+
 use crate::{
     config::{Config, RuleConfig},
     consts::{COMMIT_CONVENTION, DEFAULT_SYS_PROMPT},
 };
+
+pub fn build_diffs_string(diffs: HashMap<String, String>) -> String {
+    let mut diffs_str = String::new();
+
+    for (file, diff) in diffs {
+        let file_diff =
+            format!("FileName:{}\nContent:{}\n\n", file, diff);
+        diffs_str.push_str(&file_diff);
+    }
+
+    diffs_str
+}
 
 /// builds the semi-complete prompt
 pub fn build_prompt(cfg: &Config) -> String {
