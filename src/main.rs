@@ -80,7 +80,6 @@ async fn run_commit(
             prompt.push_str(&gai.get_repo_tree());
         }
 
-        let mut resp = Response::default();
         let mut provider = Provider::Gemini;
         let mut provider_cfg =
             cfg.ai.providers.get(&Provider::Gemini).unwrap();
@@ -108,7 +107,7 @@ async fn run_commit(
 
         bar.enable_steady_tick(Duration::from_millis(100));
 
-        resp = get_response(
+        let resp = get_response(
             &diffs,
             &prompt,
             provider,
