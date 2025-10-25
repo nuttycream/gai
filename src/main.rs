@@ -11,7 +11,7 @@ use clap::Parser;
 use crossterm::event::{
     Event as CrossTermEvent, EventStream, KeyEventKind,
 };
-use dialoguer::{Confirm, theme::ColorfulTheme};
+use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use futures::{FutureExt, StreamExt};
 use indicatif::ProgressBar;
@@ -73,39 +73,44 @@ async fn run_commit(
     skip_confirmation: bool,
 ) -> Result<()> {
     loop {
-        let mut prompt = build_prompt(&cfg);
-        let diffs = build_diffs_string(gai.get_file_diffs_as_str());
+        let bar = ProgressBar::new_spinner();
+        bar.enable_steady_tick(Duration::from_millis(50));
 
+        let mut prompt = build_prompt(&cfg);
         if cfg.ai.include_file_tree {
             prompt.push_str(&gai.get_repo_tree());
         }
 
-        let mut provider = Provider::Gemini;
-        let mut provider_cfg =
-            cfg.ai.providers.get(&Provider::Gemini).unwrap();
+        let diffs = build_diffs_string(gai.get_file_diffs_as_str());
 
-        if args.gemini {
-            provider = Provider::Gemini;
-            provider_cfg =
-                cfg.ai.providers.get(&Provider::Gemini).unwrap();
+        let provider = if args.gemini {
+            Provider::Gemini
         } else if args.chatgpt {
-            provider = Provider::OpenAI;
-            provider_cfg =
-                cfg.ai.providers.get(&Provider::OpenAI).unwrap();
+            Provider::OpenAI
         } else if args.claude {
-            provider = Provider::Claude;
-            provider_cfg =
-                cfg.ai.providers.get(&Provider::Claude).unwrap();
-        }
+            Provider::Claude
+        } else {
+            [Provider::Gemini, Provider::OpenAI, Provider::Claude]
+                .iter()
+                .find(|p| {
+                    cfg.ai.providers.get(p).is_some_and(|c| c.enable)
+                })
+                .cloned()
+                .ok_or({
+                    anyhow::anyhow!("No AI Providers are enabled")
+                })?
+        };
 
-        let bar = ProgressBar::new_spinner();
+        let provider_cfg = cfg
+            .ai
+            .providers
+            .get(&provider)
+            .expect("somehow did not find provider config");
 
         bar.set_message(format!(
-            "Sending diffs to {}",
+            "Awaiting response from {}",
             provider_cfg.model
         ));
-
-        bar.enable_steady_tick(Duration::from_millis(100));
 
         let resp = get_response(
             &diffs,
@@ -115,20 +120,16 @@ async fn run_commit(
         )
         .await;
 
-        bar.finish();
-
         let errs = resp.errors;
 
         if !errs.is_empty() {
-            let mut errs_strs = String::new();
-            errs_strs.push_str(
-                "Gai encountered error/s from the AI provider:\n",
+            bar.finish_with_message(
+                "Done! But Gai received an error from the provider:",
             );
-            errs.iter().for_each(|e| {
-                errs_strs.push_str(e);
-            });
 
-            println!("{errs_strs}");
+            errs.iter().for_each(|e| {
+                println!("{:#}", e);
+            });
 
             if Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt("Retry?")
@@ -140,6 +141,8 @@ async fn run_commit(
                 break;
             }
         }
+
+        bar.finish_with_message("Done! Received a response");
 
         let resp = resp.response_schema.get(&provider).unwrap();
 
@@ -171,6 +174,7 @@ async fn run_commit(
             } else {
                 println!("--Files: {:#?}", commit.files);
             }
+            println!();
         }
 
         let commits: Vec<GaiCommit> = resp
@@ -186,15 +190,31 @@ async fn run_commit(
             .collect();
 
         if skip_confirmation {
-            println!("Applying commits...");
+            println!("Skipping confirmation and applying commits...");
             gai.apply_commits(&commits);
-        } else if Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt("Apply Commits?")
+            break;
+        }
+
+        let options = ["Apply All", "Edit Commit", "Retry", "Exit"];
+
+        let selection = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select an option:")
+            .items(options)
+            .default(0)
             .interact()
-            .unwrap()
-        {
+            .unwrap();
+
+        if selection == 0 {
+            println!("Applying Commits...");
             gai.apply_commits(&commits);
-        } else {
+        } else if selection == 1 {
+            println!("Editing Commits");
+            break;
+        } else if selection == 2 {
+            println!("Retrying...");
+            continue;
+        } else if selection == 3 {
+            println!("Exiting");
             break;
         }
 
