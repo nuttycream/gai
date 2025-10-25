@@ -22,16 +22,18 @@ use tokio::{
 };
 
 use crate::{
-    ai::response::Response,
+    ai::{
+        provider::Provider,
+        response::{Response, get_response},
+    },
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
-    tui::app::{Action, App},
+    tui::{
+        app::{Action, App},
+        keys,
+    },
     utils::{build_diffs_string, build_prompt},
-};
-use crate::{
-    ai::{provider::Provider, response::get_response},
-    tui::keys,
 };
 
 #[tokio::main]
