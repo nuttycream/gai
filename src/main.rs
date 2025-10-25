@@ -11,10 +11,10 @@ use clap::Parser;
 use crossterm::event::{
     Event as CrossTermEvent, EventStream, KeyEventKind,
 };
-use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
+use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use futures::{FutureExt, StreamExt};
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 use tokio::{
     sync::mpsc::{self, Sender},
@@ -74,14 +74,14 @@ async fn run_commit(
 ) -> Result<()> {
     loop {
         let bar = ProgressBar::new_spinner();
-        bar.enable_steady_tick(Duration::from_millis(50));
-
-        let mut prompt = build_prompt(&cfg);
-        if cfg.ai.include_file_tree {
-            prompt.push_str(&gai.get_repo_tree());
-        }
-
-        let diffs = build_diffs_string(gai.get_file_diffs_as_str());
+        bar.enable_steady_tick(Duration::from_millis(80));
+        bar.set_style(
+            ProgressStyle::with_template("{spinner:.cyan} {msg}")
+                .unwrap()
+                .tick_strings(&[
+                    "⣼", "⣹", "⢻", "⠿", "⡟", "⣏", "⣧", "⣶",
+                ]),
+        );
 
         let provider = if args.gemini {
             Provider::Gemini
@@ -111,6 +111,13 @@ async fn run_commit(
             "Awaiting response from {}",
             provider_cfg.model
         ));
+
+        let mut prompt = build_prompt(&cfg);
+        if cfg.ai.include_file_tree {
+            prompt.push_str(&gai.get_repo_tree());
+        }
+
+        let diffs = build_diffs_string(gai.get_file_diffs_as_str());
 
         let resp = get_response(
             &diffs,
