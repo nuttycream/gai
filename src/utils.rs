@@ -1,19 +1,65 @@
-use crate::consts::COMMIT_CONVENTION;
+use crate::{
+    config::{Config, RuleConfig},
+    consts::{COMMIT_CONVENTION, DEFAULT_SYS_PROMPT},
+};
 
-pub fn build_rules(
-    group_related_files: bool,
-    no_file_splitting: bool,
-    separate_by_purpose: bool,
-    verbose_descriptions: bool,
-    exclude_extension_in_scope: bool,
-    allow_empty_scope: bool,
+/// builds the semi-complete prompt
+pub fn build_prompt(cfg: &Config) -> String {
+    let mut prompt = String::new();
 
-    max_header_len: u16,
-    max_body_len: u16,
-) -> String {
+    let rules = build_rules(&cfg.ai.rules);
+
+    if let Some(sys_prompt) = &cfg.ai.system_prompt {
+        prompt.push_str(&sys_prompt);
+    } else {
+        prompt.push_str(DEFAULT_SYS_PROMPT);
+    };
+
+    prompt.push('\n');
+
+    prompt.push_str(&rules);
+    prompt.push('\n');
+
+    if cfg.ai.include_convention {
+        if let Some(commit_conv) = &cfg.ai.commit_convention {
+            prompt.push_str(&commit_conv);
+        } else {
+            prompt.push_str(COMMIT_CONVENTION);
+        }
+
+        prompt.push('\n');
+    }
+
+    if cfg.gai.stage_hunks {
+        prompt.push_str(
+        "Fill hunk_ids with the HUNK_ID values shown in the diffs (format: \"filepath:index\").\
+        Each hunk can only appear in ONE commit.\
+        Ex.: [\"src/main.rs:0\", \"src/git/repo.rs:1\"]",
+        );
+    } else {
+        prompt.push_str(
+            "Fill out files with valid paths and leave hunk_headers empty",
+        );
+    }
+
+    // get repo tree is builtin to gai.
+    // todo make it independent
+    // + this build_prompt and build_rules
+    // should be in ai/
+    // since it'll only be used there
+    /* if cfg.ai.include_file_tree {
+        prompt.push_str(get_repo_tree);
+    } */
+
+    prompt.push('\n');
+
+    prompt
+}
+
+fn build_rules(cfg: &RuleConfig) -> String {
     let mut rules = String::new();
 
-    if group_related_files {
+    if cfg.group_related_files {
         rules.push_str("- GROUP related files into LOGICAL commits based on the type of change");
         rules.push_str(
             "- Examples of files that should be grouped together:",
@@ -26,12 +72,12 @@ pub fn build_rules(
         rules.push_str("  * Test files with the code they test");
     }
 
-    if no_file_splitting {
+    if cfg.no_file_splitting {
         rules
             .push_str("- Each file should appear in ONLY ONE commit");
     }
 
-    if separate_by_purpose {
+    if cfg.separate_by_purpose {
         rules.push_str("- Create SEPARATE commits when changes serve DIFFERENT purposes");
     }
 
@@ -42,23 +88,23 @@ pub fn build_rules(
 
     let header = format!(
         "  * header: Keep under {} characters total (including type and scope)",
-        max_header_len
+        cfg.max_header_length
     );
     rules.push_str(&header);
 
     let body = format!(
         "  * body: Wrap lines at {} characters. Provide detailed context.",
-        max_body_len
+        cfg.max_body_length
     );
     rules.push_str(&body);
 
-    if allow_empty_scope {
-        if exclude_extension_in_scope {
+    if cfg.allow_empty_scope {
+        if cfg.exclude_extension_in_scope {
             rules.push_str("  * scope: The component name or \"\", DO NOT include the file extension");
         } else {
             rules.push_str("  * scope: The component name or \"\"");
         }
-    } else if exclude_extension_in_scope {
+    } else if cfg.exclude_extension_in_scope {
         rules.push_str("  * scope: The component name, DO NOT include the file extension");
     } else {
         rules.push_str("  * scope: The component name");
@@ -68,7 +114,7 @@ pub fn build_rules(
         "  * breaking: true if breaking change, false otherwise",
     );
 
-    if verbose_descriptions {
+    if cfg.verbose_descriptions {
         rules.push_str("  * message: ONLY the description, do NOT include prefix or scope in the message text. \
                 Make sure your descriptions are ACCURATE and VERBOSE that closely align with the changes.");
     } else {
@@ -78,41 +124,4 @@ pub fn build_rules(
     rules.push('\n');
 
     rules
-}
-
-pub fn build_prompt(
-    use_convention: bool,
-    sys_prompt: &str,
-    rules: &str,
-    stage_hunks: bool,
-) -> String {
-    let mut prompt = String::new();
-
-    prompt.push_str(sys_prompt);
-    prompt.push('\n');
-
-    prompt.push_str(rules);
-    prompt.push('\n');
-
-    if use_convention {
-        prompt.push_str(COMMIT_CONVENTION);
-    }
-
-    prompt.push('\n');
-
-    if stage_hunks {
-        prompt.push_str(
-        "Fill hunk_ids with the HUNK_ID values shown in the diffs (format: \"filepath:index\").\
-        Each hunk can only appear in ONE commit.\
-        Ex.: [\"src/main.rs:0\", \"src/git/repo.rs:1\"]",
-        );
-    } else {
-        prompt.push_str(
-            "Fill out files with valid paths and leave hunk_headers empty",
-        );
-    }
-
-    prompt.push('\n');
-
-    prompt
 }
