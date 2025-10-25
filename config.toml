@@ -17,8 +17,8 @@ max_tokens = 5000
 
 [ai.providers.Gemini]
 enable = false
-model = "gemini-2.5-flash-lite"
-max_tokens = 5000
+model = "gemini-2.5-flash"
+max_tokens = 10000
 
 [ai.rules]
 group_related_files = true
