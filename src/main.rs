@@ -78,13 +78,15 @@ async fn run_commit(
             prompt.push_str(&gai.get_repo_tree());
         }
 
+        let bar = ProgressBar::new_spinner();
         if args.gemini {
             let provider =
                 cfg.ai.providers.get(&Provider::Gemini).unwrap();
 
-            let bar = ProgressBar::new_spinner().with_message(
-                format!("Sending Diffs to {}", provider.model),
-            );
+            bar.set_message(format!(
+                "Sending diffs to {}",
+                provider.model
+            ));
 
             bar.enable_steady_tick(Duration::from_millis(100));
 
