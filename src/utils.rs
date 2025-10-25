@@ -24,7 +24,7 @@ pub fn build_prompt(cfg: &Config) -> String {
     let rules = build_rules(&cfg.ai.rules);
 
     if let Some(sys_prompt) = &cfg.ai.system_prompt {
-        prompt.push_str(&sys_prompt);
+        prompt.push_str(sys_prompt);
     } else {
         prompt.push_str(DEFAULT_SYS_PROMPT);
     };
@@ -36,7 +36,7 @@ pub fn build_prompt(cfg: &Config) -> String {
 
     if cfg.ai.include_convention {
         if let Some(commit_conv) = &cfg.ai.commit_convention {
-            prompt.push_str(&commit_conv);
+            prompt.push_str(commit_conv);
         } else {
             prompt.push_str(COMMIT_CONVENTION);
         }
