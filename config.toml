@@ -34,7 +34,7 @@ max_body_length = 72
 stage_hunks = false
 
 [gai.commit_config]
-capitalize_prefix = true
+capitalize_prefix = false
 include_scope = true
 include_breaking = true
 
