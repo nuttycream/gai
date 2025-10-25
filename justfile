@@ -4,11 +4,11 @@ run *flags:
 tui *flags:
     cargo run -- {{flags}} tui
 
-gemini *flags:
-    cargo run -- {{flags}} gemini
+geminic *flags:
+    cargo run -- {{flags}} --gemini commit
 
-chatgpt *flags:
-    cargo run -- {{flags}} chatgpt
+chatc *flags:
+    cargo run -- {{flags}} --chatgpt commit
 
-claude *flags:
-    cargo run -- {{flags}} claude
+claudec *flags:
+    cargo run -- {{flags}} --claude commit
