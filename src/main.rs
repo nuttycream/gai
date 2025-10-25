@@ -78,108 +78,123 @@ async fn run_commit(
             prompt.push_str(&gai.get_repo_tree());
         }
 
-        let bar = ProgressBar::new_spinner();
+        let mut resp = Response::default();
+        let mut provider = Provider::Gemini;
+        let mut provider_cfg =
+            cfg.ai.providers.get(&Provider::Gemini).unwrap();
+
         if args.gemini {
-            let provider =
+            provider = Provider::Gemini;
+            provider_cfg =
                 cfg.ai.providers.get(&Provider::Gemini).unwrap();
+        } else if args.chatgpt {
+            provider = Provider::OpenAI;
+            provider_cfg =
+                cfg.ai.providers.get(&Provider::OpenAI).unwrap();
+        } else if args.claude {
+            provider = Provider::Claude;
+            provider_cfg =
+                cfg.ai.providers.get(&Provider::Claude).unwrap();
+        }
 
-            bar.set_message(format!(
-                "Sending diffs to {}",
-                provider.model
-            ));
+        let bar = ProgressBar::new_spinner();
 
-            bar.enable_steady_tick(Duration::from_millis(100));
+        bar.set_message(format!(
+            "Sending diffs to {}",
+            provider_cfg.model
+        ));
 
-            let resp = get_response(
-                &diffs,
-                &prompt,
-                Provider::Gemini,
-                provider.to_owned(),
-            )
-            .await;
+        bar.enable_steady_tick(Duration::from_millis(100));
 
-            bar.finish();
+        resp = get_response(
+            &diffs,
+            &prompt,
+            provider,
+            provider_cfg.to_owned(),
+        )
+        .await;
 
-            let errs = resp.errors;
+        bar.finish();
 
-            if !errs.is_empty() {
-                let mut errs_strs = String::new();
-                errs_strs.push_str(
-                    "Gai encountered error/s from the AI provider:\n",
-                );
-                errs.iter().for_each(|e| {
-                    errs_strs.push_str(e);
-                });
+        let errs = resp.errors;
 
-                println!("{errs_strs}");
+        if !errs.is_empty() {
+            let mut errs_strs = String::new();
+            errs_strs.push_str(
+                "Gai encountered error/s from the AI provider:\n",
+            );
+            errs.iter().for_each(|e| {
+                errs_strs.push_str(e);
+            });
 
-                if Confirm::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Retry?")
-                    .interact()
-                    .unwrap()
-                {
-                    continue;
-                } else {
-                    break;
-                }
-            }
-            let resp =
-                resp.response_schema.get(&Provider::Gemini).unwrap();
+            println!("{errs_strs}");
 
-            if resp.commits.is_empty() {
-                if Confirm::with_theme(&ColorfulTheme::default())
-                    .with_prompt("No commits found... retry?")
-                    .interact()
-                    .unwrap()
-                {
-                    continue;
-                } else {
-                    break;
-                }
-            }
-
-            println!("Response Commits({}):", resp.commits.len());
-            for commit in &resp.commits {
-                println!(
-                    "Prefix: {}",
-                    commit.get_commit_prefix(
-                        cfg.gai.commit_config.capitalize_prefix,
-                        cfg.gai.commit_config.include_scope
-                    )
-                );
-                println!("--Header: {}", commit.message.header);
-                println!("--Body: {}", commit.message.body);
-                if gai.stage_hunks {
-                    println!("--Hunks: {:#?}", commit.hunk_ids);
-                } else {
-                    println!("--Files: {:#?}", commit.files);
-                }
-            }
-
-            let commits: Vec<GaiCommit> = resp
-                .commits
-                .iter()
-                .map(|resp_commit| {
-                    GaiCommit::from_response(
-                        resp_commit,
-                        cfg.gai.commit_config.capitalize_prefix,
-                        cfg.gai.commit_config.include_scope,
-                    )
-                })
-                .collect();
-
-            if skip_confirmation {
-                println!("Applying commits...");
-                gai.apply_commits(&commits);
-            } else if Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt("Apply Commits?")
+            if Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("Retry?")
                 .interact()
                 .unwrap()
             {
-                gai.apply_commits(&commits);
+                continue;
             } else {
                 break;
             }
+        }
+
+        let resp = resp.response_schema.get(&provider).unwrap();
+
+        if resp.commits.is_empty() {
+            if Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("No commits found... retry?")
+                .interact()
+                .unwrap()
+            {
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        println!("Response Commits({}):", resp.commits.len());
+        for commit in &resp.commits {
+            println!(
+                "Prefix: {}",
+                commit.get_commit_prefix(
+                    cfg.gai.commit_config.capitalize_prefix,
+                    cfg.gai.commit_config.include_scope
+                )
+            );
+            println!("--Header: {}", commit.message.header);
+            println!("--Body: {}", commit.message.body);
+            if gai.stage_hunks {
+                println!("--Hunks: {:#?}", commit.hunk_ids);
+            } else {
+                println!("--Files: {:#?}", commit.files);
+            }
+        }
+
+        let commits: Vec<GaiCommit> = resp
+            .commits
+            .iter()
+            .map(|resp_commit| {
+                GaiCommit::from_response(
+                    resp_commit,
+                    cfg.gai.commit_config.capitalize_prefix,
+                    cfg.gai.commit_config.include_scope,
+                )
+            })
+            .collect();
+
+        if skip_confirmation {
+            println!("Applying commits...");
+            gai.apply_commits(&commits);
+        } else if Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt("Apply Commits?")
+            .interact()
+            .unwrap()
+        {
+            gai.apply_commits(&commits);
+        } else {
+            break;
         }
 
         break;
