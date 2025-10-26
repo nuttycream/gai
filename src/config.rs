@@ -77,6 +77,8 @@ pub struct TuiConfig {
 /// anything dealing with the LLM request
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AiConfig {
+    /// Enabled provider
+    pub provider: Provider,
     /// provider specific configuration
     pub providers: HashMap<Provider, ProviderConfig>,
 
@@ -150,7 +152,6 @@ pub struct RuleConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProviderConfig {
-    pub enable: bool,
     pub model: String,
     pub max_tokens: u64,
 }
@@ -158,6 +159,7 @@ pub struct ProviderConfig {
 impl Default for AiConfig {
     fn default() -> Self {
         Self {
+            provider: Provider::Gemini,
             system_prompt: None,
             commit_convention: None,
             include_convention: true,
@@ -200,7 +202,6 @@ impl Default for CommitConfig {
 impl ProviderConfig {
     pub fn new(model_name: &str) -> Self {
         Self {
-            enable: false,
             model: model_name.to_owned(),
             max_tokens: 5000,
         }
