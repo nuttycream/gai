@@ -20,9 +20,11 @@ const SELECTED_STYLE: Style = Style::new()
 pub enum SelectedTab {
     #[default]
     Diffs,
-    OpenAI,
-    Claude,
-    Gemini,
+    Commits,
+
+    Bisect,
+    Find,
+    Rebase,
 }
 
 /// wrapper to determine
@@ -32,7 +34,7 @@ pub enum SelectedTab {
 /// diffs, imo, i think this is fine
 /// compared to what i was doing before
 pub enum TabContent {
-    Description(&'static str),
+    Description(String),
     Diff(Vec<HunkDiff>),
 }
 
@@ -238,9 +240,10 @@ impl SelectedTab {
     pub const fn palette(self) -> tailwind::Palette {
         match self {
             Self::Diffs => tailwind::GREEN,
-            Self::OpenAI => tailwind::GRAY,
-            Self::Claude => tailwind::ORANGE,
-            Self::Gemini => tailwind::CYAN,
+            Self::Commits => tailwind::BLUE,
+            Self::Bisect => tailwind::EMERALD,
+            Self::Find => tailwind::AMBER,
+            Self::Rebase => tailwind::INDIGO,
         }
     }
 }
