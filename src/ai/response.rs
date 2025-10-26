@@ -1,20 +1,18 @@
-use std::collections::HashMap;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
 
 use crate::{ai::provider::Provider, config::ProviderConfig};
 
 /// response object along with any errors
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Response {
-    pub errors: Vec<String>,
-    pub response_schema: HashMap<Provider, ResponseSchema>,
+    pub result: Result<ResponseSchema, String>,
 }
 
 /// response object that a provider will respond with
-#[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, JsonSchema,
+)]
 #[schemars(deny_unknown_fields)]
 pub struct ResponseSchema {
     pub commits: Vec<ResponseCommit>,
@@ -74,15 +72,9 @@ pub enum PrefixType {
     Revert,
 }
 
-impl ResponseSchema {
-    pub fn new(response: &str) -> Self {
-        serde_json::from_str(response).unwrap()
-    }
-}
-
 impl ResponseCommit {
-    /// only used for UI for now, likely
-    /// need to refactored out
+    /// only used for UI for now
+    /// todo need to refactored out
     pub fn get_commit_prefix(
         &self,
         capitalize_prefix: bool,
@@ -106,57 +98,13 @@ impl ResponseCommit {
     }
 }
 
-pub async fn get_responses(
-    diffs: &str,
-    prompt: &str,
-    providers: HashMap<Provider, ProviderConfig>,
-) -> mpsc::Receiver<Response> {
-    let (tx, rx) = mpsc::channel(providers.iter().len());
-
-    for (provider, provider_cfg) in providers {
-        if provider_cfg.enable {
-            let tx = tx.clone();
-
-            let mut response = Response::default();
-
-            let provider_cfg = provider_cfg.clone();
-
-            let diffs = diffs.to_owned();
-            let prompt = prompt.to_owned();
-            let model = provider_cfg.model.clone();
-            let max_tokens = provider_cfg.max_tokens;
-
-            tokio::spawn(async move {
-                match provider
-                    .extract(&prompt, &model, max_tokens, &diffs)
-                    .await
-                {
-                    Ok(r) => {
-                        response.response_schema.insert(provider, r);
-                    }
-                    Err(e) => {
-                        response.errors.push(format!("{:#}", e))
-                    }
-                }
-
-                let _ = tx.send(response).await;
-            });
-        }
-    }
-
-    drop(tx);
-    rx
-}
-
 pub async fn get_response(
     diffs: &str,
     prompt: &str,
     provider: Provider,
     provider_cfg: ProviderConfig,
 ) -> Response {
-    let mut resp = Response::default();
-
-    match provider
+    let res = provider
         .extract(
             prompt,
             &provider_cfg.model,
@@ -164,14 +112,7 @@ pub async fn get_response(
             diffs,
         )
         .await
-    {
-        Ok(r) => {
-            resp.response_schema.insert(provider, r);
-        }
-        Err(e) => {
-            resp.errors.push(format!("{:#}", e));
-        }
-    }
+        .map_err(|e| format!("{:#}", e));
 
-    resp
+    Response { result: res }
 }
