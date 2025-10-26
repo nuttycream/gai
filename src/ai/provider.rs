@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use rig::extractor::{ExtractionError, Extractor};
+use rig::extractor::ExtractionError;
 use rig::{
     client::{CompletionClient, ProviderClient},
     providers::{
