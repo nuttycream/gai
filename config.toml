@@ -1,19 +1,22 @@
-auto_request = false
-skip_splash = true
-include_untracked = true
-stage_hunks = false
-api_key_file = ""
-include_file_tree = true
-files_to_truncate = [
-    "Cargo.lock",
-    "package-lock.json",
-]
-
 [ai]
-capitalize_prefix = false
-include_scope = true
-system_prompt = "You are an expert at git operations.Create git a logical list of git commits based on diffs and structure."
+provider = "Gemini"
 include_convention = true
+include_file_tree = true
+include_git_status = true
+include_untracked = true
+files_to_truncate = []
+
+[ai.providers.Gemini]
+model = "gemini-2.5-flash"
+max_tokens = 5000
+
+[ai.providers.Claude]
+model = "claude-3-5-haiku"
+max_tokens = 5000
+
+[ai.providers.OpenAI]
+model = "gpt-5-nano"
+max_tokens = 5000
 
 [ai.rules]
 group_related_files = true
@@ -22,20 +25,17 @@ separate_by_purpose = true
 verbose_descriptions = true
 exclude_extension_in_scope = true
 allow_empty_scope = true
-max_header_length = 50
+max_header_length = 52
 max_body_length = 72
 
-[ai.openai]
-enable = false
-model_name = "gpt-5-nano-2025-08-07"
-max_tokens = 5000
+[gai]
+stage_hunks = false
 
-[ai.gemini]
-enable = false
-model_name = "gemini-2.5-flash-lite"
-max_tokens = 5000
+[gai.commit_config]
+capitalize_prefix = true
+include_scope = true
+include_breaking = true
 
-[ai.claude]
-enable = false
-model_name = "claude-3-5-haiku-latest"
-max_tokens = 5000
+[tui]
+auto_request = false
+skip_splash = false
