@@ -17,15 +17,12 @@ use futures::{FutureExt, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 use tokio::{
-    sync::mpsc::{self, Sender},
+    sync::mpsc::{self},
     time::interval,
 };
 
 use crate::{
-    ai::{
-        provider::Provider,
-        response::{Response, get_response},
-    },
+    ai::response::{Response, get_response},
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
@@ -56,7 +53,7 @@ async fn main() -> Result<()> {
     match args.command {
         Commands::Tui { .. } => run_tui(cfg, gai).await?,
         Commands::Commit { skip_confirmation } => {
-            run_commit(cfg, gai, args, skip_confirmation).await?
+            run_commit(cfg, gai, skip_confirmation).await?
         }
         Commands::Find { .. } => println!("Not yet implemented"),
         Commands::Rebase {} => println!("Not yet implemented"),
@@ -69,7 +66,6 @@ async fn main() -> Result<()> {
 async fn run_commit(
     cfg: Config,
     gai: GaiGit,
-    args: Cli,
     skip_confirmation: bool,
 ) -> Result<()> {
     loop {
@@ -83,23 +79,7 @@ async fn run_commit(
                 ]),
         );
 
-        let provider = if args.gemini {
-            Provider::Gemini
-        } else if args.chatgpt {
-            Provider::OpenAI
-        } else if args.claude {
-            Provider::Claude
-        } else {
-            [Provider::Gemini, Provider::OpenAI, Provider::Claude]
-                .iter()
-                .find(|p| {
-                    cfg.ai.providers.get(p).is_some_and(|c| c.enable)
-                })
-                .cloned()
-                .ok_or({
-                    anyhow::anyhow!("No AI Providers are enabled")
-                })?
-        };
+        let provider = cfg.ai.provider;
 
         let provider_cfg = cfg
             .ai
@@ -127,31 +107,28 @@ async fn run_commit(
         )
         .await;
 
-        let errs = resp.errors;
+        let resp = match resp.result {
+            Ok(r) => r,
+            Err(e) => {
+                bar.finish_with_message(
+                    "Done! But Gai received an error from the provider:",
+                );
 
-        if !errs.is_empty() {
-            bar.finish_with_message(
-                "Done! But Gai received an error from the provider:",
-            );
-
-            errs.iter().for_each(|e| {
                 println!("{:#}", e);
-            });
 
-            if Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt("Retry?")
-                .interact()
-                .unwrap()
-            {
-                continue;
-            } else {
-                break;
+                if Confirm::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Retry?")
+                    .interact()
+                    .unwrap()
+                {
+                    continue;
+                } else {
+                    break;
+                }
             }
-        }
+        };
 
         bar.finish_with_message("Done! Received a response");
-
-        let resp = resp.response_schema.get(&provider).unwrap();
 
         if resp.commits.is_empty() {
             if Confirm::with_theme(&ColorfulTheme::default())
@@ -236,7 +213,7 @@ async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
 
     let mut terminal = ratatui::init();
 
-    let (tx, mut rx) = mpsc::channel(3);
+    let (tx, mut rx) = mpsc::channel::<Response>(3);
 
     let mut reader = EventStream::new();
     let mut interval = interval(Duration::from_millis(100));
@@ -248,13 +225,12 @@ async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
         tokio::select! {
             maybe_event = reader.next().fuse() => {
                 if let Some(Ok(event)) = maybe_event {
-                    handle_actions(&mut app, event, tx.clone()).await;
+                    handle_actions(&mut app, event).await;
                 }
             }
 
-            Some((provider, result)) = rx.recv() => {
-                app.pending.remove(&provider);
-                //app.responses.insert(provider, result);
+            Some(response) = rx.recv() => {
+                //app.got_response(response);
             }
 
             _ = delay => {
@@ -267,11 +243,7 @@ async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
     Ok(())
 }
 
-async fn handle_actions(
-    app: &mut App,
-    event: CrossTermEvent,
-    tx: Sender<(String, Result<Response, String>)>,
-) {
+async fn handle_actions(app: &mut App, event: CrossTermEvent) {
     // this is somewhat jank, but from the ratatui docs
     // it seems to be the better solution, though
     // we dont necessarily have an EventHandler that
@@ -293,7 +265,7 @@ async fn handle_actions(
                 Action::ClaudeTab => ui.goto_tab(3),
                 Action::GeminiTab => ui.goto_tab(4),
                 Action::SendRequest => {
-                    //app.send_request(tx).await;
+                    app.send_request().await;
                 }
                 Action::ApplyCommits => {
                     app.apply_commits();
