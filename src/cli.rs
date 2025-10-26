@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-use crate::config::Config;
+use crate::{ai::provider::Provider, config::Config};
 
 #[derive(Debug, Parser)]
 #[command(name = "gai")]
@@ -132,5 +132,15 @@ pub enum Commands {
 }
 
 impl Cli {
-    pub fn parse_args(&self, config: &mut Config) {}
+    pub fn parse_args(&self, config: &mut Config) {
+        config.ai.provider = if self.gemini {
+            Provider::Gemini
+        } else if self.chatgpt {
+            Provider::OpenAI
+        } else if self.claude {
+            Provider::Claude
+        } else {
+            config.ai.provider
+        }
+    }
 }
