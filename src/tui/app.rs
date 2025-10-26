@@ -1,17 +1,14 @@
-use std::collections::{HashMap, HashSet};
-
 use ratatui::Frame;
-use tokio::sync::mpsc::Sender;
 
 use crate::{
-    ai::response::{Response, ResponseSchema, get_responses},
+    ai::response::Response,
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     tui::{
         tabs::{SelectedTab, TabContent, TabList},
         ui::UI,
     },
-    utils::build_prompt,
+    utils::{build_diffs_string, build_prompt},
 };
 
 pub struct App {
@@ -21,9 +18,7 @@ pub struct App {
     pub gai: GaiGit,
     pub ui: UI,
 
-    pub responses: HashMap<String, Result<ResponseSchema, String>>,
-    /// pending ai responses
-    pub pending: HashSet<String>,
+    pub response: Option<Response>,
 }
 
 pub enum State {
@@ -69,8 +64,7 @@ impl App {
             cfg,
             gai,
             ui: UI::new(),
-            responses: HashMap::new(),
-            pending: HashSet::new(),
+            response: None,
         }
     }
 
@@ -81,65 +75,43 @@ impl App {
         self.ui.render(frame, tab_content, tab_list);
     }
 
-    pub async fn send_request(&mut self, tx: Sender<Response>) {
+    pub async fn send_request(&mut self) {
         let ai = &self.cfg.ai;
 
-        let mut diffs = String::new();
-        for (file, diff) in &self.gai.get_file_diffs_as_str() {
-            diffs.push_str(&format!("File:{}\n{}\n", file, diff));
-        }
-
+        let diffs =
+            build_diffs_string(self.gai.get_file_diffs_as_str());
         let mut prompt = build_prompt(&self.cfg);
 
         // todo wth am i doing
         if ai.include_file_tree {
             prompt.push_str(&self.gai.get_repo_tree());
         }
-
-        let mut rx =
-            get_responses(&diffs, &prompt, ai.providers.to_owned())
-                .await;
-
-        tokio::spawn(async move {
-            while let Some(from_the_ai) = rx.recv().await {
-                let _ = tx.send(from_the_ai).await;
-            }
-        });
     }
 
     pub fn apply_commits(&self) {
         match self.ui.selected_tab {
             SelectedTab::Diffs => {}
-            SelectedTab::OpenAI
-            | SelectedTab::Claude
-            | SelectedTab::Gemini => {
-                let provider = match self.ui.selected_tab {
-                    SelectedTab::OpenAI => "OpenAI",
-                    SelectedTab::Claude => "Claude",
-                    SelectedTab::Gemini => "Gemini",
-                    _ => return,
-                };
-                let commits: Vec<GaiCommit> = self
-                    .responses
-                    .iter()
-                    .find(|(key, _)| key.starts_with(provider))
-                    .and_then(|(_, result)| result.as_ref().ok())
-                    .map(|response| {
-                        response
-                            .commits
-                            .iter()
-                            .map(|response_commit| {
-                                GaiCommit::from_response(
-                                    response_commit,
-                                    self.gai.capitalize_prefix,
-                                    self.gai.include_scope,
-                                )
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
+            _ => {
+                if let Some(data) = &self.response
+                    && data.result.is_ok()
+                {
+                    let commits: Vec<GaiCommit> = data
+                        .result
+                        .to_owned()
+                        .unwrap()
+                        .commits
+                        .iter()
+                        .map(|response_commit| {
+                            GaiCommit::from_response(
+                                response_commit,
+                                self.gai.capitalize_prefix,
+                                self.gai.include_scope,
+                            )
+                        })
+                        .collect();
 
-                self.gai.apply_commits(&commits);
+                    self.gai.apply_commits(&commits);
+                }
             }
         }
     }
@@ -179,92 +151,33 @@ impl App {
     }
 
     fn get_list(&self) -> TabList {
-        match self.ui.selected_tab {
-            SelectedTab::Diffs => {
-                let main = self
-                    .gai
-                    .files
-                    .iter()
-                    .filter(|g| !g.should_truncate)
-                    .map(|g| g.path.to_owned())
-                    .collect();
+        let main = self
+            .gai
+            .files
+            .iter()
+            .filter(|g| !g.should_truncate)
+            .map(|g| g.path.to_owned())
+            .collect();
 
-                let secondary: Vec<String> = self
-                    .gai
-                    .files
-                    .iter()
-                    .filter(|g| g.should_truncate)
-                    .map(|g| g.path.to_owned())
-                    .collect();
+        let secondary: Vec<String> = self
+            .gai
+            .files
+            .iter()
+            .filter(|g| g.should_truncate)
+            .map(|g| g.path.to_owned())
+            .collect();
 
-                let (secondary, secondary_title) = if secondary
-                    .is_empty()
-                {
-                    (None, None)
-                } else {
-                    (Some(secondary), Some("Truncated".to_owned()))
-                };
+        let (secondary, secondary_title) = if secondary.is_empty() {
+            (None, None)
+        } else {
+            (Some(secondary), Some("Truncated".to_owned()))
+        };
 
-                TabList {
-                    main,
-                    secondary,
-                    main_title: "Files".to_owned(),
-                    secondary_title,
-                }
-            }
-
-            SelectedTab::OpenAI
-            | SelectedTab::Claude
-            | SelectedTab::Gemini => {
-                let provider = match self.ui.selected_tab {
-                    SelectedTab::OpenAI => "OpenAI",
-                    SelectedTab::Claude => "Claude",
-                    SelectedTab::Gemini => "Gemini",
-                    _ => {
-                        return TabList {
-                            main: Vec::new(),
-                            secondary: None,
-                            main_title: "Commits".to_owned(),
-                            secondary_title: None,
-                        };
-                    }
-                };
-
-                // for now use an empty vec
-                // to display failed/no responses
-                let main = self
-                    .responses
-                    .iter()
-                    .find(|(key, _)| key.starts_with(provider))
-                    .and_then(|(_, result)| result.as_ref().ok())
-                    .map(|response| {
-                        response
-                            .commits
-                            .iter()
-                            .map(|c| {
-                                c.get_commit_prefix(
-                                    self.cfg
-                                        .gai
-                                        .commit_config
-                                        .capitalize_prefix,
-                                    self.cfg
-                                        .gai
-                                        .commit_config
-                                        .include_scope,
-                                )
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-
-                // todo: impl failed
-                TabList {
-                    main,
-                    secondary: None,
-                    main_title: "Commits".to_owned(),
-                    secondary_title: None,
-                }
-            }
+        TabList {
+            main,
+            secondary,
+            main_title: "Files".to_owned(),
+            secondary_title,
         }
     }
 
@@ -286,96 +199,18 @@ impl App {
                         .map(|gai| {
                             if gai.should_truncate {
                                 TabContent::Description(
-                                    "Truncated File",
+                                    "Truncated File".to_owned(),
                                 )
                             } else {
                                 TabContent::Diff(gai.hunks.clone())
                             }
                         })
                 })
-                .unwrap_or({
-                    TabContent::Description(
-                        "Select a file to view it's diffs",
-                    )
-                }),
-            SelectedTab::OpenAI
-            | SelectedTab::Claude
-            | SelectedTab::Gemini => {
-                TabContent::Description("Broken")
-            }
+                .unwrap_or(TabContent::Description(
+                    "Select a file to view its diffs".to_owned(),
+                )),
+
+            _ => TabContent::Description("test".to_owned()),
         }
     }
 }
-
-/*
-fn handle_providers(providers: HashMap<Provider, ProviderConfig>) {
-    let (provider, enabled) = match selected_tab {
-        SelectedTab::OpenAI => ("OpenAI", self.cfg.ai.openai.enable),
-        SelectedTab::Claude => ("Claude", self.cfg.ai.claude.enable),
-        SelectedTab::Gemini => ("Gemini", self.cfg.ai.gemini.enable),
-        _ => {
-            return TabContent::Description(
-                "No matching AI provider (shouldn't see this btw)"
-                    .to_owned(),
-            );
-        }
-    };
-
-    if !enabled {
-        return TabContent::Description(format!(
-            "{} Provider not enabled",
-            provider
-        ));
-    }
-
-    match self
-        .responses
-        .iter()
-        .find(|(key, _)| key.starts_with(provider))
-    {
-        Some((_, Ok(response))) => {
-            if let Some(selected) = selected_state_idx
-                && selected < response.commits.len()
-            {
-                let response_commit = &response.commits[selected];
-
-                let mut content = String::new();
-                content.push_str("Files to Stage:\n");
-                for file in &response_commit.files {
-                    content.push_str(&format!("{}\n", file));
-                }
-
-                content.push_str(&format!(
-                    "Header:\n{}\n",
-                    response_commit.message.header
-                ));
-
-                content.push_str(&format!(
-                    "Body:\n{}\n",
-                    response_commit.message.body
-                ));
-
-                TabContent::Description(content)
-            } else {
-                TabContent::Description(
-                    "Select Commit to View Description/Details"
-                        .to_owned(),
-                )
-            }
-        }
-        Some((_, Err(e))) => TabContent::Description(format!(
-            "Error from provider:\n{}",
-            e
-        )),
-        None => {
-            if self.pending.iter().any(|p| p.starts_with(provider)) {
-                TabContent::Description("Loading...".to_owned())
-            } else {
-                TabContent::Description(
-                    "Press p to send a request".to_owned(),
-                )
-            }
-        }
-    }
-}
-*/
