@@ -108,7 +108,7 @@ impl GaiGit {
                             should_truncate,
                             hunks: vec![HunkDiff {
                                 header: format!(
-                                    "new file {}",
+                                    "New File {}",
                                     lines.len()
                                 ),
                                 line_diffs: lines,
@@ -118,6 +118,8 @@ impl GaiGit {
                 }
             }
         }
+
+        self.files.sort_by_key(|g| g.should_truncate);
 
         Ok(())
     }
