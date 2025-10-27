@@ -2,10 +2,58 @@ pub const CHATGPT_DEFAULT: &str = "gpt-5-nano";
 pub const CLAUDE_DEFAULT: &str = "claude-3-5-haiku";
 pub const GEMINI_DEFAULT: &str = "gemini-2.5-flash";
 
-pub const DEFAULT_SYS_PROMPT: &str = "You are an expert at git operations.\
-    Create git a logical list of git commits based on diffs and structure.";
+pub const DEFAULT_SYS_PROMPT: &str = "You are an expert at git operations. Create git a logical list of git commits based on diffs and structure.";
 
 pub const LOGO: &str = r#""#;
+
+pub const RULE_GROUP_FILES: &str = "- GROUP related files into LOGICAL commits based on the type of change\n\
+- Examples of files that should be grouped together:\n\
+  * Multiple files implementing the same feature\n\
+  * Files modified for the same bug fix\n\
+  * Related configuration and code changes\n\
+  * Test files with the code they test\n";
+
+pub const RULE_NO_FILE_SPLITTING: &str =
+    "- CRITICAL: Each file should appear in ONLY ONE commit\n";
+
+pub const RULE_SEPARATE_BY_PURPOSE: &str = "- CRITICAL: Create SEPARATE commits when changes serve DIFFERENT purposes\n";
+
+pub const RULE_COMMIT_MESSAGE_HEADER: &str =
+    "\n## CommitMessage Field Requirements:\n";
+
+pub const RULE_PREFIX: &str = "  * prefix: Select the appropriate type from the PrefixType enum\n";
+
+pub const RULE_BREAKING: &str =
+    "  * breaking: Set to true if breaking change, false otherwise\n";
+
+// Base instructions - will be combined with length/scope rules
+pub const RULE_HEADER_BASE: &str = "  * header: CRITICAL - This field contains ONLY the description text\n\
+    - NEVER include the prefix (like 'feat:', 'fix:') in this field\n\
+    - NEVER include the scope (like '(api)', '(parser)') in this field\n\
+    - Example WRONG: 'feat: add new parser' or 'feat(api): add endpoint'\n\
+    - Example CORRECT: 'add new parser' or 'add endpoint'\n";
+
+pub const RULE_BODY_BASE: &str = "  * body: Provide detailed explanation of what changed and why\n";
+
+pub const RULE_MESSAGE_VERBOSE: &str = "    - Make descriptions ACCURATE and VERBOSE\n\
+    - Descriptions must closely align with the actual code changes\n";
+
+pub const RULE_MESSAGE_CONCISE: &str =
+    "    - Write clear, concise descriptions\n";
+
+pub const RULE_SCOPE_ALLOW_EMPTY_WITH_EXTENSION: &str = "  * scope: Component name with extension (e.g., 'main.rs', 'parser') or empty string \"\"\n";
+pub const RULE_SCOPE_ALLOW_EMPTY_NO_EXTENSION: &str = "  * scope: Component name WITHOUT extension (e.g., 'main', 'parser') or empty string \"\"\n";
+pub const RULE_SCOPE_REQUIRED_WITH_EXTENSION: &str = "  * scope: Component name with extension (e.g., 'main.rs', 'parser')\n";
+pub const RULE_SCOPE_REQUIRED_NO_EXTENSION: &str = "  * scope: Component name WITHOUT extension (e.g., 'main', 'parser')\n";
+
+pub const HUNK_INSTRUCTIONS: &str = "\n## File/Hunk Instructions:\n\
+Fill hunk_ids with the HUNK_ID values shown in the diffs (format: \"filepath:index\").\n\
+Each hunk can only appear in ONE commit.\n\
+Example: [\"src/main.rs:0\", \"src/git/repo.rs:1\"]\n";
+
+pub const FILE_INSTRUCTIONS: &str = "\n## File Instructions:\n\
+Fill out the 'files' array with valid file paths.\n\
+Leave 'hunk_ids' as an empty array.\n";
 
 pub const COMMIT_CONVENTION: &str = "
 # Conventional Commits 1.0.0
