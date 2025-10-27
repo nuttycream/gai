@@ -179,7 +179,12 @@ async fn run_commit(
             break;
         }
 
-        let options = ["Apply All", "Edit Commit", "Retry", "Exit"];
+        let options = [
+            "Apply All",
+            "Edit Commit/s (Opens the TUI)",
+            "Retry",
+            "Exit",
+        ];
 
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Select an option:")
