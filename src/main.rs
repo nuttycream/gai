@@ -22,7 +22,7 @@ use tokio::{
 };
 
 use crate::{
-    ai::response::{Response, ResponseCommit, get_response},
+    ai::response::{Response, get_response},
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
 
     gai.create_diffs(&cfg.ai.files_to_truncate)?;
     match args.command {
-        Commands::Tui { .. } => run_tui(cfg, gai).await?,
+        Commands::Tui { .. } => run_tui(cfg, gai, None).await?,
         Commands::Commit { skip_confirmation } => {
             run_commit(cfg, gai, skip_confirmation).await?
         }
@@ -99,7 +99,7 @@ async fn run_commit(
 
         let diffs = build_diffs_string(gai.get_file_diffs_as_str());
 
-        let resp = get_response(
+        let response = get_response(
             &diffs,
             &prompt,
             provider,
@@ -107,7 +107,7 @@ async fn run_commit(
         )
         .await;
 
-        let mut resp = match resp.result {
+        let result = match response.result.clone() {
             Ok(r) => r,
             Err(e) => {
                 bar.finish_with_message(
@@ -130,7 +130,7 @@ async fn run_commit(
 
         bar.finish_with_message("Done! Received a response");
 
-        if resp.commits.is_empty() {
+        if result.commits.is_empty() {
             if Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt("No commits found... retry?")
                 .interact()
@@ -142,8 +142,8 @@ async fn run_commit(
             }
         }
 
-        println!("Response Commits({}):", resp.commits.len());
-        for commit in &resp.commits {
+        println!("Response Commits({}):", result.commits.len());
+        for commit in &result.commits {
             println!(
                 "Prefix: {}",
                 commit.get_commit_prefix(
@@ -161,7 +161,7 @@ async fn run_commit(
             println!();
         }
 
-        let commits: Vec<GaiCommit> = resp
+        let commits: Vec<GaiCommit> = result
             .commits
             .iter()
             .map(|resp_commit| {
@@ -195,33 +195,12 @@ async fn run_commit(
             println!("Applying Commits...");
             gai.apply_commits(&commits);
         } else if selection == 1 {
-            let mut options: Vec<String> = resp
-                .commits
-                .iter()
-                .map(|c| c.message.header.to_owned())
-                .collect();
-
-            options.insert(0, "Cancel".to_string());
-
-            let commit_selection =
-                Select::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Select A Commit to Edit:")
-                    .items(options)
-                    .default(0)
-                    .interact()
-                    .unwrap();
-
-            if commit_selection == 0 {
-                println!("Canceling");
-            } else {
-                edit_commits(&mut resp.commits[commit_selection]);
-            }
+            let _ = run_tui(cfg, gai, Some(response)).await;
         } else if selection == 2 {
             println!("Retrying...");
             continue;
         } else if selection == 3 {
             println!("Exiting");
-            break;
         }
 
         break;
@@ -230,15 +209,17 @@ async fn run_commit(
     Ok(())
 }
 
-fn edit_commits(commit: &mut ResponseCommit) {}
-
 // todo sending a request hangs as soon as you press it.
 // not sure why, might be because of the extra other funcs
 // and not specificically get_response() will look into
 // this in the future
 // for now let's focus on more pressing issues lol
-async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
-    let mut app = App::new(cfg, gai);
+async fn run_tui(
+    cfg: Config,
+    gai: GaiGit,
+    response: Option<Response>,
+) -> Result<()> {
+    let mut app = App::new(cfg, gai, response);
 
     let mut terminal = ratatui::init();
 
