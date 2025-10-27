@@ -1,14 +1,14 @@
 [ai]
 provider = "Gemini"
-include_convention = true
+include_convention = false
 include_file_tree = true
 include_git_status = true
 include_untracked = true
 files_to_truncate = []
 
 [ai.providers.Gemini]
-model = "gemini-2.5-flash"
-max_tokens = 5000
+model = "gemini-2.5-flash-lite"
+max_tokens = 15000
 
 [ai.providers.Claude]
 model = "claude-3-5-haiku"
@@ -16,7 +16,7 @@ max_tokens = 5000
 
 [ai.providers.OpenAI]
 model = "gpt-5-nano"
-max_tokens = 5000
+max_tokens = 10000
 
 [ai.rules]
 group_related_files = true
