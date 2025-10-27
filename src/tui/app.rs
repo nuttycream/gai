@@ -1,7 +1,8 @@
 use ratatui::Frame;
+use tokio::sync::mpsc;
 
 use crate::{
-    ai::response::Response,
+    ai::response::{Response, get_response},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     tui::{
@@ -75,17 +76,29 @@ impl App {
         self.ui.render(frame, tab_content, tab_list);
     }
 
-    pub async fn send_request(&mut self) {
+    pub async fn send_request(&mut self, tx: mpsc::Sender<Response>) {
         let ai = &self.cfg.ai;
+        let provider = ai.provider;
+        let provider_cfg = ai
+            .providers
+            .get(&provider)
+            .expect("somehow did not find provider config")
+            .clone();
 
         let diffs =
             build_diffs_string(self.gai.get_file_diffs_as_str());
         let mut prompt = build_prompt(&self.cfg);
 
-        // todo wth am i doing
         if ai.include_file_tree {
             prompt.push_str(&self.gai.get_repo_tree());
         }
+
+        tokio::spawn(async move {
+            let resp =
+                get_response(&diffs, &prompt, provider, provider_cfg)
+                    .await;
+            let _ = tx.send(resp).await;
+        });
     }
 
     pub fn apply_commits(&self) {
@@ -151,33 +164,82 @@ impl App {
     }
 
     fn get_list(&self) -> TabList {
-        let main = self
-            .gai
-            .files
-            .iter()
-            .filter(|g| !g.should_truncate)
-            .map(|g| g.path.to_owned())
-            .collect();
+        match self.ui.selected_tab {
+            SelectedTab::Diffs => {
+                let main = self
+                    .gai
+                    .files
+                    .iter()
+                    .filter(|g| !g.should_truncate)
+                    .map(|g| g.path.to_owned())
+                    .collect();
 
-        let secondary: Vec<String> = self
-            .gai
-            .files
-            .iter()
-            .filter(|g| g.should_truncate)
-            .map(|g| g.path.to_owned())
-            .collect();
+                let secondary: Vec<String> = self
+                    .gai
+                    .files
+                    .iter()
+                    .filter(|g| g.should_truncate)
+                    .map(|g| g.path.to_owned())
+                    .collect();
 
-        let (secondary, secondary_title) = if secondary.is_empty() {
-            (None, None)
-        } else {
-            (Some(secondary), Some("Truncated".to_owned()))
-        };
+                let (secondary, secondary_title) = if secondary
+                    .is_empty()
+                {
+                    (None, None)
+                } else {
+                    (Some(secondary), Some("Truncated".to_owned()))
+                };
 
-        TabList {
-            main,
-            secondary,
-            main_title: "Files".to_owned(),
-            secondary_title,
+                TabList {
+                    main,
+                    secondary,
+                    main_title: "Files".to_owned(),
+                    secondary_title,
+                }
+            }
+
+            SelectedTab::Commits => {
+                if let Some(resp) = &self.response
+                    && resp.result.is_ok()
+                {
+                    let commit_cfg = &self.cfg.gai.commit_config;
+                    // kinda jank,
+                    // but guaranteed to not be
+                    // err
+                    let res = resp.result.clone().unwrap();
+                    let main: Vec<String> = res
+                        .commits
+                        .iter()
+                        .map(|c| {
+                            c.get_commit_prefix(
+                                commit_cfg.capitalize_prefix,
+                                commit_cfg.include_scope,
+                            )
+                        })
+                        .collect();
+
+                    TabList {
+                        main,
+                        secondary: None,
+                        main_title: "Commits".to_owned(),
+                        secondary_title: None,
+                    }
+                } else {
+                    TabList {
+                        main: Vec::new(),
+                        secondary: None,
+                        main_title: String::new(),
+                        secondary_title: None,
+                    }
+                }
+            }
+
+            _ => TabList {
+                main: Vec::new(),
+                secondary: None,
+                main_title: String::new(),
+                secondary_title: None,
+            },
         }
     }
 
@@ -209,8 +271,95 @@ impl App {
                 .unwrap_or(TabContent::Description(
                     "Select a file to view its diffs".to_owned(),
                 )),
+            SelectedTab::Commits => {
+                if let Some(resp) = &self.response {
+                    let res = match &resp.result {
+                        Ok(r) => r,
+                        Err(e) => {
+                            return TabContent::Description(
+                                e.to_owned(),
+                            );
+                        }
+                    };
 
-            _ => TabContent::Description("test".to_owned()),
+                    if let Some(selected) = selected_state_idx
+                        && selected < res.commits.len()
+                    {
+                        let commit = &res.commits[selected];
+                        let mut content = String::new();
+
+                        if self.cfg.gai.stage_hunks {
+                            content.push_str("Hunks to Stage:\n");
+                            for file in &commit.hunk_ids {
+                                content
+                                    .push_str(&format!("{} ", file));
+                            }
+                        } else {
+                            content.push_str("Files to Stage:\n");
+                            for file in &commit.files {
+                                content
+                                    .push_str(&format!("{} ", file));
+                            }
+                        }
+
+                        content.push('\n');
+                        content.push_str("Commit Message:\n");
+                        content.push_str("Prefix Type: ");
+                        content.push_str(
+                            format!("{:?}", commit.message.prefix)
+                                .as_str(),
+                        );
+                        content.push('\n');
+
+                        content.push_str("Scope: ");
+                        content.push_str(&commit.message.scope);
+                        content.push('\n');
+
+                        if commit.message.breaking {
+                            content
+                                .push_str("Is Breaking Change: Yes");
+                        } else {
+                            content
+                                .push_str("Is Breaking Change: No");
+                        }
+                        content.push('\n');
+
+                        content.push_str("Header:\n");
+                        content.push_str(&commit.message.header);
+                        content.push('\n');
+
+                        content.push_str("Body:\n");
+                        content.push_str(&commit.message.body);
+                        content.push('\n');
+
+                        return TabContent::Description(content);
+                    }
+
+                    TabContent::Description(
+                        "Select a Commit to View".to_owned(),
+                    )
+                } else {
+                    let model = self
+                        .cfg
+                        .ai
+                        .providers
+                        .get(&self.cfg.ai.provider)
+                        .expect(
+                            "somehow failed to find provider config",
+                        )
+                        .model
+                        .to_owned();
+
+                    TabContent::Description(format!(
+                        "Press 'p' to send a request to {}",
+                        model
+                    ))
+                }
+            }
+
+            _ => TabContent::Description(
+                "Not Yet Implemented".to_owned(),
+            ),
         }
     }
 }
