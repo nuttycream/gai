@@ -52,7 +52,11 @@ pub enum Action {
 }
 
 impl App {
-    pub fn new(cfg: Config, gai: GaiGit) -> Self {
+    pub fn new(
+        cfg: Config,
+        gai: GaiGit,
+        response: Option<Response>,
+    ) -> Self {
         let state = if cfg.tui.skip_splash {
             State::Running
         } else {
@@ -65,7 +69,7 @@ impl App {
             cfg,
             gai,
             ui: UI::new(),
-            response: None,
+            response,
         }
     }
 
