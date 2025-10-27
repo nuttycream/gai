@@ -81,7 +81,7 @@ impl ResponseCommit {
         include_scope: bool,
     ) -> String {
         let prefix = if capitalize_prefix {
-            format!("{:?}", self.message.prefix)
+            format!("{:?}", self.message.prefix).to_uppercase()
         } else {
             format!("{:?}", self.message.prefix).to_lowercase()
         };

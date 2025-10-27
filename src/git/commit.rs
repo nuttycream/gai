@@ -16,6 +16,7 @@ impl GaiCommit {
         let message = {
             let prefix = if capitalize_prefix {
                 format!("{:?}", response.message.prefix)
+                    .to_uppercase()
             } else {
                 format!("{:?}", response.message.prefix)
                     .to_lowercase()
