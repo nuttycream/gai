@@ -208,12 +208,17 @@ async fn run_commit(
     Ok(())
 }
 
+// todo sending a request hangs as soon as you press it.
+// not sure why, might be because of the extra other funcs
+// and not specificically get_response() will look into
+// this in the future
+// for now let's focus on more pressing issues lol
 async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
     let mut app = App::new(cfg, gai);
 
     let mut terminal = ratatui::init();
 
-    let (tx, mut rx) = mpsc::channel::<Response>(3);
+    let (tx, mut rx) = mpsc::channel(3);
 
     let mut reader = EventStream::new();
     let mut interval = interval(Duration::from_millis(100));
@@ -225,12 +230,12 @@ async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
         tokio::select! {
             maybe_event = reader.next().fuse() => {
                 if let Some(Ok(event)) = maybe_event {
-                    handle_actions(&mut app, event).await;
+                    handle_actions(&mut app, event, tx.clone()).await;
                 }
             }
 
-            Some(response) = rx.recv() => {
-                //app.got_response(response);
+            Some(resp) = rx.recv() => {
+                app.response = Some(resp);
             }
 
             _ = delay => {
@@ -243,7 +248,11 @@ async fn run_tui(cfg: Config, gai: GaiGit) -> Result<()> {
     Ok(())
 }
 
-async fn handle_actions(app: &mut App, event: CrossTermEvent) {
+async fn handle_actions(
+    app: &mut App,
+    event: CrossTermEvent,
+    tx: mpsc::Sender<Response>,
+) {
     // this is somewhat jank, but from the ratatui docs
     // it seems to be the better solution, though
     // we dont necessarily have an EventHandler that
@@ -265,7 +274,7 @@ async fn handle_actions(app: &mut App, event: CrossTermEvent) {
                 Action::ClaudeTab => ui.goto_tab(3),
                 Action::GeminiTab => ui.goto_tab(4),
                 Action::SendRequest => {
-                    app.send_request().await;
+                    app.send_request(tx).await;
                 }
                 Action::ApplyCommits => {
                     app.apply_commits();
