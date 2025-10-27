@@ -4,7 +4,7 @@ use std::{collections::HashMap, fs, io::ErrorKind};
 
 use crate::ai::provider::Provider;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     pub ai: AiConfig,
     pub gai: GaiConfig,
@@ -34,7 +34,7 @@ impl Config {
 }
 
 /// gai git specific settings
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct GaiConfig {
     /// should we apply as hunks?
     pub stage_hunks: bool,
@@ -42,7 +42,7 @@ pub struct GaiConfig {
 }
 
 /// commit message specific settings
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CommitConfig {
     /// prefix will be capitalized like feat -> Feat
     pub capitalize_prefix: bool,
@@ -63,7 +63,7 @@ pub struct CommitConfig {
 }
 
 /// tui specific settings
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TuiConfig {
     /// send out the request
     /// upon launching gai
@@ -75,7 +75,7 @@ pub struct TuiConfig {
 }
 
 /// anything dealing with the LLM request
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AiConfig {
     /// Enabled provider
     pub provider: Provider,
@@ -118,7 +118,7 @@ pub struct AiConfig {
 
 /// this is rules/constraints to send the ai
 /// along with the prompt
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RuleConfig {
     /// group related files into logical commits based on the type of prefix
     pub group_related_files: bool,
