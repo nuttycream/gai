@@ -22,7 +22,7 @@ use tokio::{
 };
 
 use crate::{
-    ai::response::{Response, get_response},
+    ai::response::{Response, ResponseCommit, get_response},
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
@@ -107,7 +107,7 @@ async fn run_commit(
         )
         .await;
 
-        let resp = match resp.result {
+        let mut resp = match resp.result {
             Ok(r) => r,
             Err(e) => {
                 bar.finish_with_message(
@@ -188,12 +188,34 @@ async fn run_commit(
             .interact()
             .unwrap();
 
+        // todo wrap this in an inner loop
+        // or put it in a func so we can retry
+        // from THIS prompt
         if selection == 0 {
             println!("Applying Commits...");
             gai.apply_commits(&commits);
         } else if selection == 1 {
-            println!("Editing Commits");
-            break;
+            let mut options: Vec<String> = resp
+                .commits
+                .iter()
+                .map(|c| c.message.header.to_owned())
+                .collect();
+
+            options.insert(0, "Cancel".to_string());
+
+            let commit_selection =
+                Select::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Select A Commit to Edit:")
+                    .items(options)
+                    .default(0)
+                    .interact()
+                    .unwrap();
+
+            if commit_selection == 0 {
+                println!("Canceling");
+            } else {
+                edit_commits(&mut resp.commits[commit_selection]);
+            }
         } else if selection == 2 {
             println!("Retrying...");
             continue;
@@ -207,6 +229,8 @@ async fn run_commit(
 
     Ok(())
 }
+
+fn edit_commits(commit: &mut ResponseCommit) {}
 
 // todo sending a request hangs as soon as you press it.
 // not sure why, might be because of the extra other funcs
