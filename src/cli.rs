@@ -141,6 +141,73 @@ impl Cli {
             Provider::Claude
         } else {
             config.ai.provider
+        };
+
+        if self.include_untracked {
+            config.ai.include_untracked = true;
+        }
+
+        if self.include_file_tree {
+            config.ai.include_file_tree = true;
+        }
+
+        if self.include_convention {
+            config.ai.include_convention = true;
+        }
+
+        if let Some(ref prompt) = self.system_prompt {
+            config.ai.system_prompt = Some(prompt.clone());
+        }
+
+        if !self.truncate_file.is_empty() {
+            config
+                .ai
+                .files_to_truncate
+                .extend(self.truncate_file.clone());
+        }
+
+        if self.stage_hunks {
+            config.gai.stage_hunks = true;
+        }
+
+        if self.capitalize_prefix {
+            config.gai.commit_config.capitalize_prefix = true;
+        }
+
+        if self.include_scope {
+            config.gai.commit_config.include_scope = true;
+        }
+
+        if self.group_related_files {
+            config.ai.rules.group_related_files = true;
+        }
+
+        if self.no_file_splitting {
+            config.ai.rules.no_file_splitting = true;
+        }
+
+        if self.separate_by_purpose {
+            config.ai.rules.separate_by_purpose = true;
+        }
+
+        if self.verbose_descriptions {
+            config.ai.rules.verbose_descriptions = true;
+        }
+
+        if self.exclude_extension_in_scope {
+            config.ai.rules.exclude_extension_in_scope = true;
+        }
+
+        if self.allow_empty_scope {
+            config.ai.rules.allow_empty_scope = true;
+        }
+
+        if let Some(length) = self.max_header_length {
+            config.ai.rules.max_header_length = length;
+        }
+
+        if let Some(length) = self.max_body_length {
+            config.ai.rules.max_body_length = length;
         }
     }
 }
