@@ -31,6 +31,7 @@ pub struct GaiGit {
     pub include_scope: bool,
 }
 
+#[derive(Debug)]
 pub struct GaiFile {
     pub path: String,
     pub should_truncate: bool,
