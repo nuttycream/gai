@@ -1,0 +1,45 @@
+name: deploy docs
+on:
+  workflow_dispatch:
+
+env: 
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+  pages: write 
+  id-token: write
+
+jobs:
+  build:
+    name: download & run sussg, upload site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: download and install sussg
+        id: install
+        run: cargo install --git https://github.com/nuttycream/sussg 
+
+      - name: build docs
+        run: |
+          cd docs/
+          sussg build
+        
+      - name: upload site as artifact
+        uses: actions/upload-pages-artifact@v3
+        with: 
+          path: ./docs/public
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+    
+
