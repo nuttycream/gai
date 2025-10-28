@@ -5,10 +5,11 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
+    sussg.url = "github:nuttycream/sussg";
   };
 
   outputs = {
-    self,
+    sussg,
     nixpkgs,
     rust-overlay,
     flake-utils,
@@ -42,6 +43,7 @@
             packages = with pkgs; [
               just
               rust-bin.stable.latest.default
+              sussg.packages.${system}.default
             ];
 
             buildInputs = [

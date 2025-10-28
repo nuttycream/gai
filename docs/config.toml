@@ -1,0 +1,9 @@
+[general]
+url = "/"
+output_dir = "public"
+
+[style]
+main = ["main"]
+
+[template]
+base = "base"

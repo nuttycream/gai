@@ -1,0 +1,69 @@
+* {
+  font-family: "IBM Plex Mono";
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: blanchedalmond;
+  background-attachment: fixed;
+  color: black;
+}
+
+.hero {
+  margin: auto;
+  max-width: 900px;
+  padding: 3rem 2rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  font-weight: 700;
+}
+
+.call-to-action {
+  margin: auto;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  animation: fadeInUp 0.5s ease-out;
+
+  button {
+    width: auto;
+    padding: 1rem 2.5rem;
+    font-size: 1rem;
+    color: black;
+    background: white;
+    border: none;
+    border-radius: 10px;
+    transition: all 0.1s ease;
+    box-shadow: 0 3px 8px darkgray;
+  }
+
+  button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 10px darkgray;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
