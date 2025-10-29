@@ -1,4 +1,4 @@
 ---
-title: "gai: AI powered Git"
+title: "gai: AI Powered VCS"
 template: homepage
 ---

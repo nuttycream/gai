@@ -7,27 +7,51 @@
 	</head>
 	<body>
 		<div class="header">
-			<a href="/">
-				<img src="{{ site_url }}gai_logo_dark.svg" alt="logo">
-			</a>
-			<div class="logo-text">
-				<h1>AI Powered Version Control</h1>
+			<div class="header-content">
+				<div class="header-left">
+					<a href="/">
+						<img src="/gai_logo_dark.svg" alt="logo">
+					</a>
+					<div class="logo-text">
+						<h1>AI Powered Version Control</h1>
+					</div>
+				</div>
+
+				<nav class="nav-bar">
+					<a href="/#features">Features</a>
+					<div class="nav-dropdown">
+						Documentation
+						<div class="nav-dropdown-content">
+							<a href="/#install">Installation</a>
+							<a href="/config">Configure</a>
+						</div>
+					</div>
+					<a href="/pricing">Pricing</a>
+				</nav>
 			</div>
 		</div>
 
 		<div class="content-wrapper">
 			<h2>Configuring Gai</h2>
 			<p>
-				gai stores its configuration options in a <code>config.toml</code>
-				found in your Operating Systems' <code>XDG_CONFIG_HOME</code>
-				like so: <code>~/.config/gai/config.toml</code>
-				<br>
-				<br>
-				If an existing config doesn't exist, gai will create one with
+				<strong>gai</strong>
+				stores its configuration options in a <code>config.toml</code>
+				found in your Operating Systems' user configuration directory.
+			</p>
+			<ul>
+				<li><code>$XDG_CONFIG_HOME</code>:
+				<code>~/.config/gai/config.toml</code></li>
+			</ul>
+			<p>
+				If an existing config doesn't exist,
+				<strong>gai</strong>
+				will create one with
 				<a href="#example">default values</a>
 				on the first run.
 			</p>
+
 			<br>
+
 			<nav class="toc">
 				<h3>Jump To</h3>
 				<ul>
