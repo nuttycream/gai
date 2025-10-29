@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>{{ title }}</title>
+	</head>
+	<body>
+		<div class="header">
+			<a href="/">
+				<img src="{{ site_url }}gai_logo_dark.svg" alt="logo">
+			</a>
+			<div class="logo-text">
+				<h1>AI Powered Version Control</h1>
+			</div>
+		</div>
+
+		<div class="content-wrapper">
+			<h2>Configuring Gai</h2>
+			<p>
+				gai stores its configuration options in a <code>config.toml</code>
+				found in your Operating Systems' <code>XDG_CONFIG_HOME</code>
+				like so: <code>~/.config/gai/config.toml</code>
+				<br>
+				<br>
+				If an existing config doesn't exist, gai will create one with
+				<a href="#example">default values</a>
+				on the first run.
+			</p>
+			<br>
+			<nav class="toc">
+				<h3>Jump To</h3>
+				<ul>
+					<li><a href="#ai-config">AI Configuration</a>
+					<ul>
+						<li><a href="#prompt-config">Prompt</a></li>
+						<li><a href="#context-config">Context</a></li>
+						<li><a href="#response-rules">Response Rules</a></li>
+					</ul></li>
+					<li><a href="#gai-config">Gai Configuration</a>
+					<ul>
+						<li><a href="#staging">Staging Type</a></li>
+						<li><a href="#commit-format">Commit Message Format</a></li>
+					</ul></li>
+					<li><a href="#tui-config">TUI Configuration</a></li>
+					<li><a href="#example">Full Example Configuration</a></li>
+					<li><a href="#cli">CLI Flags Override</a></li>
+					<li><a href="#env-vars">Environment Variables</a></li>
+				</ul>
+			</nav>
+			{{content}}
+		</div>
+	</body>
+</html>

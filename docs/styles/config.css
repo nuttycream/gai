@@ -1,0 +1,185 @@
+.header {
+  height: auto;
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  text-align: center;
+  align-items: center;
+  background-color: whitesmoke;
+  border-bottom: 2px solid rgba(181, 181, 181, 0.5);
+  gap: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header img {
+  height: 2rem;
+}
+
+.header h1 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.header a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.content-wrapper {
+  margin: 0 auto;
+  max-width: 900px;
+  padding: 2rem;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.toc {
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.toc h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+  color: #2c3e50;
+}
+
+.toc ul {
+  list-style: none;
+  margin-left: 0;
+  line-height: 1.6rem;
+}
+
+.toc > ul {
+  margin-left: 0;
+}
+
+.toc ul ul {
+  margin-left: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+.toc li {
+  color: #34495e;
+  margin: 0.25rem 0;
+}
+
+.toc a {
+  color: #3498db;
+  text-decoration: none;
+  border-bottom: none;
+}
+
+.toc a:hover {
+  text-decoration: underline;
+  border-bottom: none;
+}
+
+h2 {
+  font-size: 2rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  color: #34495e;
+  border-bottom: 1px solid rgba(52, 152, 219, 0.3);
+  padding-bottom: 0.5rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.75rem;
+  color: #2c3e50;
+}
+
+p {
+  line-height: 1.5rem;
+  color: black;
+}
+
+hr {
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin: 1rem;
+}
+
+strong {
+  color: black;
+  font-weight: 600;
+}
+
+code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: #c7254e;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+pre {
+  background-color: #2c3e50;
+  color: #ecf0f1;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.9rem;
+}
+
+ul,
+ol {
+  margin-left: 2rem;
+  line-height: 2rem;
+
+  li {
+    color: gray;
+  }
+  li:first-child {
+    margin-top: 0.5rem;
+  }
+
+  li:last-child {
+    margin-bottom: 0.5rem;
+  }
+}
+
+.config-option {
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 1rem;
+  border-left: 4px solid #3498db;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+a {
+  color: #3498db;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color;
+}
+
+a:hover {
+  border-bottom: 1px solid #3498db;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
