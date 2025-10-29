@@ -68,9 +68,6 @@ pub struct TuiConfig {
     /// send out the request
     /// upon launching gai
     pub auto_request: bool,
-
-    /// skip the wicked splash screen
-    pub skip_splash: bool,
     // todo impl keybinds
 }
 

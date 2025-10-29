@@ -38,4 +38,3 @@ include_breaking = true
 
 [tui]
 auto_request = false
-skip_splash = false

@@ -99,10 +99,6 @@ pub enum Commands {
         /// send request on launch
         #[arg(long)]
         auto_request: bool,
-
-        /// skip splash screen
-        #[arg(long)]
-        skip_splash: bool,
     },
 
     /// Create commits

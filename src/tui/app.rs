@@ -24,7 +24,6 @@ pub struct App {
 
 pub enum State {
     Running,
-    Splash,
 }
 
 /// various ui actions
@@ -57,15 +56,9 @@ impl App {
         gai: GaiGit,
         response: Option<Response>,
     ) -> Self {
-        let state = if cfg.tui.skip_splash {
-            State::Running
-        } else {
-            State::Splash
-        };
-
         Self {
             running: true,
-            state,
+            state: State::Running,
             cfg,
             gai,
             ui: UI::new(),
