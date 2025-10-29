@@ -4,7 +4,7 @@ template: config
 styles: ["main", "config"]
 ---
 
-## AI Configuration {#ai-config}
+## AI Options {#ai-config}
 
 Configure AI provider settings, prompts, and behavior rules.
 
@@ -32,7 +32,7 @@ model = "claude-3-5-sonnet-20241022"
 max_tokens = 5000
 ```
 
-### Prompt Configuration {#prompt-config}
+### Prompt Options {#prompt-config}
 
 **`system_prompt`** - Custom system prompt override
 
@@ -54,7 +54,7 @@ max_tokens = 5000
 - CLI: `-C, --include-convention`
 - Note: Includes full convention spec (uses a lot more tokens)
 
-### Context Configuration {#context-config}
+### Context Options {#context-config}
 
 **`include_file_tree`** - Include repository file tree `.gitignore` will be
 respected
@@ -142,7 +142,7 @@ respected
 - CLI: `-M, --max-body-length <u16>`
 - Enforces body line wrapping
 
-## Gai Configuration {#gai-config}
+## Gai Options {#gai-config}
 
 Git-specific settings for `gai`.
 
@@ -183,9 +183,7 @@ Git-specific settings for `gai`.
 - Default: `None` (uses `!`)
 - Example: `feat!: breaking change`
 
-## TUI Configuration {#tui-config}
-
-Terminal User Interface settings.
+## TUI Options {#tui-config}
 
 **`auto_request`** - Send request on launch
 
@@ -194,7 +192,7 @@ Terminal User Interface settings.
 - CLI: `tui --auto-request`
 - Automatically sends AI request when TUI opens
 
-## Full Example Configuration {#example}
+## Full Example Options {#example}
 
 ```toml
 [ai]
