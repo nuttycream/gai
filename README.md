@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/nuttycream/gai/blob/main/docs/static/logo.svg" />
+  <img src="https://github.com/nuttycream/gai/blob/main/docs/static/gai_logo_light.svg" />
 </p>
 
 # 
