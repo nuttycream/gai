@@ -9,6 +9,7 @@ body {
   background-color: blanchedalmond;
   background-attachment: fixed;
   color: black;
+  margin: 1rem;
 }
 
 .hero {
@@ -39,8 +40,9 @@ body {
   gap: 1rem;
   animation: fadeInUp 0.5s ease-out;
 
-  button {
+  a {
     width: auto;
+    text-decoration: none;
     padding: 1rem 2.5rem;
     font-size: 1rem;
     color: black;
@@ -51,7 +53,7 @@ body {
     box-shadow: 0 3px 8px darkgray;
   }
 
-  button:hover {
+  a:hover {
     transform: translateY(-3px);
     box-shadow: 0 5px 10px darkgray;
   }
