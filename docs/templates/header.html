@@ -1,0 +1,99 @@
+<div class="header">
+	<div class="header-content">
+		<div class="header-left">
+			<a href="/">
+				<img src="/gai_logo_dark.svg" alt="logo">
+			</a>
+			<div class="logo-text">
+				<h1>AI Powered Version Control</h1>
+			</div>
+		</div>
+
+		<nav class="nav-bar">
+			<a href="/#features">Features</a>
+			<div class="nav-dropdown">
+				Documentation
+				<div class="nav-dropdown-content">
+					<a href="/#install">Installation</a>
+					<a href="/config">Configuration</a>
+				</div>
+			</div>
+			<a href="/pricing">Pricing</a>
+		</nav>
+	</div>
+</div>
+
+<style>
+	.header {
+		height: auto;
+		position: fixed;
+		top: 0;
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		text-align: center;
+		align-items: center;
+		background-color: whitesmoke;
+		gap: 1rem;
+		box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+		padding: 0.75rem 1.5rem;
+		z-index: 1;
+	}
+	
+	.header-content {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		max-width: 900px;
+		gap: 2rem;
+	}
+	
+	.header-left {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 1rem;
+	}
+	
+	.header a img {
+		height: 2rem;
+	}
+	
+	.header h1 {
+		font-size: 1rem;
+	}
+	
+	.header a {
+		color: inherit;
+	}
+	
+	.nav-bar {
+		display: flex;
+		flex-direction: row;
+		gap: 1rem;
+	}
+	
+	.nav-dropdown {
+		position: relative;
+	}
+	
+	.nav-dropdown-content {
+		display: none;
+		flex-direction: column;
+		position: absolute;
+		padding: 0.5rem 1rem 0.5rem 0.15rem;
+		text-align: left;
+		background-color: whitesmoke;
+		
+		a {
+			width: fit-content;
+		}
+	}
+	
+	.nav-dropdown:hover .nav-dropdown-content {
+		display: flex;
+	}
+</style>

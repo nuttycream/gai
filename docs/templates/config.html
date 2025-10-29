@@ -6,30 +6,7 @@
 		<title>{{ title }}</title>
 	</head>
 	<body>
-		<div class="header">
-			<div class="header-content">
-				<div class="header-left">
-					<a href="/">
-						<img src="/gai_logo_dark.svg" alt="logo">
-					</a>
-					<div class="logo-text">
-						<h1>AI Powered Version Control</h1>
-					</div>
-				</div>
-
-				<nav class="nav-bar">
-					<a href="/#features">Features</a>
-					<div class="nav-dropdown">
-						Documentation
-						<div class="nav-dropdown-content">
-							<a href="/#install">Installation</a>
-							<a href="/config">Configure</a>
-						</div>
-					</div>
-					<a href="/pricing">Pricing</a>
-				</nav>
-			</div>
-		</div>
+		{% include "header" %}
 
 		<div class="content-wrapper">
 			<h2>Configuring Gai</h2>
