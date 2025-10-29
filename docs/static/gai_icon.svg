@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="39.470192mm"
+   height="39.470196mm"
+   viewBox="0 0 39.470192 39.470196"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
+   sodipodi:docname="gai_logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     showguides="true"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="439.46687"
+     inkscape:cy="388.90873"
+     inkscape:window-width="1081"
+     inkscape:window-height="1192"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1"
+     showgrid="false">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="39.470192"
+       height="39.470196"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="Layer 2"
+     transform="translate(-97.195322,-134.05179)">
+    <rect
+       style="fill:#ffebcd;fill-opacity:1;stroke:#ffebcd;stroke-width:3.05203;stroke-linejoin:round;stroke-opacity:1"
+       id="rect1"
+       width="36.418163"
+       height="36.418163"
+       x="98.721336"
+       y="135.5778"
+       inkscape:export-filename="gai/docs/static/gai/docs/static/gai_icon.svg"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:#b76e79;stroke-width:3.175;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1"
+       d="m 119.4673,146.49243 -11.4588,4.99218 v 4.83849 -4.83849 z"
+       id="path5-3"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       style="fill:none;stroke:#70c36f;stroke-width:3.175;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       d="m 119.4673,143.79119 v 19.89738 z"
+       id="path4-5" />
+    <circle
+       style="fill:none;stroke:#5abe5a;stroke-width:2.64583;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       id="path1-6"
+       cx="119.4673"
+       cy="140.12859"
+       r="2.802916" />
+    <circle
+       style="fill:none;stroke:#9e4244;stroke-width:2.64583;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       id="path1-3-2"
+       cx="108.00851"
+       cy="157.94699"
+       r="2.802916" />
+    <circle
+       style="fill:none;stroke:#5abe5a;stroke-width:2.64583;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       id="path1-2-9"
+       cx="119.4673"
+       cy="167.15338"
+       r="2.802916"
+       inkscape:export-filename="gai/docs/static/gai_logo_light.svg"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96" />
+  </g>
+</svg>
