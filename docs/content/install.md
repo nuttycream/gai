@@ -15,12 +15,6 @@ repository:
 cargo install --git https://github.com/nuttycream/gai
 ```
 
-To update to the latest version:
-
-```bash
-cargo install --git https://github.com/nuttycream/gai
-```
-
 ### Pre-built Binaries
 
 Don't have Rust installed? Download a pre-built binary for your platform:
