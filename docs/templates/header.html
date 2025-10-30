@@ -14,7 +14,7 @@
 			<div class="nav-dropdown">
 				Documentation
 				<div class="nav-dropdown-content">
-					<a href="/#install">Installation</a>
+					<a href="/install">Installation</a>
 					<a href="/config">Configuration</a>
 				</div>
 			</div>
@@ -92,5 +92,42 @@
 	
 	.nav-dropdown:hover .nav-dropdown-content {
 		display: flex;
+	}
+	
+	@media (max-width: 768px) {
+		.header {
+			position: relative;
+			padding: 0.5rem 1rem;
+		}
+		
+		.header-content {
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+		
+		.header-left {
+			flex-direction: column;
+			gap: 0.5rem;
+		}
+		
+		.header h1 {
+			font-size: 0.8rem;
+			text-align: center;
+		}
+		
+		.header a img {
+			height: 3rem;
+		}
+		
+		.nav-bar {
+			flex-direction: column;
+			gap: 0.5rem;
+			width: 100%;
+		}
+		
+		.nav-dropdown-content {
+			position: relative;
+			margin-top: 0.25rem;
+		}
 	}
 </style>
