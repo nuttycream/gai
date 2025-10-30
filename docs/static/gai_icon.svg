@@ -24,15 +24,15 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="px"
      showguides="true"
-     inkscape:zoom="1.4142136"
-     inkscape:cx="439.46687"
-     inkscape:cy="388.90873"
-     inkscape:window-width="1081"
+     inkscape:zoom="2.8284272"
+     inkscape:cx="408.53093"
+     inkscape:cy="551.54327"
+     inkscape:window-width="2125"
      inkscape:window-height="1192"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="0"
-     inkscape:current-layer="layer1"
+     inkscape:current-layer="layer2"
      showgrid="false">
     <inkscape:page
        x="0"
@@ -51,7 +51,7 @@
      inkscape:label="Layer 2"
      transform="translate(-97.195322,-134.05179)">
     <rect
-       style="fill:#ffebcd;fill-opacity:1;stroke:#ffebcd;stroke-width:3.05203;stroke-linejoin:round;stroke-opacity:1"
+       style="fill:#ffebcd;fill-opacity:0;stroke:#ffebcd;stroke-width:3.05203;stroke-linejoin:round;stroke-opacity:0"
        id="rect1"
        width="36.418163"
        height="36.418163"
