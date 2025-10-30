@@ -36,8 +36,7 @@ use crate::{
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
-
-    let mut cfg = config::Config::init("config.toml")?;
+    let mut cfg = config::Config::init()?;
 
     let args = Cli::parse();
 

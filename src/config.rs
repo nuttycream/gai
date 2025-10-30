@@ -1,4 +1,5 @@
 use anyhow::Result;
+use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, io::ErrorKind};
 
@@ -12,24 +13,43 @@ pub struct Config {
 }
 
 impl Config {
-    /// creates anew if it doesn't exist
-    /// todo: this thing makes it whereever u call it
-    /// fix IT please
-    pub fn init(path: &str) -> Result<Self> {
-        let cfg_str = match fs::read_to_string(path) {
-            Ok(contents) => contents,
-            Err(e) if e.kind() == ErrorKind::NotFound => {
-                println!("No config.toml found. Creating anew.");
-                let def = Config::default();
-                let def_toml = toml::to_string_pretty(&def)?;
-                fs::write(path, &def_toml)?;
-                def_toml
+    pub fn init() -> Result<Self> {
+        if let Some(base_dirs) =
+            ProjectDirs::from("com", "nuttycream", "gai")
+        {
+            let mut cfg_dir = base_dirs.config_dir().to_path_buf();
+            match fs::create_dir(&cfg_dir) {
+                Ok(_) => {}
+                Err(e) => {
+                    if !matches!(e.kind(), ErrorKind::AlreadyExists) {
+                        return Err(anyhow::anyhow!(e));
+                    }
+                }
             }
-            Err(e) => return Err(e.into()),
-        };
 
-        let cfg: Config = toml::from_str(&cfg_str)?;
-        Ok(cfg)
+            cfg_dir.push("config.toml");
+
+            let cfg_str = match fs::read_to_string(&cfg_dir) {
+                Ok(contents) => contents,
+                Err(e) if e.kind() == ErrorKind::NotFound => {
+                    println!(
+                        "No config.toml found. Creating anew. in {}",
+                        cfg_dir.display()
+                    );
+                    let def = Config::default();
+                    let def_toml = toml::to_string_pretty(&def)?;
+                    fs::write(cfg_dir, &def_toml)?;
+                    def_toml
+                }
+                Err(e) => return Err(e.into()),
+            };
+            let cfg: Config = toml::from_str(&cfg_str)?;
+            Ok(cfg)
+        } else {
+            Err(anyhow::anyhow!(
+                "Cannot find a valid home directory."
+            ))
+        }
     }
 }
 
@@ -188,7 +208,7 @@ impl Default for RuleConfig {
 impl Default for CommitConfig {
     fn default() -> Self {
         Self {
-            capitalize_prefix: true,
+            capitalize_prefix: false,
             include_scope: true,
             include_breaking: true,
             breaking_symbol: None,
