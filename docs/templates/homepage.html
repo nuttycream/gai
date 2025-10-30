@@ -1,5 +1,7 @@
 <html>
 	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>{{ title }}</title>
 	</head>
 	<body>
@@ -10,13 +12,37 @@
 			<div class="logo-text">
 				<h1>AI Powered</h1>
 				<h1>Version Control</h1>
+				<a href="#features">Learn More</a>
 			</div>
 		</section>
 
 		<section class="call-to-action">
-			<a href="#installation">Install</a>
-			<a href="#usage">Use</a>
+			<a href="/install">Install</a>
 			<a href="/config">Configure</a>
+		</section>
+
+		<section id="features" class="features">
+			<h2>Features</h2>
+			
+			<div class="bento-grid">
+				<div class="bento-item large">
+					<h3>AI Generated Messages</h3>
+                    <p>Saner</p>
+				</div>
+
+				<div class="bento-item">
+					<h3>Smart Staging</h3>
+				</div>
+
+				<div class="bento-item">
+					<h3>Custom providers</h3>
+				</div>
+
+				<div class="bento-item large">
+					<h3>Use as a CLI or TUI</h3>
+				</div>
+
+			</div>
 		</section>
 
 		{{content}}

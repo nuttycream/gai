@@ -27,26 +27,56 @@ a:hover {
 .hero {
   margin: 0 auto;
   max-width: 900px;
-  padding: 5rem 2rem;
+  padding: 10rem;
+  padding-top: 5rem;
   display: flex;
   flex-direction: row;
   justify-content: center;
   align-items: center;
   text-align: center;
   gap: 1rem;
-  animation: fadeInUp 0.5s ease-out;
+}
+
+.hero img {
+  animation: slideInFromRight 0.5s ease-out;
+}
+
+.hero .logo-text {
+  animation: slideInFromLeft 0.5s ease-out;
 }
 
 .hero h1 {
+  color: #000000bf;
   font-size: 3rem;
   font-weight: 700;
+}
+
+.hero .logo-text a {
+  margin-top: 1rem;
+  display: inline-block;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.9rem;
+  color: black;
+  background: white;
+  border: none;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  text-decoration: none;
+}
+
+.hero .logo-text a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  border-bottom: none;
 }
 
 .call-to-action {
   margin: auto;
   max-width: 900px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: center;
   align-items: center;
   text-align: center;
   gap: 1rem;
@@ -79,5 +109,121 @@ a:hover {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.features {
+  margin: 4rem auto;
+  max-width: 900px;
+  padding: 2rem;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.features h2 {
+  font-size: 2.5rem;
+  text-align: left;
+  margin-left: 3rem;
+  margin-bottom: 2rem;
+  color: #2c3e50;
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.bento-item {
+  background: white;
+  border-radius: 15px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.bento-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.bento-item.large {
+  grid-column: span 2;
+}
+
+.bento-item h3 {
+  font-size: 1.5rem;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.bento-item p {
+  color: #555;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    flex-direction: column;
+    padding: 1rem 1.5rem 3rem 1.5rem;
+  }
+
+  .hero h1 {
+    font-size: 2rem;
+  }
+
+  .hero img {
+    max-width: 150px;
+  }
+
+  .call-to-action {
+    padding: 1rem;
+  }
+
+  .call-to-action a {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .features {
+    padding: 1rem;
+    margin: 2rem auto;
+  }
+
+  .features h2 {
+    font-size: 2rem;
+    margin-left: 1rem;
+  }
+
+  .bento-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bento-item.large {
+    grid-column: span 1;
+    grid-row: span 1;
   }
 }
