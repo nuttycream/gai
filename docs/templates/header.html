@@ -4,9 +4,6 @@
 			<a href="/">
 				<img src="/gai_logo_dark.svg" alt="logo">
 			</a>
-			<div class="logo-text">
-				<h1>AI Powered Version Control</h1>
-			</div>
 		</div>
 
 		<nav class="nav-bar">
@@ -35,6 +32,7 @@
 		text-align: center;
 		align-items: center;
 		background-color: whitesmoke;
+		color: #2C3639;
 		gap: 1rem;
 		box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
 		padding: 0.75rem 1.5rem;
@@ -48,22 +46,26 @@
 		align-items: center;
 		width: 100%;
 		max-width: 900px;
-		gap: 2rem;
 	}
 	
 	.header-left {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		gap: 1rem;
 	}
 	
-	.header a img {
-		height: 2rem;
+	.header-left img {
+		height: 2.5rem;
 	}
 	
-	.header h1 {
-		font-size: 1rem;
+	.header-left a {
+		border-bottom: none !important;
+		transition: opacity 0.2s ease;
+	}
+	
+	.header-left a:hover {
+		border-bottom: none !important;
+		opacity: 0.7;
 	}
 	
 	.header a {
@@ -74,6 +76,7 @@
 		display: flex;
 		flex-direction: row;
 		text-align: center;
+		font-size: 1.25rem;
 		gap: 1rem;
 	}
 	
