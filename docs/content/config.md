@@ -1,7 +1,7 @@
 ---
 title: "gai: Configure"
 template: config
-styles: ["main", "config"]
+styles: ["main", "md"]
 ---
 
 ## AI Options {#ai-config}
