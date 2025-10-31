@@ -111,6 +111,87 @@ impl GaiGit {
         repo_tree
     }
 
+    pub fn get_repo_status(&self) -> String {
+        let mut status_opts = StatusOptions::new();
+        status_opts.include_untracked(true);
+        let statuses = self.repo
+            .statuses(Some(&mut status_opts))
+            .expect("somehow failed to get statuses the second time around");
+
+        let mut staged = String::new();
+        let mut unstaged = String::new();
+
+        for entry in statuses
+            .iter()
+            .filter(|e| e.status() != git2::Status::CURRENT)
+        {
+            let istatus = match entry.status() {
+                s if s.contains(git2::Status::INDEX_NEW) => 'A',
+                s if s.contains(git2::Status::INDEX_MODIFIED) => 'M',
+                s if s.contains(git2::Status::INDEX_DELETED) => 'D',
+                s if s.contains(git2::Status::INDEX_RENAMED) => 'R',
+                s if s.contains(git2::Status::INDEX_TYPECHANGE) => {
+                    'T'
+                }
+                _ => ' ',
+            };
+
+            let wstatus = match entry.status() {
+                s if s.contains(git2::Status::WT_NEW) => '?',
+                s if s.contains(git2::Status::WT_MODIFIED) => 'M',
+                s if s.contains(git2::Status::WT_DELETED) => 'D',
+                s if s.contains(git2::Status::WT_RENAMED) => 'R',
+                s if s.contains(git2::Status::WT_TYPECHANGE) => 'T',
+                _ => ' ',
+            };
+
+            if entry.status().contains(git2::Status::IGNORED) {
+                continue;
+            }
+
+            let path = if let Some(diff) = entry.head_to_index() {
+                diff.new_file().path()
+            } else if let Some(diff) = entry.index_to_workdir() {
+                diff.old_file().path()
+            } else {
+                None
+            };
+
+            if let Some(path) = path {
+                let path_str = path.display().to_string();
+
+                if istatus != ' ' {
+                    staged.push_str(&format!(
+                        "{}  {}\n",
+                        istatus, path_str
+                    ));
+                }
+
+                if wstatus != ' ' {
+                    unstaged.push_str(&format!(
+                        " {} {}\n",
+                        wstatus, path_str
+                    ));
+                }
+            }
+        }
+
+        let mut status_str = String::new();
+
+        if !staged.is_empty() {
+            status_str.push_str("Staged:\n");
+            status_str.push_str(&staged);
+            status_str.push('\n');
+        }
+
+        if !unstaged.is_empty() {
+            status_str.push_str("Unstaged:\n");
+            status_str.push_str(&unstaged);
+        }
+
+        status_str
+    }
+
     pub fn get_file_diffs_as_str(&self) -> HashMap<String, String> {
         let mut file_diffs = HashMap::new();
         for gai_file in &self.files {
@@ -147,7 +228,4 @@ impl GaiGit {
 
         file_diffs
     }
-
-    // won't bother with this for now
-    //fn new_branch(&self, commit: &Commit) {}
 }
