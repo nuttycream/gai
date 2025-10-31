@@ -84,11 +84,7 @@ impl App {
 
         let diffs =
             build_diffs_string(self.gai.get_file_diffs_as_str());
-        let mut prompt = build_prompt(&self.cfg);
-
-        if ai.include_file_tree {
-            prompt.push_str(&self.gai.get_repo_tree());
-        }
+        let prompt = build_prompt(&self.cfg, &self.gai);
 
         tokio::spawn(async move {
             let resp =
