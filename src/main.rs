@@ -83,10 +83,7 @@ async fn run_commit(
             provider_cfg.model
         ));
 
-        let mut prompt = build_prompt(&cfg);
-        if cfg.ai.include_file_tree {
-            prompt.push_str(&gai.get_repo_tree());
-        }
+        let prompt = build_prompt(&cfg, &gai);
 
         let diffs = build_diffs_string(gai.get_file_diffs_as_str());
 
