@@ -15,7 +15,10 @@ use crossterm::{
 use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::{io::stdout, time::Duration};
+use std::{
+    io::{Stdout, stdout},
+    time::Duration,
+};
 
 use crate::{
     ai::response::{ResponseCommit, get_response},
@@ -60,6 +63,31 @@ async fn run_commit(
     skip_confirmation: bool,
 ) -> Result<()> {
     loop {
+        let provider = cfg.ai.provider;
+        let provider_cfg = cfg
+            .ai
+            .providers
+            .get(&provider)
+            .expect("somehow did not find provider config");
+
+        let mut stdout = stdout();
+
+        pretty_print_status(&mut stdout, &gai);
+
+        execute!(
+            stdout,
+            SetForegroundColor(Color::White),
+            Print("Found "),
+            SetForegroundColor(Color::Green),
+            Print(format!("{}", gai.files.len()).bold()),
+            SetForegroundColor(Color::White),
+            Print(" Diffs"),
+            ResetColor
+        )
+        .unwrap();
+
+        println!();
+
         let bar = ProgressBar::new_spinner();
         bar.enable_steady_tick(Duration::from_millis(80));
         bar.set_style(
@@ -69,14 +97,6 @@ async fn run_commit(
                     "⣼", "⣹", "⢻", "⠿", "⡟", "⣏", "⣧", "⣶",
                 ]),
         );
-
-        let provider = cfg.ai.provider;
-
-        let provider_cfg = cfg
-            .ai
-            .providers
-            .get(&provider)
-            .expect("somehow did not find provider config");
 
         bar.set_message(format!(
             "Awaiting response from {}",
@@ -136,7 +156,12 @@ async fn run_commit(
 
         bar.finish_with_message(finished_msg);
 
-        pretty_print(&result.commits, &cfg, &gai);
+        pretty_print_commits(
+            &mut stdout,
+            &result.commits,
+            &cfg,
+            &gai,
+        );
 
         let commits: Vec<GaiCommit> = result
             .commits
@@ -170,9 +195,6 @@ async fn run_commit(
             .interact()
             .unwrap();
 
-        // todo wrap this in an inner loop
-        // or put it in a func so we can retry
-        // from THIS prompt
         if selection == 0 {
             println!("Applying Commits...");
             gai.apply_commits(&commits);
@@ -191,13 +213,89 @@ async fn run_commit(
     Ok(())
 }
 
-pub fn pretty_print(
+fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
+    // ideally wanted to use gaigit vars
+    // but repo status also shows staged
+    // or unstaged
+    // this is really finnicky and will
+    // likely need a rewrite +
+    // prettier status
+    let status = gai.get_repo_status();
+
+    if status.is_empty() {
+        return;
+    }
+
+    let lines: Vec<&str> = status.lines().collect();
+    let staged: Vec<&str> = lines
+        .iter()
+        .filter(|l| {
+            !l.starts_with(' ')
+                && !l.starts_with("Staged")
+                && !l.starts_with("Unstaged")
+                && !l.is_empty()
+        })
+        .copied()
+        .collect();
+
+    let unstaged: Vec<&str> = lines
+        .iter()
+        .filter(|l| l.starts_with(" "))
+        .copied()
+        .collect();
+
+    execute!(
+        stdout,
+        SetForegroundColor(Color::DarkGrey),
+        Print("["),
+        ResetColor
+    )
+    .unwrap();
+
+    if !staged.is_empty() {
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Green),
+            Print(format!("+{}", staged.len())),
+            ResetColor
+        )
+        .unwrap();
+    }
+
+    if !unstaged.is_empty() {
+        if !staged.is_empty() {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::DarkGrey),
+                Print(" "),
+                ResetColor
+            )
+            .unwrap();
+        }
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Yellow),
+            Print(format!("~{}", unstaged.len())),
+            ResetColor
+        )
+        .unwrap();
+    }
+
+    execute!(
+        stdout,
+        SetForegroundColor(Color::DarkGrey),
+        Print("] "),
+        ResetColor
+    )
+    .unwrap();
+}
+
+fn pretty_print_commits(
+    stdout: &mut Stdout,
     commits: &[ResponseCommit],
     cfg: &Config,
     gai: &GaiGit,
 ) {
-    let mut stdout = stdout();
-
     println!();
 
     for (i, commit) in commits.iter().enumerate() {
