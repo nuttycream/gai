@@ -2,16 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     config::{Config, RuleConfig},
-    consts::{
-        COMMIT_CONVENTION, DEFAULT_SYS_PROMPT, RULE_BODY_BASE,
-        RULE_BREAKING, RULE_COMMIT_MESSAGE_HEADER, RULE_GROUP_FILES,
-        RULE_HEADER_BASE, RULE_MESSAGE_CONCISE, RULE_MESSAGE_VERBOSE,
-        RULE_NO_FILE_SPLITTING, RULE_PREFIX,
-        RULE_SCOPE_ALLOW_EMPTY_NO_EXTENSION,
-        RULE_SCOPE_ALLOW_EMPTY_WITH_EXTENSION,
-        RULE_SCOPE_REQUIRED_NO_EXTENSION,
-        RULE_SCOPE_REQUIRED_WITH_EXTENSION, RULE_SEPARATE_BY_PURPOSE,
-    },
+    consts::*,
+    git::repo::GaiGit,
 };
 
 pub fn build_diffs_string(diffs: HashMap<String, String>) -> String {
@@ -27,7 +19,7 @@ pub fn build_diffs_string(diffs: HashMap<String, String>) -> String {
 }
 
 /// builds the semi-complete prompt
-pub fn build_prompt(cfg: &Config) -> String {
+pub fn build_prompt(cfg: &Config, gai: &GaiGit) -> String {
     let mut prompt = String::new();
 
     let rules = build_rules(&cfg.ai.rules);
@@ -54,27 +46,23 @@ pub fn build_prompt(cfg: &Config) -> String {
     }
 
     if cfg.gai.stage_hunks {
-        prompt.push_str(
-        "Fill hunk_ids with the HUNK_ID values shown in the diffs (format: \"filepath:index\").\
-        Each hunk can only appear in ONE commit.\
-        Ex.: [\"src/main.rs:0\", \"src/git/repo.rs:1\"]",
-        );
+        prompt.push_str(PROMPT_STAGE_HUNKS);
     } else {
-        prompt.push_str(
-            "Fill out files with valid paths and leave hunk_headers empty",
-        );
+        prompt.push_str(PROMPT_STAGE_FILES);
     }
 
-    // get repo tree is builtin to gai.
-    // todo make it independent
-    // + this build_prompt and build_rules
-    // should be in ai/
-    // since it'll only be used there
-    /* if cfg.ai.include_file_tree {
-        prompt.push_str(get_repo_tree);
-    } */
-
     prompt.push('\n');
+
+    if cfg.ai.include_file_tree {
+        prompt.push_str("Current File Tree: \n");
+        prompt.push_str(&gai.get_repo_tree());
+        prompt.push('\n');
+    }
+
+    if cfg.ai.include_git_status {
+        prompt.push_str("Current Git Status: \n");
+        prompt.push_str(&gai.get_repo_status());
+    }
 
     prompt
 }
