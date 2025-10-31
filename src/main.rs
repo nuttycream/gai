@@ -8,13 +8,17 @@ pub mod utils;
 
 use anyhow::Result;
 use clap::Parser;
+use crossterm::{
+    execute,
+    style::{Color, Print, ResetColor, SetForegroundColor, Stylize},
+};
 use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::time::Duration;
+use std::{io::stdout, time::Duration};
 
 use crate::{
-    ai::response::get_response,
+    ai::response::{ResponseCommit, get_response},
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
@@ -115,8 +119,6 @@ async fn run_commit(
             }
         };
 
-        bar.finish_with_message("Done! Received a response");
-
         if result.commits.is_empty() {
             if Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt("No commits found... retry?")
@@ -129,24 +131,15 @@ async fn run_commit(
             }
         }
 
-        println!("Response Commits({}):", result.commits.len());
-        for commit in &result.commits {
-            println!(
-                "Prefix: {}",
-                commit.get_commit_prefix(
-                    cfg.gai.commit_config.capitalize_prefix,
-                    cfg.gai.commit_config.include_scope
-                )
-            );
-            println!("--Header: {}", commit.message.header);
-            println!("--Body: {}", commit.message.body);
-            if gai.stage_hunks {
-                println!("--Hunks: {:#?}", commit.hunk_ids);
-            } else {
-                println!("--Files: {:#?}", commit.files);
-            }
-            println!();
-        }
+        let finished_msg = format!(
+            "Done! Received {} Commit{}\n",
+            result.commits.len(),
+            if result.commits.len() == 1 { "" } else { "s" }
+        );
+
+        bar.finish_with_message(finished_msg);
+
+        pretty_print(&result.commits, &cfg, &gai);
 
         let commits: Vec<GaiCommit> = result
             .commits
@@ -199,4 +192,83 @@ async fn run_commit(
     }
 
     Ok(())
+}
+
+pub fn pretty_print(
+    commits: &[ResponseCommit],
+    cfg: &Config,
+    gai: &GaiGit,
+) {
+    let mut stdout = stdout();
+
+    println!();
+
+    for (i, commit) in commits.iter().enumerate() {
+        let prefix = commit.get_commit_prefix(
+            cfg.gai.commit_config.capitalize_prefix,
+            cfg.gai.commit_config.include_scope,
+        );
+
+        execute!(
+            stdout,
+            SetForegroundColor(Color::DarkGrey),
+            Print(format!("Commit {} --------\n", i + 1)),
+            ResetColor
+        )
+        .unwrap();
+
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Green),
+            Print("→ "),
+            SetForegroundColor(Color::White),
+            Print(format!("{}\n", prefix.bold())),
+            ResetColor
+        )
+        .unwrap();
+
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Green),
+            Print("  Header: "),
+            ResetColor,
+            Print(format!("{}\n", commit.message.header)),
+        )
+        .unwrap();
+
+        if !commit.message.body.is_empty() {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::Blue),
+                Print("  Body:\n"),
+                ResetColor,
+                Print(format!("{}\n", commit.message.body)),
+            )
+            .unwrap();
+        }
+
+        if gai.stage_hunks {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::Magenta),
+                Print("  Hunks:  "),
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("{:?}\n", commit.hunk_ids)),
+                ResetColor
+            )
+            .unwrap();
+        } else {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::Magenta),
+                Print("  Files:  "),
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("{:?}\n", commit.files)),
+                ResetColor
+            )
+            .unwrap();
+        }
+
+        println!();
+    }
 }
