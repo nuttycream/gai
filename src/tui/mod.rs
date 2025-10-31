@@ -30,9 +30,13 @@ pub async fn run_tui(
 ) -> Result<()> {
     let mut app = App::new(cfg, gai, response);
 
-    let mut terminal = ratatui::init();
-
     let (tx, mut rx) = mpsc::channel(3);
+
+    if app.cfg.tui.auto_request {
+        app.send_request(tx.clone()).await;
+    }
+
+    let mut terminal = ratatui::init();
 
     let mut reader = EventStream::new();
     let mut interval = interval(Duration::from_millis(100));
