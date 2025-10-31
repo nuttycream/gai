@@ -8,36 +8,30 @@ pub mod utils;
 
 use anyhow::Result;
 use clap::Parser;
-use crossterm::event::{
-    Event as CrossTermEvent, EventStream, KeyEventKind,
+use crossterm::{
+    execute,
+    style::{Color, Print, ResetColor, SetForegroundColor, Stylize},
 };
 use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
-use futures::{FutureExt, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::time::Duration;
-use tokio::{
-    sync::mpsc::{self},
-    time::interval,
+use std::{
+    io::{Stdout, stdout},
+    time::Duration,
 };
 
 use crate::{
-    ai::response::{Response, get_response},
+    ai::response::{ResponseCommit, get_response},
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
-    tui::{
-        app::{Action, App},
-        keys,
-    },
     utils::{build_diffs_string, build_prompt},
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
-
-    let mut cfg = config::Config::init("config.toml")?;
+    let mut cfg = config::Config::init()?;
 
     let args = Cli::parse();
 
@@ -51,7 +45,7 @@ async fn main() -> Result<()> {
 
     gai.create_diffs(&cfg.ai.files_to_truncate)?;
     match args.command {
-        Commands::Tui { .. } => run_tui(cfg, gai, None).await?,
+        Commands::Tui { .. } => tui::run_tui(cfg, gai, None).await?,
         Commands::Commit { skip_confirmation } => {
             run_commit(cfg, gai, skip_confirmation).await?
         }
@@ -69,6 +63,31 @@ async fn run_commit(
     skip_confirmation: bool,
 ) -> Result<()> {
     loop {
+        let provider = cfg.ai.provider;
+        let provider_cfg = cfg
+            .ai
+            .providers
+            .get(&provider)
+            .expect("somehow did not find provider config");
+
+        let mut stdout = stdout();
+
+        pretty_print_status(&mut stdout, &gai);
+
+        execute!(
+            stdout,
+            SetForegroundColor(Color::White),
+            Print("Found "),
+            SetForegroundColor(Color::Green),
+            Print(format!("{}", gai.files.len()).bold()),
+            SetForegroundColor(Color::White),
+            Print(" Diffs"),
+            ResetColor
+        )
+        .unwrap();
+
+        println!();
+
         let bar = ProgressBar::new_spinner();
         bar.enable_steady_tick(Duration::from_millis(80));
         bar.set_style(
@@ -79,23 +98,12 @@ async fn run_commit(
                 ]),
         );
 
-        let provider = cfg.ai.provider;
-
-        let provider_cfg = cfg
-            .ai
-            .providers
-            .get(&provider)
-            .expect("somehow did not find provider config");
-
         bar.set_message(format!(
             "Awaiting response from {}",
             provider_cfg.model
         ));
 
-        let mut prompt = build_prompt(&cfg);
-        if cfg.ai.include_file_tree {
-            prompt.push_str(&gai.get_repo_tree());
-        }
+        let prompt = build_prompt(&cfg, &gai);
 
         let diffs = build_diffs_string(gai.get_file_diffs_as_str());
 
@@ -128,8 +136,6 @@ async fn run_commit(
             }
         };
 
-        bar.finish_with_message("Done! Received a response");
-
         if result.commits.is_empty() {
             if Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt("No commits found... retry?")
@@ -142,24 +148,20 @@ async fn run_commit(
             }
         }
 
-        println!("Response Commits({}):", result.commits.len());
-        for commit in &result.commits {
-            println!(
-                "Prefix: {}",
-                commit.get_commit_prefix(
-                    cfg.gai.commit_config.capitalize_prefix,
-                    cfg.gai.commit_config.include_scope
-                )
-            );
-            println!("--Header: {}", commit.message.header);
-            println!("--Body: {}", commit.message.body);
-            if gai.stage_hunks {
-                println!("--Hunks: {:#?}", commit.hunk_ids);
-            } else {
-                println!("--Files: {:#?}", commit.files);
-            }
-            println!();
-        }
+        let finished_msg = format!(
+            "Done! Received {} Commit{}\n",
+            result.commits.len(),
+            if result.commits.len() == 1 { "" } else { "s" }
+        );
+
+        bar.finish_with_message(finished_msg);
+
+        pretty_print_commits(
+            &mut stdout,
+            &result.commits,
+            &cfg,
+            &gai,
+        );
 
         let commits: Vec<GaiCommit> = result
             .commits
@@ -193,14 +195,11 @@ async fn run_commit(
             .interact()
             .unwrap();
 
-        // todo wrap this in an inner loop
-        // or put it in a func so we can retry
-        // from THIS prompt
         if selection == 0 {
             println!("Applying Commits...");
             gai.apply_commits(&commits);
         } else if selection == 1 {
-            let _ = run_tui(cfg, gai, Some(response)).await;
+            let _ = tui::run_tui(cfg, gai, Some(response)).await;
         } else if selection == 2 {
             println!("Retrying...");
             continue;
@@ -214,92 +213,157 @@ async fn run_commit(
     Ok(())
 }
 
-// todo sending a request hangs as soon as you press it.
-// not sure why, might be because of the extra other funcs
-// and not specificically get_response() will look into
-// this in the future
-// for now let's focus on more pressing issues lol
-async fn run_tui(
-    cfg: Config,
-    gai: GaiGit,
-    response: Option<Response>,
-) -> Result<()> {
-    let mut app = App::new(cfg, gai, response);
+fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
+    // ideally wanted to use gaigit vars
+    // but repo status also shows staged
+    // or unstaged
+    // this is really finnicky and will
+    // likely need a rewrite +
+    // prettier status
+    let status = gai.get_repo_status();
 
-    let mut terminal = ratatui::init();
-
-    let (tx, mut rx) = mpsc::channel(3);
-
-    let mut reader = EventStream::new();
-    let mut interval = interval(Duration::from_millis(100));
-
-    while app.running {
-        let delay = interval.tick();
-        terminal.draw(|f| app.run(f))?;
-
-        tokio::select! {
-            maybe_event = reader.next().fuse() => {
-                if let Some(Ok(event)) = maybe_event {
-                    handle_actions(&mut app, event, tx.clone()).await;
-                }
-            }
-
-            Some(resp) = rx.recv() => {
-                app.response = Some(resp);
-            }
-
-            _ = delay => {
-            }
-        }
+    if status.is_empty() {
+        return;
     }
 
-    ratatui::restore();
+    let lines: Vec<&str> = status.lines().collect();
+    let staged: Vec<&str> = lines
+        .iter()
+        .filter(|l| {
+            !l.starts_with(' ')
+                && !l.starts_with("Staged")
+                && !l.starts_with("Unstaged")
+                && !l.is_empty()
+        })
+        .copied()
+        .collect();
 
-    Ok(())
+    let unstaged: Vec<&str> = lines
+        .iter()
+        .filter(|l| l.starts_with(" "))
+        .copied()
+        .collect();
+
+    execute!(
+        stdout,
+        SetForegroundColor(Color::DarkGrey),
+        Print("["),
+        ResetColor
+    )
+    .unwrap();
+
+    if !staged.is_empty() {
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Green),
+            Print(format!("+{}", staged.len())),
+            ResetColor
+        )
+        .unwrap();
+    }
+
+    if !unstaged.is_empty() {
+        if !staged.is_empty() {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::DarkGrey),
+                Print(" "),
+                ResetColor
+            )
+            .unwrap();
+        }
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Yellow),
+            Print(format!("~{}", unstaged.len())),
+            ResetColor
+        )
+        .unwrap();
+    }
+
+    execute!(
+        stdout,
+        SetForegroundColor(Color::DarkGrey),
+        Print("] "),
+        ResetColor
+    )
+    .unwrap();
 }
 
-async fn handle_actions(
-    app: &mut App,
-    event: CrossTermEvent,
-    tx: mpsc::Sender<Response>,
+fn pretty_print_commits(
+    stdout: &mut Stdout,
+    commits: &[ResponseCommit],
+    cfg: &Config,
+    gai: &GaiGit,
 ) {
-    // this is somewhat jank, but from the ratatui docs
-    // it seems to be the better solution, though
-    // we dont necessarily have an EventHandler that
-    // may come in the future. that way we can pass this along
-    if let CrossTermEvent::Key(key) = event
-        && key.kind == KeyEventKind::Press
-    {
-        let pressed = CrossTermEvent::Key(key);
-        if let Some(action) = keys::get_tui_action(pressed) {
-            let ui = &mut app.ui;
-            match action {
-                Action::Quit => app.running = false,
-                Action::ScrollUp => ui.scroll_up(),
-                Action::ScrollDown => ui.scroll_down(),
-                Action::FocusLeft => ui.focus_left(),
-                Action::FocusRight => ui.focus_right(),
-                Action::DiffTab => ui.goto_tab(1),
-                Action::OpenAITab => ui.goto_tab(2),
-                Action::ClaudeTab => ui.goto_tab(3),
-                Action::GeminiTab => ui.goto_tab(4),
-                Action::SendRequest => {
-                    app.send_request(tx).await;
-                }
-                Action::ApplyCommits => {
-                    app.apply_commits();
-                    // for now just exit right after
-                    // applying commits
-                    app.running = false;
-                }
-                Action::RemoveCurrentSelected => {
-                    app.remove_selected();
-                }
-                Action::TruncateCurrentSelected => {
-                    app.truncate_selected();
-                }
-                _ => {}
-            }
+    println!();
+
+    for (i, commit) in commits.iter().enumerate() {
+        let prefix = commit.get_commit_prefix(
+            cfg.gai.commit_config.capitalize_prefix,
+            cfg.gai.commit_config.include_scope,
+        );
+
+        execute!(
+            stdout,
+            SetForegroundColor(Color::DarkGrey),
+            Print(format!("Commit {} --------\n", i + 1)),
+            ResetColor
+        )
+        .unwrap();
+
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Green),
+            Print("→ "),
+            SetForegroundColor(Color::White),
+            Print(format!("{}\n", prefix.bold())),
+            ResetColor
+        )
+        .unwrap();
+
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Green),
+            Print("  Header: "),
+            ResetColor,
+            Print(format!("{}\n", commit.message.header)),
+        )
+        .unwrap();
+
+        if !commit.message.body.is_empty() {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::Blue),
+                Print("  Body:\n"),
+                ResetColor,
+                Print(format!("{}\n", commit.message.body)),
+            )
+            .unwrap();
         }
+
+        if gai.stage_hunks {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::Magenta),
+                Print("  Hunks:  "),
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("{:?}\n", commit.hunk_ids)),
+                ResetColor
+            )
+            .unwrap();
+        } else {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::Magenta),
+                Print("  Files:  "),
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("{:?}\n", commit.files)),
+                ResetColor
+            )
+            .unwrap();
+        }
+
+        println!();
     }
 }

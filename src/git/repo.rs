@@ -3,34 +3,19 @@ use git2::{Repository, StatusOptions};
 use std::collections::HashMap;
 use walkdir::WalkDir;
 
-// todo
-// here's the plan
-// gonna need to rewrite some of this
-// after testing i found out that hunk headers
-// may change, after committing
-// but its dependent on whether or not
-// the LLM organizses it in a way that avoids changing the
-// lines in a hunk. from testing, apply_opts hunk callback
-// will fail on certain hunks and skip it, because
-// it may not exist because it was changed
-//
-// so my plan is to create a a different way to track
-// hunks, storing a hash of that hunks content
-// then using that to compare with content from the hunks as we
-// go through them
-// if that hunk matches the hash that belongs to this commit
-// then apply it.
-// hopefully this method works
 pub struct GaiGit {
+    /// Diffs
     pub files: Vec<GaiFile>,
+
+    /// git2 based Repo
     pub repo: Repository,
 
     pub stage_hunks: bool,
-
     pub capitalize_prefix: bool,
     pub include_scope: bool,
 }
 
+/// a sort of DiffDelta struct
 #[derive(Debug)]
 pub struct GaiFile {
     pub path: String,
@@ -111,6 +96,87 @@ impl GaiGit {
         repo_tree
     }
 
+    pub fn get_repo_status(&self) -> String {
+        let mut status_opts = StatusOptions::new();
+        status_opts.include_untracked(true);
+        let statuses = self.repo
+            .statuses(Some(&mut status_opts))
+            .expect("somehow failed to get statuses the second time around");
+
+        let mut staged = String::new();
+        let mut unstaged = String::new();
+
+        for entry in statuses
+            .iter()
+            .filter(|e| e.status() != git2::Status::CURRENT)
+        {
+            let istatus = match entry.status() {
+                s if s.contains(git2::Status::INDEX_NEW) => 'A',
+                s if s.contains(git2::Status::INDEX_MODIFIED) => 'M',
+                s if s.contains(git2::Status::INDEX_DELETED) => 'D',
+                s if s.contains(git2::Status::INDEX_RENAMED) => 'R',
+                s if s.contains(git2::Status::INDEX_TYPECHANGE) => {
+                    'T'
+                }
+                _ => ' ',
+            };
+
+            let wstatus = match entry.status() {
+                s if s.contains(git2::Status::WT_NEW) => '?',
+                s if s.contains(git2::Status::WT_MODIFIED) => 'M',
+                s if s.contains(git2::Status::WT_DELETED) => 'D',
+                s if s.contains(git2::Status::WT_RENAMED) => 'R',
+                s if s.contains(git2::Status::WT_TYPECHANGE) => 'T',
+                _ => ' ',
+            };
+
+            if entry.status().contains(git2::Status::IGNORED) {
+                continue;
+            }
+
+            let path = if let Some(diff) = entry.head_to_index() {
+                diff.new_file().path()
+            } else if let Some(diff) = entry.index_to_workdir() {
+                diff.old_file().path()
+            } else {
+                None
+            };
+
+            if let Some(path) = path {
+                let path_str = path.display().to_string();
+
+                if istatus != ' ' {
+                    staged.push_str(&format!(
+                        "{}  {}\n",
+                        istatus, path_str
+                    ));
+                }
+
+                if wstatus != ' ' {
+                    unstaged.push_str(&format!(
+                        " {} {}\n",
+                        wstatus, path_str
+                    ));
+                }
+            }
+        }
+
+        let mut status_str = String::new();
+
+        if !staged.is_empty() {
+            status_str.push_str("Staged:\n");
+            status_str.push_str(&staged);
+            status_str.push('\n');
+        }
+
+        if !unstaged.is_empty() {
+            status_str.push_str("Unstaged:\n");
+            status_str.push_str(&unstaged);
+        }
+
+        status_str
+    }
+
     pub fn get_file_diffs_as_str(&self) -> HashMap<String, String> {
         let mut file_diffs = HashMap::new();
         for gai_file in &self.files {
@@ -147,7 +213,4 @@ impl GaiGit {
 
         file_diffs
     }
-
-    // won't bother with this for now
-    //fn new_branch(&self, commit: &Commit) {}
 }

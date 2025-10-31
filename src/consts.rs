@@ -6,6 +6,13 @@ pub const DEFAULT_SYS_PROMPT: &str = "You are an expert at git operations. Creat
 
 pub const LOGO: &str = r#""#;
 
+pub const PROMPT_STAGE_HUNKS: &str = "Fill hunk_ids with the HUNK_ID values shown in the diffs (format: \"filepath:index\").\
+    Each hunk can only appear in ONE commit.\
+    Ex.: [\"src/main.rs:0\", \"src/git/repo.rs:1\"]";
+
+pub const PROMPT_STAGE_FILES: &str =
+    "Fill out files with valid paths and leave hunk_headers empty";
+
 pub const RULE_GROUP_FILES: &str = "- GROUP related files into LOGICAL commits based on the type of change\n\
 - Examples of files that should be grouped together:\n\
   * Multiple files implementing the same feature\n\
@@ -27,6 +34,7 @@ pub const RULE_BREAKING: &str =
     "  * breaking: Set to true if breaking change, false otherwise\n";
 
 // Base instructions - will be combined with length/scope rules
+// ideally we include examples atp
 pub const RULE_HEADER_BASE: &str = "  * header: CRITICAL - This field contains ONLY the description text\n\
     - NEVER include the prefix (like 'feat:', 'fix:') in this field\n\
     - NEVER include the scope (like '(api)', '(parser)') in this field\n\
