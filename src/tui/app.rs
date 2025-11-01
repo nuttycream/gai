@@ -23,6 +23,7 @@ pub struct App {
 
     pub request: Request,
     pub response: Option<Response>,
+    pub is_loading: bool,
 }
 
 pub enum State {
@@ -68,6 +69,7 @@ impl App {
             ui: UI::new(),
             request,
             response,
+            is_loading: false,
         }
     }
 
@@ -75,7 +77,12 @@ impl App {
         let tab_list = &self.get_list();
         let tab_content = &self.get_content();
 
-        self.ui.render(frame, tab_content, tab_list);
+        self.ui
+            .render(frame, tab_content, tab_list, self.is_loading);
+    }
+
+    pub fn on_tick(&mut self) {
+        self.ui.throbber_state.calc_next();
     }
 
     pub async fn send_request(&mut self, tx: mpsc::Sender<Response>) {
@@ -89,12 +96,18 @@ impl App {
 
         // inexpensive clone?
         let req = self.request.clone();
+        self.is_loading = true;
 
         tokio::spawn(async move {
             let resp =
                 get_response(&req, provider, provider_cfg).await;
             let _ = tx.send(resp).await;
         });
+    }
+
+    pub fn display_response(&mut self, resp: Response) {
+        self.response = Some(resp);
+        self.is_loading = false;
     }
 
     pub fn apply_commits(&self) {

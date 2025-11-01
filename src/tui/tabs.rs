@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
@@ -9,6 +11,7 @@ use ratatui::{
     },
 };
 use strum::{Display, EnumIter, FromRepr};
+use throbber_widgets_tui::{Throbber, ThrobberState};
 
 use crate::{
     ai::response::{PrefixType, ResponseCommit},
@@ -62,6 +65,8 @@ impl SelectedTab {
         tab_content: &TabContent,
         tab_list: &TabList,
         selected_state: &mut ListState,
+        is_loading: bool,
+        throbber_state: &mut ThrobberState,
     ) {
         self.render_layout(
             area,
@@ -69,6 +74,8 @@ impl SelectedTab {
             tab_content,
             tab_list,
             selected_state,
+            is_loading,
+            throbber_state,
         );
     }
 
@@ -106,6 +113,8 @@ impl SelectedTab {
         content: &TabContent,
         tab_list: &TabList,
         selected_state: &mut ListState,
+        is_loading: bool,
+        throbber_state: &mut ThrobberState,
     ) {
         let horizontal = Layout::horizontal([
             Constraint::Percentage(25),
@@ -187,7 +196,21 @@ impl SelectedTab {
 
         match content {
             TabContent::Description(desc) => {
-                self.render_description(paragraph_area, buf, desc);
+                if matches!(self, SelectedTab::Commits) && is_loading
+                {
+                    self.render_loading(
+                        paragraph_area,
+                        buf,
+                        desc,
+                        throbber_state,
+                    );
+                } else {
+                    self.render_description(
+                        paragraph_area,
+                        buf,
+                        desc,
+                    );
+                }
             }
             TabContent::Diff(hunk_diffs) => {
                 self.render_diff(paragraph_area, buf, hunk_diffs);
@@ -362,6 +385,41 @@ impl SelectedTab {
             .wrap(Wrap { trim: false });
 
         paragraph.render(area, buf);
+    }
+
+    fn render_loading(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        message: &str,
+        throbber_state: &mut ThrobberState,
+    ) {
+        let block = Block::bordered()
+            .title("Loading...")
+            .borders(Borders::ALL)
+            .padding(Padding::horizontal(1))
+            .border_style(self.palette().c700);
+
+        let inner_area = block.inner(area);
+        block.render(area, buf);
+
+        let throbber = Throbber::default()
+            .label(message)
+            .style(Style::default().fg(tailwind::CYAN.c400))
+            .throbber_style(
+                Style::default()
+                    .fg(tailwind::CYAN.c500)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .throbber_set(throbber_widgets_tui::BRAILLE_SIX)
+            .use_type(throbber_widgets_tui::WhichUse::Spin);
+
+        StatefulWidget::render(
+            throbber,
+            inner_area,
+            buf,
+            throbber_state,
+        );
     }
 
     pub const fn palette(self) -> tailwind::Palette {

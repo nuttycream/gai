@@ -6,6 +6,7 @@ use ratatui::{
     widgets::{ListState, Tabs, Widget},
 };
 use strum::IntoEnumIterator;
+use throbber_widgets_tui::ThrobberState;
 
 use crate::tui::tabs::{SelectedTab, TabContent, TabList};
 
@@ -13,6 +14,8 @@ use crate::tui::tabs::{SelectedTab, TabContent, TabList};
 pub struct UI {
     pub selected_tab: SelectedTab,
     pub selected_state: ListState,
+
+    pub throbber_state: ThrobberState,
 }
 
 // todo, implement this
@@ -38,6 +41,7 @@ impl UI {
         Self {
             selected_tab: SelectedTab::Diffs,
             selected_state,
+            throbber_state: ThrobberState::default(),
         }
     }
 
@@ -46,6 +50,7 @@ impl UI {
         frame: &mut Frame,
         tab_content: &TabContent,
         tab_list: &TabList,
+        is_loading: bool,
     ) {
         use Constraint::{Length, Min};
         let vertical =
@@ -62,6 +67,8 @@ impl UI {
             tab_content,
             tab_list,
             &mut self.selected_state,
+            is_loading,
+            &mut self.throbber_state,
         );
 
         self.render_footer(footer_area, frame.buffer_mut());
