@@ -4,7 +4,6 @@ pub mod config;
 pub mod consts;
 pub mod git;
 pub mod tui;
-pub mod utils;
 
 use anyhow::Result;
 use clap::Parser;
@@ -21,11 +20,14 @@ use std::{
 };
 
 use crate::{
-    ai::response::{ResponseCommit, get_response},
+    ai::{
+        request::Request,
+        response::{ResponseCommit, get_response},
+    },
     cli::{Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
-    utils::{build_diffs_string, build_prompt},
+    tui::run_tui,
 };
 
 #[tokio::main]
@@ -44,10 +46,16 @@ async fn main() -> Result<()> {
     )?;
 
     gai.create_diffs(&cfg.ai.files_to_truncate)?;
+
+    let mut req = Request::default();
+
+    req.build_prompt(&cfg, &gai);
+    req.build_diffs_string(gai.get_file_diffs_as_str());
+
     match args.command {
-        Commands::Tui { .. } => tui::run_tui(cfg, gai, None).await?,
+        Commands::Tui { .. } => run_tui(req, cfg, gai, None).await?,
         Commands::Commit { skip_confirmation } => {
-            run_commit(cfg, gai, skip_confirmation).await?
+            run_commit(req, cfg, gai, skip_confirmation).await?
         }
         Commands::Find { .. } => println!("Not yet implemented"),
         Commands::Rebase {} => println!("Not yet implemented"),
@@ -58,6 +66,7 @@ async fn main() -> Result<()> {
 }
 
 async fn run_commit(
+    req: Request,
     cfg: Config,
     gai: GaiGit,
     skip_confirmation: bool,
@@ -103,17 +112,9 @@ async fn run_commit(
             provider_cfg.model
         ));
 
-        let prompt = build_prompt(&cfg, &gai);
-
-        let diffs = build_diffs_string(gai.get_file_diffs_as_str());
-
-        let response = get_response(
-            &diffs,
-            &prompt,
-            provider,
-            provider_cfg.to_owned(),
-        )
-        .await;
+        let response =
+            get_response(&req, provider, provider_cfg.to_owned())
+                .await;
 
         let result = match response.result.clone() {
             Ok(r) => r,
@@ -199,7 +200,7 @@ async fn run_commit(
             println!("Applying Commits...");
             gai.apply_commits(&commits);
         } else if selection == 1 {
-            let _ = tui::run_tui(cfg, gai, Some(response)).await;
+            let _ = run_tui(req, cfg, gai, Some(response)).await;
         } else if selection == 2 {
             println!("Retrying...");
             continue;
