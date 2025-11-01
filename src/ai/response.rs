@@ -1,7 +1,10 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{ai::provider::Provider, config::ProviderConfig};
+use crate::{
+    ai::{provider::Provider, request::Request},
+    config::ProviderConfig,
+};
 
 /// response object along with any errors
 #[derive(Debug, Serialize, Deserialize)]
@@ -99,17 +102,16 @@ impl ResponseCommit {
 }
 
 pub async fn get_response(
-    diffs: &str,
-    prompt: &str,
+    req: &Request,
     provider: Provider,
     provider_cfg: ProviderConfig,
 ) -> Response {
     let res = provider
         .extract(
-            prompt,
+            &req.prompt,
             &provider_cfg.model,
             provider_cfg.max_tokens,
-            diffs,
+            &req.diffs,
         )
         .await
         .map_err(|e| format!("{:#}", e));
