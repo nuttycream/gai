@@ -2,7 +2,7 @@
 	<div class="header-content">
 		<div class="header-left">
 			<a href="/">
-				<img src="/gai_logo_dark.svg" alt="logo">
+				<img src="/gai_logo_light.svg" alt="logo">
 			</a>
 		</div>
 
@@ -12,6 +12,7 @@
 				Documentation
 				<div class="nav-dropdown-content">
 					<a href="/install">Installation</a>
+					<a href="/usage">Usage</a>
 					<a href="/config">Configuration</a>
 				</div>
 			</div>
@@ -31,12 +32,12 @@
 		justify-content: center;
 		text-align: center;
 		align-items: center;
-		background-color: whitesmoke;
-		color: #2C3639;
+		background-color: var(--bg-secondary);
+		color: var(--link-primary);
 		gap: 1rem;
-		box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
 		padding: 0.75rem 1.5rem;
 		z-index: 1;
+		transition: box-shadow 0.3s ease-in-out;
 	}
 	
 	.header-content {
@@ -85,11 +86,15 @@
 		flex-direction: column;
 		position: absolute;
 		padding: 0.5rem 1rem 0.5rem 0.15rem;
-		background-color: whitesmoke;
-		gap: 0.5rem;
+		background-color: var(--bg-secondary);
+		gap: 0.25rem;
 		
 		a {
 			width: fit-content;
+		}
+		
+		a:before {
+			content: " ";
 		}
 	}
 	
