@@ -11,7 +11,7 @@ use ratatui::{
 use strum::{Display, EnumIter, FromRepr};
 
 use crate::{
-    ai::response::ResponseCommit,
+    ai::response::{PrefixType, ResponseCommit},
     git::repo::{DiffType, HunkDiff},
 };
 
@@ -271,26 +271,18 @@ impl SelectedTab {
         let mut lines: Vec<Line> = Vec::new();
 
         let prefix_color = match commit.message.prefix {
-            crate::ai::response::PrefixType::Feat => tailwind::GREEN,
-            crate::ai::response::PrefixType::Fix => tailwind::RED,
-            crate::ai::response::PrefixType::Refactor => {
-                tailwind::BLUE
-            }
-            crate::ai::response::PrefixType::Style => {
-                tailwind::PURPLE
-            }
-            crate::ai::response::PrefixType::Test => tailwind::YELLOW,
-            crate::ai::response::PrefixType::Docs => tailwind::CYAN,
-            crate::ai::response::PrefixType::Build => {
-                tailwind::ORANGE
-            }
-            crate::ai::response::PrefixType::CI => tailwind::INDIGO,
-            crate::ai::response::PrefixType::Ops => tailwind::PINK,
-            crate::ai::response::PrefixType::Chore => tailwind::SLATE,
-            crate::ai::response::PrefixType::Merge => {
-                tailwind::VIOLET
-            }
-            crate::ai::response::PrefixType::Revert => tailwind::ROSE,
+            PrefixType::Feat => tailwind::GREEN,
+            PrefixType::Fix => tailwind::RED,
+            PrefixType::Refactor => tailwind::BLUE,
+            PrefixType::Style => tailwind::PURPLE,
+            PrefixType::Test => tailwind::YELLOW,
+            PrefixType::Docs => tailwind::CYAN,
+            PrefixType::Build => tailwind::ORANGE,
+            PrefixType::CI => tailwind::INDIGO,
+            PrefixType::Ops => tailwind::PINK,
+            PrefixType::Chore => tailwind::SLATE,
+            PrefixType::Merge => tailwind::VIOLET,
+            PrefixType::Revert => tailwind::ROSE,
         };
 
         let prefix_str =
