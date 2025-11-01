@@ -1,11 +1,16 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap");
 
-/* 
-#2C3639
-#3F4E4F
-#A27B5C
-#DCD7C9
+/*
+* https://coolors.co/22223b-4a4e69-9a8c98-c9ada7-f2e9e4-f8f4f1
 */
+:root {
+  --bg-primary: #22223b;
+  --bg-secondary: #4a4e69;
+  --text-primary: #f2e9e4;
+  --text-secondary: #9a8c98;
+  --text-tertiary: #c9ada7;
+  --link-primary: #f8f4f1;
+}
 
 * {
   font-family: "IBM Plex Mono";
@@ -15,13 +20,13 @@
 }
 
 body {
-  background-color: blanchedalmond;
+  background-color: var(--bg-primary);
   background-attachment: fixed;
-  color: black;
+  color: var(--text-primary);
 }
 
 a {
-  color: #3498db;
+  color: var(--link-primary);
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition: border-color;
@@ -52,7 +57,6 @@ a:hover {
 }
 
 .hero h1 {
-  color: #2c3639;
   font-size: 3rem;
   font-weight: 700;
 }
@@ -93,17 +97,17 @@ a:hover {
     text-decoration: none;
     padding: 1rem 2.5rem;
     font-size: 1rem;
-    color: black;
-    background: white;
+    color: var(--link-primary);
+    background: var(--bg-secondary);
     border: none;
     border-radius: 10px;
-    transition: all 0.1s ease;
-    box-shadow: 0 3px 8px darkgray;
+    transition: all 0.1s ease-in;
   }
 
   a:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 10px darkgray;
+    box-shadow:
+      rgba(50, 50, 93, 0.25) 0px 30px 60px -12px inset,
+      rgba(0, 0, 0, 0.3) 0px 18px 36px -18px inset;
   }
 }
 
@@ -112,9 +116,22 @@ a:hover {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(30px);
   }
 }
 
@@ -123,6 +140,7 @@ a:hover {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -134,6 +152,7 @@ a:hover {
     opacity: 0;
     transform: translateX(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -142,7 +161,7 @@ a:hover {
 
 .features {
   margin: 4rem auto;
-  max-width: 900px;
+  max-width: 1200px;
   padding: 2rem;
   animation: fadeInUp 0.5s ease-out;
 }
@@ -152,7 +171,6 @@ a:hover {
   text-align: left;
   margin-left: 3rem;
   margin-bottom: 2rem;
-  color: #2c3e50;
 }
 
 .bento-grid {
@@ -162,10 +180,9 @@ a:hover {
 }
 
 .bento-item {
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 15px;
   padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
@@ -174,7 +191,6 @@ a:hover {
 
 .bento-item:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 .bento-item.large {
@@ -183,12 +199,6 @@ a:hover {
 
 .bento-item h3 {
   font-size: 1.5rem;
-  color: #2c3e50;
-  margin: 0;
-}
-
-.bento-item p {
-  color: #555;
 }
 
 @media (max-width: 768px) {

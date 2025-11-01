@@ -7,7 +7,7 @@
 }
 
 .toc {
-  border: 1px solid rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--bg-secondary);
   border-radius: 10px;
   padding: 1rem 1.5rem;
   margin-bottom: 2rem;
@@ -17,7 +17,6 @@
   margin-top: 0;
   margin-bottom: 0.75rem;
   font-size: 1.1rem;
-  color: #2c3e50;
 }
 
 .toc ul {
@@ -36,12 +35,10 @@
 }
 
 .toc li {
-  color: #34495e;
   margin: 0.25rem 0;
 }
 
 .toc a {
-  color: #3498db;
   text-decoration: none;
   border-bottom: none;
 }
@@ -55,7 +52,6 @@ h2 {
   font-size: 2rem;
   margin-top: 1rem;
   margin-bottom: 1rem;
-  color: #34495e;
   border-bottom: 1px solid rgba(52, 152, 219, 0.3);
   padding-bottom: 0.5rem;
 }
@@ -65,13 +61,11 @@ h3 {
   font-weight: 600;
   margin-top: 1rem;
   margin-bottom: 0.75rem;
-  color: #2c3e50;
 }
 
 p {
   line-height: 1.5rem;
   margin-left: 0.5rem;
-  color: black;
 }
 
 hr {
@@ -80,22 +74,20 @@ hr {
 }
 
 strong {
-  color: black;
   font-weight: 600;
 }
 
 code {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: var(--text-tertiary);
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   font-size: 0.9em;
-  color: #c7254e;
   font-family: "IBM Plex Mono", monospace;
 }
 
 pre {
-  background-color: #2c3e50;
-  color: #ecf0f1;
+  background-color: rgba(0, 0, 0, 0.5);
   padding: 1rem;
   overflow-x: auto;
   margin: 1rem;
@@ -137,7 +129,7 @@ ol {
   line-height: 2rem;
 
   li {
-    color: gray;
+    color: var(--text-secondary);
   }
   li:first-child {
     margin-top: 0.5rem;
