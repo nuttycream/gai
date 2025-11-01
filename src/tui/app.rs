@@ -2,14 +2,16 @@ use ratatui::Frame;
 use tokio::sync::mpsc;
 
 use crate::{
-    ai::response::{Response, get_response},
+    ai::{
+        request::Request,
+        response::{Response, get_response},
+    },
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     tui::{
         tabs::{SelectedTab, TabContent, TabList},
         ui::UI,
     },
-    utils::{build_diffs_string, build_prompt},
 };
 
 pub struct App {
@@ -19,6 +21,7 @@ pub struct App {
     pub gai: GaiGit,
     pub ui: UI,
 
+    pub request: Request,
     pub response: Option<Response>,
 }
 
@@ -52,6 +55,7 @@ pub enum Action {
 
 impl App {
     pub fn new(
+        request: Request,
         cfg: Config,
         gai: GaiGit,
         response: Option<Response>,
@@ -62,6 +66,7 @@ impl App {
             cfg,
             gai,
             ui: UI::new(),
+            request,
             response,
         }
     }
@@ -82,14 +87,12 @@ impl App {
             .expect("somehow did not find provider config")
             .clone();
 
-        let diffs =
-            build_diffs_string(self.gai.get_file_diffs_as_str());
-        let prompt = build_prompt(&self.cfg, &self.gai);
+        // inexpensive clone?
+        let req = self.request.clone();
 
         tokio::spawn(async move {
             let resp =
-                get_response(&diffs, &prompt, provider, provider_cfg)
-                    .await;
+                get_response(&req, provider, provider_cfg).await;
             let _ = tx.send(resp).await;
         });
     }

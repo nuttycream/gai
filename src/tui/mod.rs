@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    ai::response::Response,
+    ai::{request::Request, response::Response},
     config::Config,
     git::repo::GaiGit,
     tui::app::{Action, App},
@@ -24,11 +24,12 @@ pub mod ui;
 // this in the future
 // for now let's focus on more pressing issues lol
 pub async fn run_tui(
+    req: Request,
     cfg: Config,
     gai: GaiGit,
     response: Option<Response>,
 ) -> Result<()> {
-    let mut app = App::new(cfg, gai, response);
+    let mut app = App::new(req, cfg, gai, response);
 
     let (tx, mut rx) = mpsc::channel(3);
 
