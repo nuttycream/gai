@@ -83,20 +83,6 @@ async fn run_commit(
 
         pretty_print_status(&mut stdout, &gai);
 
-        execute!(
-            stdout,
-            SetForegroundColor(Color::White),
-            Print("Found "),
-            SetForegroundColor(Color::Green),
-            Print(format!("{}", gai.files.len()).bold()),
-            SetForegroundColor(Color::White),
-            Print(" Diffs"),
-            ResetColor
-        )
-        .unwrap();
-
-        println!();
-
         let bar = ProgressBar::new_spinner();
         bar.enable_steady_tick(Duration::from_millis(80));
         bar.set_style(
@@ -215,14 +201,7 @@ async fn run_commit(
 }
 
 fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
-    // ideally wanted to use gaigit vars
-    // but repo status also shows staged
-    // or unstaged
-    // this is really finnicky and will
-    // likely need a rewrite +
-    // prettier status
     let status = gai.get_repo_status();
-
     if status.is_empty() {
         return;
     }
@@ -238,7 +217,6 @@ fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
         })
         .copied()
         .collect();
-
     let unstaged: Vec<&str> = lines
         .iter()
         .filter(|l| l.starts_with(" "))
@@ -248,7 +226,7 @@ fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
     execute!(
         stdout,
         SetForegroundColor(Color::DarkGrey),
-        Print("["),
+        Print("Status: "),
         ResetColor
     )
     .unwrap();
@@ -257,7 +235,7 @@ fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
         execute!(
             stdout,
             SetForegroundColor(Color::Green),
-            Print(format!("+{}", staged.len())),
+            Print(format!("{} staged", staged.len())),
             ResetColor
         )
         .unwrap();
@@ -265,30 +243,18 @@ fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
 
     if !unstaged.is_empty() {
         if !staged.is_empty() {
-            execute!(
-                stdout,
-                SetForegroundColor(Color::DarkGrey),
-                Print(" "),
-                ResetColor
-            )
-            .unwrap();
+            execute!(stdout, Print(", "), ResetColor).unwrap();
         }
         execute!(
             stdout,
             SetForegroundColor(Color::Yellow),
-            Print(format!("~{}", unstaged.len())),
+            Print(format!("{} unstaged", unstaged.len())),
             ResetColor
         )
         .unwrap();
     }
 
-    execute!(
-        stdout,
-        SetForegroundColor(Color::DarkGrey),
-        Print("] "),
-        ResetColor
-    )
-    .unwrap();
+    println!();
 }
 
 fn pretty_print_commits(
