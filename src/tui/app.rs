@@ -281,54 +281,9 @@ impl App {
                     if let Some(selected) = selected_state_idx
                         && selected < res.commits.len()
                     {
-                        let commit = &res.commits[selected];
-                        let mut content = String::new();
-
-                        if self.cfg.gai.stage_hunks {
-                            content.push_str("Hunks to Stage:\n");
-                            for file in &commit.hunk_ids {
-                                content
-                                    .push_str(&format!("{} ", file));
-                            }
-                        } else {
-                            content.push_str("Files to Stage:\n");
-                            for file in &commit.files {
-                                content
-                                    .push_str(&format!("{} ", file));
-                            }
-                        }
-
-                        content.push('\n');
-                        content.push_str("Commit Message:\n");
-                        content.push_str("Prefix Type: ");
-                        content.push_str(
-                            format!("{:?}", commit.message.prefix)
-                                .as_str(),
+                        return TabContent::Response(
+                            res.commits[selected].to_owned(),
                         );
-                        content.push('\n');
-
-                        content.push_str("Scope: ");
-                        content.push_str(&commit.message.scope);
-                        content.push('\n');
-
-                        if commit.message.breaking {
-                            content
-                                .push_str("Is Breaking Change: Yes");
-                        } else {
-                            content
-                                .push_str("Is Breaking Change: No");
-                        }
-                        content.push('\n');
-
-                        content.push_str("Header:\n");
-                        content.push_str(&commit.message.header);
-                        content.push('\n');
-
-                        content.push_str("Body:\n");
-                        content.push_str(&commit.message.body);
-                        content.push('\n');
-
-                        return TabContent::Description(content);
                     }
 
                     TabContent::Description(

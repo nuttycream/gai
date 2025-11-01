@@ -10,7 +10,10 @@ use ratatui::{
 };
 use strum::{Display, EnumIter, FromRepr};
 
-use crate::git::repo::{DiffType, HunkDiff};
+use crate::{
+    ai::response::ResponseCommit,
+    git::repo::{DiffType, HunkDiff},
+};
 
 const SELECTED_STYLE: Style = Style::new()
     .bg(tailwind::SLATE.c800)
@@ -36,6 +39,7 @@ pub enum SelectedTab {
 pub enum TabContent {
     Description(String),
     Diff(Vec<HunkDiff>),
+    Response(ResponseCommit),
 }
 
 /// when we want to display
@@ -183,58 +187,189 @@ impl SelectedTab {
 
         match content {
             TabContent::Description(desc) => {
-                let paragraph = Paragraph::new(desc.to_owned())
-                    .block(
-                        Block::bordered()
-                            .title("Content")
-                            .borders(Borders::ALL)
-                            .padding(Padding::horizontal(1))
-                            .border_style(self.palette().c700),
-                    )
-                    .wrap(Wrap { trim: false });
-
-                paragraph.render(paragraph_area, buf);
+                self.render_description(paragraph_area, buf, desc);
             }
             TabContent::Diff(hunk_diffs) => {
-                let mut lines: Vec<Line> = Vec::new();
-
-                for hunk in hunk_diffs {
-                    lines.push(
-                        Line::from(hunk.header.clone())
-                            .bg(tailwind::BLUE.c900),
-                    );
-
-                    for line_diff in &hunk.line_diffs {
-                        let styled_line = match line_diff.diff_type {
-                            DiffType::Additions => Line::from(
-                                format!("+{}", line_diff.content),
-                            )
-                            .bg(tailwind::GREEN.c950),
-                            DiffType::Deletions => Line::from(
-                                format!("-{}", line_diff.content),
-                            )
-                            .bg(tailwind::RED.c950),
-                            DiffType::Unchanged => Line::from(
-                                format!(" {}", line_diff.content),
-                            ),
-                        };
-                        lines.push(styled_line);
-                    }
-                }
-
-                let paragraph = Paragraph::new(lines)
-                    .block(
-                        Block::bordered()
-                            .title("Content")
-                            .borders(Borders::ALL)
-                            .padding(Padding::horizontal(1))
-                            .border_style(self.palette().c700),
-                    )
-                    .wrap(Wrap { trim: false });
-
-                paragraph.render(paragraph_area, buf);
+                self.render_diff(paragraph_area, buf, hunk_diffs);
+            }
+            TabContent::Response(commit) => {
+                self.render_response(paragraph_area, buf, commit);
             }
         }
+    }
+
+    fn render_description(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        desc: &str,
+    ) {
+        let paragraph = Paragraph::new(desc.to_owned())
+            .block(
+                Block::bordered()
+                    .title("Content")
+                    .borders(Borders::ALL)
+                    .padding(Padding::horizontal(1))
+                    .border_style(self.palette().c700),
+            )
+            .wrap(Wrap { trim: false });
+
+        paragraph.render(area, buf);
+    }
+
+    fn render_diff(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        hunk_diffs: &[HunkDiff],
+    ) {
+        let mut lines: Vec<Line> = Vec::new();
+
+        for hunk in hunk_diffs {
+            lines.push(
+                Line::from(hunk.header.clone())
+                    .bg(tailwind::BLUE.c900),
+            );
+
+            for line_diff in &hunk.line_diffs {
+                let styled_line = match line_diff.diff_type {
+                    DiffType::Additions => {
+                        Line::from(format!("+{}", line_diff.content))
+                            .bg(tailwind::GREEN.c950)
+                    }
+                    DiffType::Deletions => {
+                        Line::from(format!("-{}", line_diff.content))
+                            .bg(tailwind::RED.c950)
+                    }
+                    DiffType::Unchanged => {
+                        Line::from(format!(" {}", line_diff.content))
+                    }
+                };
+                lines.push(styled_line);
+            }
+        }
+
+        let paragraph = Paragraph::new(lines)
+            .block(
+                Block::bordered()
+                    .title("Content")
+                    .borders(Borders::ALL)
+                    .padding(Padding::horizontal(1))
+                    .border_style(self.palette().c700),
+            )
+            .wrap(Wrap { trim: false });
+
+        paragraph.render(area, buf);
+    }
+
+    fn render_response(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        commit: &ResponseCommit,
+    ) {
+        let mut lines: Vec<Line> = Vec::new();
+
+        let prefix_color = match commit.message.prefix {
+            crate::ai::response::PrefixType::Feat => tailwind::GREEN,
+            crate::ai::response::PrefixType::Fix => tailwind::RED,
+            crate::ai::response::PrefixType::Refactor => {
+                tailwind::BLUE
+            }
+            crate::ai::response::PrefixType::Style => {
+                tailwind::PURPLE
+            }
+            crate::ai::response::PrefixType::Test => tailwind::YELLOW,
+            crate::ai::response::PrefixType::Docs => tailwind::CYAN,
+            crate::ai::response::PrefixType::Build => {
+                tailwind::ORANGE
+            }
+            crate::ai::response::PrefixType::CI => tailwind::INDIGO,
+            crate::ai::response::PrefixType::Ops => tailwind::PINK,
+            crate::ai::response::PrefixType::Chore => tailwind::SLATE,
+            crate::ai::response::PrefixType::Merge => {
+                tailwind::VIOLET
+            }
+            crate::ai::response::PrefixType::Revert => tailwind::ROSE,
+        };
+
+        let prefix_str =
+            format!("{:?}", commit.message.prefix).to_lowercase();
+        let breaking_str =
+            if commit.message.breaking { "!" } else { "" };
+        let scope_str = if !commit.message.scope.is_empty() {
+            format!("({})", commit.message.scope)
+        } else {
+            String::new()
+        };
+
+        lines.push(Line::from(vec![
+            prefix_str
+                .fg(prefix_color.c200)
+                .bg(prefix_color.c900)
+                .bold(),
+            scope_str.fg(tailwind::SLATE.c400).italic(),
+            breaking_str.fg(tailwind::RED.c500).bold(),
+        ]));
+        lines.push(Line::from(""));
+
+        lines.push(
+            Line::from("Header").fg(tailwind::SLATE.c500).bold(),
+        );
+        lines.push(
+            Line::from(commit.message.header.clone())
+                .fg(tailwind::SLATE.c100),
+        );
+        lines.push(Line::from(""));
+
+        if !commit.message.body.is_empty() {
+            lines.push(
+                Line::from("Body").fg(tailwind::SLATE.c500).bold(),
+            );
+            for body_line in commit.message.body.lines() {
+                lines.push(
+                    Line::from(body_line).fg(tailwind::SLATE.c300),
+                );
+            }
+            lines.push(Line::from(""));
+        }
+
+        if !commit.files.is_empty() {
+            lines.push(
+                Line::from("Files").fg(tailwind::SLATE.c500).bold(),
+            );
+            for file in &commit.files {
+                lines.push(
+                    Line::from(format!("  • {}", file))
+                        .fg(tailwind::CYAN.c400),
+                );
+            }
+            lines.push(Line::from(""));
+        }
+
+        if !commit.hunk_ids.is_empty() {
+            lines.push(
+                Line::from("Hunks").fg(tailwind::SLATE.c500).bold(),
+            );
+            for hunk_id in &commit.hunk_ids {
+                lines.push(
+                    Line::from(format!("  • {}", hunk_id))
+                        .fg(tailwind::AMBER.c400),
+                );
+            }
+        }
+
+        let paragraph = Paragraph::new(lines)
+            .block(
+                Block::bordered()
+                    .title("Commit Info")
+                    .borders(Borders::ALL)
+                    .padding(Padding::horizontal(1))
+                    .border_style(self.palette().c700),
+            )
+            .wrap(Wrap { trim: false });
+
+        paragraph.render(area, buf);
     }
 
     pub const fn palette(self) -> tailwind::Palette {
