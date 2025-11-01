@@ -1,5 +1,5 @@
 ---
 title: "gai: Pricing"
-template: homepage
-styles: ["main"]
+template: pricing
+styles: ["main", "pricing"]
 ---

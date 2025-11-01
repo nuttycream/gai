@@ -1,0 +1,143 @@
+.pricing-container {
+  margin: 0 auto;
+  max-width: 1000px;
+  padding: 6rem 2rem 4rem 2rem;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.pricing-title {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 3rem;
+  font-weight: 700;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.pricing-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--bg-secondary);
+  border-radius: 15px;
+  padding: 2.5rem;
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+}
+
+.price {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.amount {
+  font-size: 3rem;
+  font-weight: 700;
+  display: block;
+  line-height: 1;
+}
+
+.period {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-grow: 1;
+  margin-bottom: 2rem;
+}
+
+.features li {
+  padding: 0.75rem 0;
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.9rem;
+}
+
+.features li:last-child {
+  border-bottom: none;
+}
+
+.cta-button {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  text-align: center;
+  color: var(--link-primary);
+  background: var(--bg-secondary);
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.cta-button:hover {
+  box-shadow:
+    rgba(50, 50, 93, 0.25) 0px 30px 60px -12px inset,
+    rgba(0, 0, 0, 0.3) 0px 18px 36px -18px inset;
+  border-bottom: none;
+}
+
+.cta-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+.cta-button.disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .pricing-container {
+    padding: 4rem 1rem 2rem 1rem;
+  }
+
+  .pricing-title {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .pricing-card {
+    padding: 2rem;
+  }
+
+  .card-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .amount {
+    font-size: 2.5rem;
+  }
+}

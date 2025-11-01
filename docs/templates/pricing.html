@@ -1,0 +1,51 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{ title }}</title>
+    </head>
+    <body>
+        {% include "header" %}
+
+        <div class="pricing-container">
+            <h1 class="pricing-title">Pricing</h1>
+
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="card-header">
+                        <h2>Free</h2>
+                        <p class="subtitle">Open Source</p>
+                    </div>
+
+                    <div class="price">
+                        <span class="amount">$0</span>
+                        <span class="period">forever</span>
+                    </div>
+
+                    <ul class="features">
+                        <li>Bring your own AI Provider</li>
+                        <li>Stage Files & Hunks</li>
+                        <li>AI Generated Commits</li>
+                        <li>CLI & TUI Interface</li>
+                    </ul>
+
+                    <a href="/install" class="cta-button">Install</a>
+                </div>
+
+                <div class="pricing-card enterprise">
+                    <div class="card-header">
+                        <h2>Enterprise</h2>
+                    </div>
+
+                    <div class="price">
+                        <span class="period">Contact Us</span>
+                    </div>
+
+                    <ul class="features">
+
+                    <button class="cta-button disabled" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
