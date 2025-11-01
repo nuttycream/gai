@@ -96,6 +96,8 @@ impl GaiGit {
         repo_tree
     }
 
+    // this should be stored when we create_diffs
+    // todo: refactor
     pub fn get_repo_status(&self) -> String {
         let mut status_opts = StatusOptions::new();
         status_opts.include_untracked(true);
