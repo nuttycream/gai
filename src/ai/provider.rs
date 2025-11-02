@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use rig::extractor::ExtractionError;
+use anyhow::{Result, anyhow};
 use rig::{
     client::{CompletionClient, ProviderClient},
     providers::{
@@ -15,6 +13,7 @@ use rig::{
     },
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use strum::{Display, EnumIter, IntoEnumIterator};
 
 use crate::{
@@ -39,6 +38,7 @@ pub enum Provider {
     OpenAI,
     Gemini,
     Claude,
+    Gai,
 }
 
 impl Provider {
@@ -62,6 +62,10 @@ impl Provider {
                     provider,
                     ProviderConfig::new(CLAUDE_DEFAULT),
                 ),
+                Provider::Gai => providers.insert(
+                    provider,
+                    ProviderConfig::new(GEMINI_DEFAULT),
+                ),
             };
         }
 
@@ -74,8 +78,9 @@ impl Provider {
         model: &str,
         max_tokens: u64,
         diffs: &str,
-    ) -> Result<ResponseSchema, ExtractionError> {
+    ) -> Result<ResponseSchema> {
         match self {
+            Provider::Gai => Err(anyhow!("Not yet implemented")),
             Provider::OpenAI => {
                 let client = openai::Client::from_env();
 
@@ -85,7 +90,7 @@ impl Provider {
                     .preamble(prompt)
                     .build();
 
-                extractor.extract(diffs).await
+                Ok(extractor.extract(diffs).await?)
             }
             Provider::Gemini => {
                 let client = gemini::Client::from_env();
@@ -105,7 +110,7 @@ impl Provider {
                     )
                     .build();
 
-                extractor.extract(diffs).await
+                Ok(extractor.extract(diffs).await?)
             }
             Provider::Claude => {
                 let client = anthropic::Client::from_env();
@@ -116,7 +121,7 @@ impl Provider {
                     .preamble(prompt)
                     .build();
 
-                extractor.extract(diffs).await
+                Ok(extractor.extract(diffs).await?)
             }
         }
     }
