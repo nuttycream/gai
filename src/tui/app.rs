@@ -86,6 +86,10 @@ impl App {
     }
 
     pub async fn send_request(&mut self, tx: mpsc::Sender<Response>) {
+        if self.is_loading {
+            return;
+        }
+
         let ai = &self.cfg.ai;
         let provider = ai.provider;
         let provider_cfg = ai
@@ -313,6 +317,13 @@ impl App {
                         )
                         .model
                         .to_owned();
+
+                    if self.is_loading {
+                        return TabContent::Description(format!(
+                            "Awaiting response from {}",
+                            model
+                        ));
+                    }
 
                     TabContent::Description(format!(
                         "Press 'p' to send a request to {}",
