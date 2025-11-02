@@ -81,6 +81,12 @@ impl App {
         let tab_list = &self.get_list();
         let tab_content = &self.get_content();
 
+        if !tab_list.main.is_empty()
+            && self.ui.selected_state.selected().is_none()
+        {
+            self.ui.selected_state.select(Some(0));
+        }
+
         self.ui
             .render(frame, tab_content, tab_list, self.is_loading);
     }
