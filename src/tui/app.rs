@@ -23,6 +23,8 @@ pub struct App {
 
     pub request: Request,
     pub response: Option<Response>,
+    pub is_loading: bool,
+    pub applied_commits: bool,
 }
 
 pub enum State {
@@ -36,6 +38,8 @@ pub enum Action {
 
     FocusLeft,
     FocusRight,
+
+    Enter,
 
     NextTab,
     PreviousTab, // shift+tab(?)
@@ -68,6 +72,8 @@ impl App {
             ui: UI::new(),
             request,
             response,
+            is_loading: false,
+            applied_commits: false,
         }
     }
 
@@ -75,10 +81,25 @@ impl App {
         let tab_list = &self.get_list();
         let tab_content = &self.get_content();
 
-        self.ui.render(frame, tab_content, tab_list);
+        if !tab_list.main.is_empty()
+            && self.ui.selected_state.selected().is_none()
+        {
+            self.ui.selected_state.select(Some(0));
+        }
+
+        self.ui
+            .render(frame, tab_content, tab_list, self.is_loading);
+    }
+
+    pub fn on_tick(&mut self) {
+        self.ui.throbber_state.calc_next();
     }
 
     pub async fn send_request(&mut self, tx: mpsc::Sender<Response>) {
+        if self.is_loading {
+            return;
+        }
+
         let ai = &self.cfg.ai;
         let provider = ai.provider;
         let provider_cfg = ai
@@ -89,12 +110,18 @@ impl App {
 
         // inexpensive clone?
         let req = self.request.clone();
+        self.is_loading = true;
 
         tokio::spawn(async move {
             let resp =
                 get_response(&req, provider, provider_cfg).await;
             let _ = tx.send(resp).await;
         });
+    }
+
+    pub fn display_response(&mut self, resp: Response) {
+        self.response = Some(resp);
+        self.is_loading = false;
     }
 
     pub fn apply_commits(&self) {
@@ -300,6 +327,13 @@ impl App {
                         )
                         .model
                         .to_owned();
+
+                    if self.is_loading {
+                        return TabContent::Description(format!(
+                            "Awaiting response from {}",
+                            model
+                        ));
+                    }
 
                     TabContent::Description(format!(
                         "Press 'p' to send a request to {}",

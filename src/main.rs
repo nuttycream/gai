@@ -47,15 +47,30 @@ async fn main() -> Result<()> {
 
     gai.create_diffs(&cfg.ai.files_to_truncate)?;
 
-    let mut req = Request::default();
+    let mut stdout = stdout();
+    pretty_print_status(&mut stdout, &gai);
 
+    let bar = ProgressBar::new_spinner();
+    bar.enable_steady_tick(Duration::from_millis(80));
+    bar.set_style(
+        ProgressStyle::with_template("{spinner:.cyan} {msg}")
+            .unwrap()
+            .tick_strings(&["⣼", "⣹", "⢻", "⠿", "⡟", "⣏", "⣧", "⣶"]),
+    );
+
+    bar.set_message("Building Request...");
+
+    let mut req = Request::default();
     req.build_prompt(&cfg, &gai);
     req.build_diffs_string(gai.get_file_diffs_as_str());
+
+    bar.finish();
 
     match args.command {
         Commands::Tui { .. } => run_tui(req, cfg, gai, None).await?,
         Commands::Commit { skip_confirmation } => {
-            run_commit(req, cfg, gai, skip_confirmation).await?
+            run_commit(stdout, bar, req, cfg, gai, skip_confirmation)
+                .await?
         }
         Commands::Find { .. } => println!("Not yet implemented"),
         Commands::Rebase {} => println!("Not yet implemented"),
@@ -66,6 +81,8 @@ async fn main() -> Result<()> {
 }
 
 async fn run_commit(
+    mut stdout: Stdout,
+    bar: ProgressBar,
     req: Request,
     cfg: Config,
     gai: GaiGit,
@@ -79,20 +96,7 @@ async fn run_commit(
             .get(&provider)
             .expect("somehow did not find provider config");
 
-        let mut stdout = stdout();
-
-        pretty_print_status(&mut stdout, &gai);
-
-        let bar = ProgressBar::new_spinner();
-        bar.enable_steady_tick(Duration::from_millis(80));
-        bar.set_style(
-            ProgressStyle::with_template("{spinner:.cyan} {msg}")
-                .unwrap()
-                .tick_strings(&[
-                    "⣼", "⣹", "⢻", "⠿", "⡟", "⣏", "⣧", "⣶",
-                ]),
-        );
-
+        bar.reset();
         bar.set_message(format!(
             "Awaiting response from {}",
             provider_cfg.model

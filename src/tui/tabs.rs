@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
@@ -9,10 +11,12 @@ use ratatui::{
     },
 };
 use strum::{Display, EnumIter, FromRepr};
+use throbber_widgets_tui::{Throbber, ThrobberState};
 
 use crate::{
     ai::response::{PrefixType, ResponseCommit},
     git::repo::{DiffType, HunkDiff},
+    tui::ui::UIMode,
 };
 
 const SELECTED_STYLE: Style = Style::new()
@@ -62,13 +66,27 @@ impl SelectedTab {
         tab_content: &TabContent,
         tab_list: &TabList,
         selected_state: &mut ListState,
+        is_loading: bool,
+        throbber_state: &mut ThrobberState,
+        mode: &UIMode,
+        content_scroll: u16,
     ) {
+        let scroll = if matches!(mode, UIMode::Content) {
+            content_scroll
+        } else {
+            0
+        };
+
         self.render_layout(
             area,
             buf,
             tab_content,
             tab_list,
             selected_state,
+            is_loading,
+            throbber_state,
+            scroll,
+            mode,
         );
     }
 
@@ -106,6 +124,10 @@ impl SelectedTab {
         content: &TabContent,
         tab_list: &TabList,
         selected_state: &mut ListState,
+        is_loading: bool,
+        throbber_state: &mut ThrobberState,
+        scroll: u16,
+        mode: &UIMode,
     ) {
         let horizontal = Layout::horizontal([
             Constraint::Percentage(25),
@@ -187,13 +209,41 @@ impl SelectedTab {
 
         match content {
             TabContent::Description(desc) => {
-                self.render_description(paragraph_area, buf, desc);
+                if matches!(self, SelectedTab::Commits) && is_loading
+                {
+                    self.render_loading(
+                        paragraph_area,
+                        buf,
+                        desc,
+                        throbber_state,
+                    );
+                } else {
+                    self.render_description(
+                        paragraph_area,
+                        buf,
+                        desc,
+                        scroll,
+                        mode,
+                    );
+                }
             }
             TabContent::Diff(hunk_diffs) => {
-                self.render_diff(paragraph_area, buf, hunk_diffs);
+                self.render_diff(
+                    paragraph_area,
+                    buf,
+                    hunk_diffs,
+                    scroll,
+                    mode,
+                );
             }
             TabContent::Response(commit) => {
-                self.render_response(paragraph_area, buf, commit);
+                self.render_response(
+                    paragraph_area,
+                    buf,
+                    commit,
+                    scroll,
+                    mode,
+                );
             }
         }
     }
@@ -203,16 +253,25 @@ impl SelectedTab {
         area: Rect,
         buf: &mut Buffer,
         desc: &str,
+        scroll: u16,
+        mode: &UIMode,
     ) {
+        let border_style = if matches!(mode, UIMode::Content) {
+            self.palette().c400
+        } else {
+            self.palette().c700
+        };
+
         let paragraph = Paragraph::new(desc.to_owned())
             .block(
                 Block::bordered()
                     .title("Content")
                     .borders(Borders::ALL)
                     .padding(Padding::horizontal(1))
-                    .border_style(self.palette().c700),
+                    .border_style(border_style),
             )
-            .wrap(Wrap { trim: false });
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0));
 
         paragraph.render(area, buf);
     }
@@ -222,7 +281,15 @@ impl SelectedTab {
         area: Rect,
         buf: &mut Buffer,
         hunk_diffs: &[HunkDiff],
+        scroll: u16,
+        mode: &UIMode,
     ) {
+        let border_style = if matches!(mode, UIMode::Content) {
+            self.palette().c400
+        } else {
+            self.palette().c700
+        };
+
         let mut lines: Vec<Line> = Vec::new();
 
         for hunk in hunk_diffs {
@@ -255,9 +322,10 @@ impl SelectedTab {
                     .title("Content")
                     .borders(Borders::ALL)
                     .padding(Padding::horizontal(1))
-                    .border_style(self.palette().c700),
+                    .border_style(border_style),
             )
-            .wrap(Wrap { trim: false });
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0));
 
         paragraph.render(area, buf);
     }
@@ -267,7 +335,15 @@ impl SelectedTab {
         area: Rect,
         buf: &mut Buffer,
         commit: &ResponseCommit,
+        scroll: u16,
+        mode: &UIMode,
     ) {
+        let border_style = if matches!(mode, UIMode::Content) {
+            self.palette().c400
+        } else {
+            self.palette().c700
+        };
+
         let mut lines: Vec<Line> = Vec::new();
 
         let prefix_color = match commit.message.prefix {
@@ -357,11 +433,47 @@ impl SelectedTab {
                     .title("Commit Info")
                     .borders(Borders::ALL)
                     .padding(Padding::horizontal(1))
-                    .border_style(self.palette().c700),
+                    .border_style(border_style),
             )
-            .wrap(Wrap { trim: false });
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0));
 
         paragraph.render(area, buf);
+    }
+
+    fn render_loading(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        message: &str,
+        throbber_state: &mut ThrobberState,
+    ) {
+        let block = Block::bordered()
+            .title("Loading...")
+            .borders(Borders::ALL)
+            .padding(Padding::horizontal(1))
+            .border_style(self.palette().c700);
+
+        let inner_area = block.inner(area);
+        block.render(area, buf);
+
+        let throbber = Throbber::default()
+            .label(message)
+            .style(Style::default().fg(tailwind::CYAN.c400))
+            .throbber_style(
+                Style::default()
+                    .fg(tailwind::CYAN.c500)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .throbber_set(throbber_widgets_tui::BRAILLE_SIX)
+            .use_type(throbber_widgets_tui::WhichUse::Spin);
+
+        StatefulWidget::render(
+            throbber,
+            inner_area,
+            buf,
+            throbber_state,
+        );
     }
 
     pub const fn palette(self) -> tailwind::Palette {
