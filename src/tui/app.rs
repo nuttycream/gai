@@ -38,6 +38,8 @@ pub enum Action {
     FocusLeft,
     FocusRight,
 
+    Enter,
+
     NextTab,
     PreviousTab, // shift+tab(?)
 

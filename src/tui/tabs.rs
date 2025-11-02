@@ -16,6 +16,7 @@ use throbber_widgets_tui::{Throbber, ThrobberState};
 use crate::{
     ai::response::{PrefixType, ResponseCommit},
     git::repo::{DiffType, HunkDiff},
+    tui::ui::UIMode,
 };
 
 const SELECTED_STYLE: Style = Style::new()
@@ -67,7 +68,15 @@ impl SelectedTab {
         selected_state: &mut ListState,
         is_loading: bool,
         throbber_state: &mut ThrobberState,
+        mode: &UIMode,
+        content_scroll: u16,
     ) {
+        let scroll = if matches!(mode, UIMode::Content) {
+            content_scroll
+        } else {
+            0
+        };
+
         self.render_layout(
             area,
             buf,
@@ -76,6 +85,8 @@ impl SelectedTab {
             selected_state,
             is_loading,
             throbber_state,
+            scroll,
+            mode,
         );
     }
 
@@ -115,6 +126,8 @@ impl SelectedTab {
         selected_state: &mut ListState,
         is_loading: bool,
         throbber_state: &mut ThrobberState,
+        scroll: u16,
+        mode: &UIMode,
     ) {
         let horizontal = Layout::horizontal([
             Constraint::Percentage(25),
@@ -209,14 +222,28 @@ impl SelectedTab {
                         paragraph_area,
                         buf,
                         desc,
+                        scroll,
+                        mode,
                     );
                 }
             }
             TabContent::Diff(hunk_diffs) => {
-                self.render_diff(paragraph_area, buf, hunk_diffs);
+                self.render_diff(
+                    paragraph_area,
+                    buf,
+                    hunk_diffs,
+                    scroll,
+                    mode,
+                );
             }
             TabContent::Response(commit) => {
-                self.render_response(paragraph_area, buf, commit);
+                self.render_response(
+                    paragraph_area,
+                    buf,
+                    commit,
+                    scroll,
+                    mode,
+                );
             }
         }
     }
@@ -226,16 +253,25 @@ impl SelectedTab {
         area: Rect,
         buf: &mut Buffer,
         desc: &str,
+        scroll: u16,
+        mode: &UIMode,
     ) {
+        let border_style = if matches!(mode, UIMode::Content) {
+            self.palette().c400
+        } else {
+            self.palette().c700
+        };
+
         let paragraph = Paragraph::new(desc.to_owned())
             .block(
                 Block::bordered()
                     .title("Content")
                     .borders(Borders::ALL)
                     .padding(Padding::horizontal(1))
-                    .border_style(self.palette().c700),
+                    .border_style(border_style),
             )
-            .wrap(Wrap { trim: false });
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0));
 
         paragraph.render(area, buf);
     }
@@ -245,7 +281,15 @@ impl SelectedTab {
         area: Rect,
         buf: &mut Buffer,
         hunk_diffs: &[HunkDiff],
+        scroll: u16,
+        mode: &UIMode,
     ) {
+        let border_style = if matches!(mode, UIMode::Content) {
+            self.palette().c400
+        } else {
+            self.palette().c700
+        };
+
         let mut lines: Vec<Line> = Vec::new();
 
         for hunk in hunk_diffs {
@@ -278,9 +322,10 @@ impl SelectedTab {
                     .title("Content")
                     .borders(Borders::ALL)
                     .padding(Padding::horizontal(1))
-                    .border_style(self.palette().c700),
+                    .border_style(border_style),
             )
-            .wrap(Wrap { trim: false });
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0));
 
         paragraph.render(area, buf);
     }
@@ -290,7 +335,15 @@ impl SelectedTab {
         area: Rect,
         buf: &mut Buffer,
         commit: &ResponseCommit,
+        scroll: u16,
+        mode: &UIMode,
     ) {
+        let border_style = if matches!(mode, UIMode::Content) {
+            self.palette().c400
+        } else {
+            self.palette().c700
+        };
+
         let mut lines: Vec<Line> = Vec::new();
 
         let prefix_color = match commit.message.prefix {
@@ -380,9 +433,10 @@ impl SelectedTab {
                     .title("Commit Info")
                     .borders(Borders::ALL)
                     .padding(Padding::horizontal(1))
-                    .border_style(self.palette().c700),
+                    .border_style(border_style),
             )
-            .wrap(Wrap { trim: false });
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0));
 
         paragraph.render(area, buf);
     }

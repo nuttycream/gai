@@ -21,6 +21,7 @@ pub fn get_tui_action(key: KeyEvent) -> Option<Action> {
         KeyCode::Char('2') => Some(Action::OpenAITab),
         KeyCode::Char('3') => Some(Action::ClaudeTab),
         KeyCode::Char('4') => Some(Action::GeminiTab),
+        KeyCode::Enter => Some(Action::Enter),
         _ => None,
     }
 }

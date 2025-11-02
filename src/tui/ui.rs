@@ -16,11 +16,10 @@ pub struct UI {
     pub selected_state: ListState,
 
     pub throbber_state: ThrobberState,
+    pub mode: UIMode,
+    pub content_scroll: u16,
 }
 
-// todo, implement this
-// use vertical keys to select
-// tab -> content
 #[derive(Default)]
 pub enum UIMode {
     #[default]
@@ -42,6 +41,8 @@ impl UI {
             selected_tab: SelectedTab::Diffs,
             selected_state,
             throbber_state: ThrobberState::default(),
+            mode: UIMode::TabNavigation,
+            content_scroll: 0,
         }
     }
 
@@ -69,30 +70,74 @@ impl UI {
             &mut self.selected_state,
             is_loading,
             &mut self.throbber_state,
+            &self.mode,
+            self.content_scroll,
         );
 
         self.render_footer(footer_area, frame.buffer_mut());
     }
 
     pub fn scroll_up(&mut self) {
-        self.selected_state.select_previous();
+        match self.mode {
+            UIMode::TabNavigation => {
+                self.selected_state.select_previous()
+            }
+            UIMode::Content => {
+                self.content_scroll =
+                    self.content_scroll.saturating_sub(1)
+            }
+            _ => {}
+        }
     }
 
     pub fn scroll_down(&mut self) {
-        self.selected_state.select_next();
+        match self.mode {
+            UIMode::TabNavigation => {
+                self.selected_state.select_next()
+            }
+            UIMode::Content => {
+                self.content_scroll =
+                    self.content_scroll.saturating_add(1)
+            }
+            _ => {}
+        }
     }
 
     pub fn focus_left(&mut self) {
         self.selected_tab = self.selected_tab.previous();
+        self.mode = UIMode::TabNavigation;
+        self.content_scroll = 0;
     }
 
     pub fn focus_right(&mut self) {
         self.selected_tab = self.selected_tab.next();
+        self.mode = UIMode::TabNavigation;
+        self.content_scroll = 0;
     }
 
     pub fn goto_tab(&mut self, tab: usize) {
         self.selected_tab =
             self.selected_tab.find_tab(tab.saturating_sub(1));
+        self.mode = UIMode::TabNavigation;
+        self.content_scroll = 0;
+    }
+
+    pub fn enter_ui(&mut self) {
+        match self.selected_tab {
+            SelectedTab::Diffs | SelectedTab::Commits => {
+                if self.selected_state.selected().is_none() {
+                    return;
+                }
+
+                self.mode = if matches!(self.mode, UIMode::Content) {
+                    self.content_scroll = 0;
+                    UIMode::TabNavigation
+                } else {
+                    UIMode::Content
+                };
+            }
+            _ => {}
+        }
     }
 
     fn render_tabs(

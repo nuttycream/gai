@@ -87,6 +87,7 @@ async fn handle_action(
         Action::ScrollDown => ui.scroll_down(),
         Action::FocusLeft => ui.focus_left(),
         Action::FocusRight => ui.focus_right(),
+        Action::Enter => ui.enter_ui(),
         Action::DiffTab => ui.goto_tab(1),
         Action::OpenAITab => ui.goto_tab(2),
         Action::ClaudeTab => ui.goto_tab(3),
@@ -104,6 +105,7 @@ async fn handle_action(
         Action::TruncateCurrentSelected => {
             app.truncate_selected();
         }
+
         _ => {}
     }
 }
