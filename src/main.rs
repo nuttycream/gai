@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
     match args.command {
         Commands::Tui { .. } => run_tui(req, cfg, gai, None).await?,
         Commands::Commit { skip_confirmation } => {
-            run_commit(stdout, &bar, req, cfg, gai, skip_confirmation)
+            run_commit(stdout, bar, req, cfg, gai, skip_confirmation)
                 .await?
         }
         Commands::Find { .. } => println!("Not yet implemented"),
@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
 
 async fn run_commit(
     mut stdout: Stdout,
-    bar: &ProgressBar,
+    bar: ProgressBar,
     req: Request,
     cfg: Config,
     gai: GaiGit,
