@@ -72,6 +72,7 @@ async fn main() -> Result<()> {
             run_commit(stdout, bar, req, cfg, gai, skip_confirmation)
                 .await?
         }
+        Commands::Auth { auth } => println!("{:?}", auth),
         Commands::Find { .. } => println!("Not yet implemented"),
         Commands::Rebase {} => println!("Not yet implemented"),
         Commands::Bisect {} => println!("Not yet implemented"),
