@@ -50,6 +50,10 @@ pub async fn run_tui(
     event_handler.stop().await?;
     ratatui::restore();
 
+    if app.applied_commits {
+        println!("Applied Commits");
+    }
+
     Ok(())
 }
 
@@ -97,6 +101,7 @@ async fn handle_action(
         }
         Action::ApplyCommits => {
             app.apply_commits();
+            app.applied_commits = true;
             app.running = false;
         }
         Action::RemoveCurrentSelected => {

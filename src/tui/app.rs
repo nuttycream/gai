@@ -24,6 +24,7 @@ pub struct App {
     pub request: Request,
     pub response: Option<Response>,
     pub is_loading: bool,
+    pub applied_commits: bool,
 }
 
 pub enum State {
@@ -72,6 +73,7 @@ impl App {
             request,
             response,
             is_loading: false,
+            applied_commits: false,
         }
     }
 
