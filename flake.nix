@@ -35,7 +35,7 @@
               pkg-config
             ];
 
-            cargoHash = "sha256-+Db1P74Fupho2bgSn2qWyL2zd1+c2XQZVOJC+bZOmLY=";
+            cargoHash = "sha256-+RaiIsxsp+xfSko1KNkFdW5KGP7iSkbza0E/HgdQlyI=";
           };
 
           devShells.default = mkShell {
