@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod auth;
 pub mod cli;
 pub mod config;
 pub mod consts;
@@ -11,7 +12,7 @@ use crossterm::{
     execute,
     style::{Color, Print, ResetColor, SetForegroundColor, Stylize},
 };
-use dialoguer::{Confirm, Select, theme::ColorfulTheme};
+use dialoguer::{Confirm, Password, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
@@ -24,7 +25,8 @@ use crate::{
         request::Request,
         response::{ResponseCommit, get_response},
     },
-    cli::{Cli, Commands},
+    auth::{get_token, store_token},
+    cli::{Auth, Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     tui::run_tui,
@@ -38,6 +40,13 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     args.parse_args(&mut cfg);
+
+    // this is terrible
+    // todo fix this
+    if let Commands::Auth { ref auth } = args.command {
+        run_auth(auth)?;
+        return Ok(());
+    }
 
     let mut gai = GaiGit::new(
         cfg.gai.stage_hunks,
@@ -72,12 +81,45 @@ async fn main() -> Result<()> {
             run_commit(stdout, bar, req, cfg, gai, skip_confirmation)
                 .await?
         }
-        Commands::Auth { auth } => println!("{:?}", auth),
         Commands::Find { .. } => println!("Not yet implemented"),
         Commands::Rebase {} => println!("Not yet implemented"),
         Commands::Bisect {} => println!("Not yet implemented"),
+        _ => {}
     }
 
+    Ok(())
+}
+
+fn run_auth(auth: &Auth) -> Result<()> {
+    match auth {
+        Auth::Login => auth_login()?,
+        Auth::Status => auth_status()?,
+        Auth::Logout => clear_auth()?,
+    }
+    Ok(())
+}
+
+fn auth_login() -> Result<()> {
+    println!("Opening Browser for https://cli.gai.fyi/login");
+    open::that("https://cli.gai.fyi/login")?;
+    let token = Password::with_theme(&ColorfulTheme::default())
+        .with_prompt("Paste Token: ")
+        .interact()?;
+
+    println!("Storing token of length: {}", token.len());
+
+    store_token(&token)?;
+    Ok(())
+}
+
+fn auth_status() -> Result<()> {
+    let token = get_token()?;
+    // send a verify request to the main thingy
+
+    Ok(())
+}
+
+fn clear_auth() -> Result<()> {
     Ok(())
 }
 
