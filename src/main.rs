@@ -129,6 +129,7 @@ async fn auth_status() -> Result<()> {
     #[derive(Deserialize, Serialize, Debug)]
     struct Status {
         requests_made: i32,
+        expiration: u64,
     }
 
     println!("Parsing status");
