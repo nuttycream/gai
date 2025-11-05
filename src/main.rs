@@ -15,6 +15,7 @@ use crossterm::{
 use dialoguer::{Confirm, Password, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use indicatif::{ProgressBar, ProgressStyle};
+use serde::{Deserialize, Serialize};
 use std::{
     io::{Stdout, stdout},
     time::Duration,
@@ -44,7 +45,7 @@ async fn main() -> Result<()> {
     // this is terrible
     // todo fix this
     if let Commands::Auth { ref auth } = args.command {
-        run_auth(auth)?;
+        run_auth(auth).await?;
         return Ok(());
     }
 
@@ -90,10 +91,10 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_auth(auth: &Auth) -> Result<()> {
+async fn run_auth(auth: &Auth) -> Result<()> {
     match auth {
         Auth::Login => auth_login()?,
-        Auth::Status => auth_status()?,
+        Auth::Status => auth_status().await?,
         Auth::Logout => clear_auth()?,
     }
     Ok(())
@@ -112,14 +113,34 @@ fn auth_login() -> Result<()> {
     Ok(())
 }
 
-fn auth_status() -> Result<()> {
+async fn auth_status() -> Result<()> {
     let token = get_token()?;
-    // send a verify request to the main thingy
+
+    // todo send a verify request to the main thingy
+
+    println!("Grabbing status");
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("https://cli.gai.fyi/status")
+        .bearer_auth(token)
+        .send()
+        .await?;
+
+    #[derive(Deserialize, Serialize, Debug)]
+    struct Status {
+        requests_made: i32,
+    }
+
+    println!("Parsing status");
+    let status = resp.json::<Status>().await?;
+    println!("Status: {:#?}", status);
 
     Ok(())
 }
 
 fn clear_auth() -> Result<()> {
+    auth::delete_token()?;
+    println!("No longer aunthenticated");
     Ok(())
 }
 
