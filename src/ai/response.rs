@@ -16,13 +16,11 @@ pub struct Response {
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, JsonSchema,
 )]
-#[schemars(deny_unknown_fields)]
 pub struct ResponseSchema {
     pub commits: Vec<ResponseCommit>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[schemars(deny_unknown_fields)]
 pub struct ResponseCommit {
     // paths to apply commit to
     // ex. git add main.rs doubloon.rs
@@ -37,7 +35,6 @@ pub struct ResponseCommit {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[schemars(deny_unknown_fields)]
 pub struct CommitMessage {
     // feat
     pub prefix: PrefixType,

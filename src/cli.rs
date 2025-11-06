@@ -109,6 +109,11 @@ pub enum Commands {
         skip_confirmation: bool,
     },
 
+    Auth {
+        #[command(subcommand)]
+        auth: Auth,
+    },
+
     /// Rebase commits
     Rebase {},
 
@@ -125,6 +130,13 @@ pub enum Commands {
 
     /// Initiate interactive bisect
     Bisect {},
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Auth {
+    Login,
+    Status,
+    Logout,
 }
 
 impl Cli {

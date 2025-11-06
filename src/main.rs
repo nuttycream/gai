@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod auth;
 pub mod cli;
 pub mod config;
 pub mod consts;
@@ -6,14 +7,16 @@ pub mod git;
 pub mod tui;
 
 use anyhow::Result;
+use chrono::DateTime;
 use clap::Parser;
 use crossterm::{
     execute,
     style::{Color, Print, ResetColor, SetForegroundColor, Stylize},
 };
-use dialoguer::{Confirm, Select, theme::ColorfulTheme};
+use dialoguer::{Confirm, Password, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use indicatif::{ProgressBar, ProgressStyle};
+use serde::{Deserialize, Serialize};
 use std::{
     io::{Stdout, stdout},
     time::Duration,
@@ -24,7 +27,8 @@ use crate::{
         request::Request,
         response::{ResponseCommit, get_response},
     },
-    cli::{Cli, Commands},
+    auth::{get_token, store_token},
+    cli::{Auth, Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     tui::run_tui,
@@ -38,6 +42,13 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     args.parse_args(&mut cfg);
+
+    // this is terrible
+    // todo fix this
+    if let Commands::Auth { ref auth } = args.command {
+        run_auth(auth).await?;
+        return Ok(());
+    }
 
     let mut gai = GaiGit::new(
         cfg.gai.stage_hunks,
@@ -75,8 +86,69 @@ async fn main() -> Result<()> {
         Commands::Find { .. } => println!("Not yet implemented"),
         Commands::Rebase {} => println!("Not yet implemented"),
         Commands::Bisect {} => println!("Not yet implemented"),
+        _ => {}
     }
 
+    Ok(())
+}
+
+async fn run_auth(auth: &Auth) -> Result<()> {
+    match auth {
+        Auth::Login => auth_login()?,
+        Auth::Status => auth_status().await?,
+        Auth::Logout => clear_auth()?,
+    }
+    Ok(())
+}
+
+fn auth_login() -> Result<()> {
+    println!("Opening Browser for https://cli.gai.fyi/login");
+    open::that("https://cli.gai.fyi/login")?;
+    let token = Password::with_theme(&ColorfulTheme::default())
+        .with_prompt("Paste Token: ")
+        .interact()?;
+
+    println!("Storing token of length: {}", token.len());
+
+    store_token(&token)?;
+    Ok(())
+}
+
+async fn auth_status() -> Result<()> {
+    let token = get_token()?;
+
+    println!("Grabbing status");
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("https://cli.gai.fyi/status")
+        .bearer_auth(token)
+        .send()
+        .await?;
+
+    #[derive(Deserialize, Serialize, Debug)]
+    struct Status {
+        requests_made: i32,
+        expiration: u64,
+    }
+
+    let status = resp.json::<Status>().await?;
+
+    if let Some(date) =
+        DateTime::from_timestamp(status.expiration.try_into()?, 0)
+    {
+        println!("Requests made: {}/10", status.requests_made);
+        println!("Resets at {}", date);
+    } else {
+        println!("Failed to convert expiration to datetime");
+    }
+
+    Ok(())
+}
+
+fn clear_auth() -> Result<()> {
+    auth::delete_token()?;
+    println!("No longer aunthenticated");
     Ok(())
 }
 
