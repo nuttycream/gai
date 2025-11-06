@@ -109,6 +109,7 @@ pub enum Commands {
         skip_confirmation: bool,
     },
 
+    /// Authenticate with GitHub OAuth to use the Gai provider
     Auth {
         #[command(subcommand)]
         auth: Auth,
@@ -134,8 +135,15 @@ pub enum Commands {
 
 #[derive(Debug, Subcommand)]
 pub enum Auth {
+    /// Login using GitHub OAuth
     Login,
+
+    /// Get the status of the logged-in user
+    /// including requests made and when the count
+    /// resets
     Status,
+
+    /// Logout/clear the stored user token
     Logout,
 }
 
