@@ -162,6 +162,9 @@ pub struct RuleConfig {
     /// max length of commit headers
     pub max_header_length: u16,
 
+    /// allows the creation of commit bodies
+    pub allow_body: bool,
+
     // todo add hard validation
     /// max length of commit body
     pub max_body_length: u16,
@@ -200,6 +203,7 @@ impl Default for RuleConfig {
             exclude_extension_in_scope: true,
             allow_empty_scope: true,
             max_header_length: 52,
+            allow_body: true,
             max_body_length: 72,
         }
     }

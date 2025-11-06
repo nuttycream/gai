@@ -116,11 +116,15 @@ fn build_rules(cfg: &RuleConfig) -> String {
         cfg.max_header_length
     ));
 
-    rules.push_str(RULE_BODY_BASE);
-    rules.push_str(&format!(
-        "    - Wrap lines at {} characters\n",
-        cfg.max_body_length
-    ));
+    if cfg.allow_body {
+        rules.push_str(RULE_BODY_BASE);
+        rules.push_str(&format!(
+            "    - Wrap lines at {} characters\n",
+            cfg.max_body_length
+        ));
+    } else {
+        rules.push_str("DO NOT CREATE A BODY, LEAVE IT BLANK");
+    }
 
     if cfg.verbose_descriptions {
         rules.push_str(RULE_MESSAGE_VERBOSE);
