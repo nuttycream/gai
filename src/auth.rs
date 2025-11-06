@@ -37,5 +37,5 @@ fn token_path() -> Result<PathBuf> {
                 anyhow::anyhow!("Can't find the config directory")
             })?;
 
-    Ok(cfg_dir.config_dir().join("token"))
+    Ok(cfg_dir.config_dir().join(".token"))
 }
