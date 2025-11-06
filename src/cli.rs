@@ -76,6 +76,10 @@ pub struct Cli {
     #[arg(short = 'M', long, value_name = "u16")]
     pub max_body_length: Option<u16>,
 
+    /// allows the creation of commit message bodies
+    #[arg(short = 'B', long)]
+    pub allow_body: bool,
+
     /// Force use ChatGPT
     #[arg(long)]
     pub chatgpt: bool,
@@ -224,6 +228,10 @@ impl Cli {
 
         if let Some(length) = self.max_body_length {
             config.ai.rules.max_body_length = length;
+        }
+
+        if self.allow_body {
+            config.ai.rules.allow_body = true;
         }
     }
 }
