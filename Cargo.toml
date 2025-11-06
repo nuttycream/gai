@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
+chrono = { version = "0.4.42", default-features = false }
 clap = { version = "4.5.48", default-features = false, features = ["derive", "std", "help", "color"] }
 crossterm = { version = "0.29.0", default-features = false, features = ["events", "event-stream"] }
 dialoguer = { version = "0.12.0", default-features = false, features = ["password"] }

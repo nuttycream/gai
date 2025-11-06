@@ -7,6 +7,7 @@ pub mod git;
 pub mod tui;
 
 use anyhow::Result;
+use chrono::DateTime;
 use clap::Parser;
 use crossterm::{
     execute,
@@ -116,9 +117,8 @@ fn auth_login() -> Result<()> {
 async fn auth_status() -> Result<()> {
     let token = get_token()?;
 
-    // todo send a verify request to the main thingy
-
     println!("Grabbing status");
+
     let client = reqwest::Client::new();
     let resp = client
         .get("https://cli.gai.fyi/status")
@@ -132,9 +132,16 @@ async fn auth_status() -> Result<()> {
         expiration: u64,
     }
 
-    println!("Parsing status");
     let status = resp.json::<Status>().await?;
-    println!("Status: {:#?}", status);
+
+    if let Some(date) =
+        DateTime::from_timestamp(status.expiration.try_into()?, 0)
+    {
+        println!("Requests made: {}/10", status.requests_made);
+        println!("Resets at {}", date);
+    } else {
+        println!("Failed to convert expiration to datetime");
+    }
 
     Ok(())
 }
