@@ -28,10 +28,9 @@ pub enum SelectedTab {
     #[default]
     Diffs,
     Commits,
-
-    Bisect,
+    /* Bisect,
     Find,
-    Rebase,
+    Rebase, */
 }
 
 /// wrapper to determine
@@ -480,9 +479,9 @@ impl SelectedTab {
         match self {
             Self::Diffs => tailwind::GREEN,
             Self::Commits => tailwind::BLUE,
-            Self::Bisect => tailwind::EMERALD,
+            /* Self::Bisect => tailwind::EMERALD,
             Self::Find => tailwind::AMBER,
-            Self::Rebase => tailwind::INDIGO,
+            Self::Rebase => tailwind::INDIGO, */
         }
     }
 }

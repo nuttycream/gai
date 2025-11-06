@@ -76,6 +76,14 @@ pub struct Cli {
     #[arg(short = 'M', long, value_name = "u16")]
     pub max_body_length: Option<u16>,
 
+    /// allows the creation of commit message bodies
+    #[arg(short = 'B', long)]
+    pub allow_body: bool,
+
+    /// Addtional hinting for LLM's
+    #[arg(short = 'A', long)]
+    pub hint: String,
+
     /// Force use ChatGPT
     #[arg(long)]
     pub chatgpt: bool,
@@ -109,11 +117,12 @@ pub enum Commands {
         skip_confirmation: bool,
     },
 
+    /// Authenticate with GitHub OAuth to use the Gai provider
     Auth {
         #[command(subcommand)]
         auth: Auth,
     },
-
+    /*
     /// Rebase commits
     Rebase {},
 
@@ -129,13 +138,20 @@ pub enum Commands {
     },
 
     /// Initiate interactive bisect
-    Bisect {},
+    Bisect {}, */
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Auth {
+    /// Login using GitHub OAuth
     Login,
+
+    /// Get the status of the logged-in user
+    /// including requests made and when the count
+    /// resets
     Status,
+
+    /// Logout/clear the stored user token
     Logout,
 }
 
@@ -216,6 +232,14 @@ impl Cli {
 
         if let Some(length) = self.max_body_length {
             config.ai.rules.max_body_length = length;
+        }
+
+        if self.allow_body {
+            config.ai.rules.allow_body = true;
+        }
+
+        if !self.hint.is_empty() {
+            config.ai.hint = Some(self.hint.to_owned());
         }
     }
 }

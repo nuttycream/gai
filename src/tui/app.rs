@@ -256,13 +256,6 @@ impl App {
                     }
                 }
             }
-
-            _ => TabList {
-                main: Vec::new(),
-                secondary: None,
-                main_title: String::new(),
-                secondary_title: None,
-            },
         }
     }
 
@@ -330,8 +323,8 @@ impl App {
 
                     if self.is_loading {
                         return TabContent::Description(format!(
-                            "Awaiting response from {}",
-                            model
+                            "Awaiting response from {} using {}",
+                            self.cfg.ai.provider, model
                         ));
                     }
 
@@ -341,10 +334,6 @@ impl App {
                     ))
                 }
             }
-
-            _ => TabContent::Description(
-                "Not Yet Implemented".to_owned(),
-            ),
         }
     }
 }

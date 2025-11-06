@@ -43,13 +43,6 @@ async fn main() -> Result<()> {
 
     args.parse_args(&mut cfg);
 
-    // this is terrible
-    // todo fix this
-    if let Commands::Auth { ref auth } = args.command {
-        run_auth(auth).await?;
-        return Ok(());
-    }
-
     let mut gai = GaiGit::new(
         cfg.gai.stage_hunks,
         cfg.gai.commit_config.capitalize_prefix,
@@ -69,33 +62,47 @@ async fn main() -> Result<()> {
             .tick_strings(&["⣼", "⣹", "⢻", "⠿", "⡟", "⣏", "⣧", "⣶"]),
     );
 
-    bar.set_message("Building Request...");
-
-    let mut req = Request::default();
-    req.build_prompt(&cfg, &gai);
-    req.build_diffs_string(gai.get_file_diffs_as_str());
-
-    bar.finish();
-
     match args.command {
-        Commands::Tui { .. } => run_tui(req, cfg, gai, None).await?,
+        Commands::Auth { ref auth } => {
+            run_auth(auth, bar).await?;
+        }
+        Commands::Tui { auto_request } => {
+            // lmao.
+            bar.set_message("Building Request...");
+
+            let mut req = Request::default();
+            req.build_prompt(&cfg, &gai);
+            req.build_diffs_string(gai.get_file_diffs_as_str());
+
+            bar.finish();
+
+            if auto_request {
+                cfg.tui.auto_request = true;
+            }
+
+            run_tui(req, cfg, gai, None).await?
+        }
         Commands::Commit { skip_confirmation } => {
+            bar.set_message("Building Request...");
+
+            let mut req = Request::default();
+            req.build_prompt(&cfg, &gai);
+            req.build_diffs_string(gai.get_file_diffs_as_str());
+
+            bar.finish();
+
             run_commit(stdout, bar, req, cfg, gai, skip_confirmation)
                 .await?
         }
-        Commands::Find { .. } => println!("Not yet implemented"),
-        Commands::Rebase {} => println!("Not yet implemented"),
-        Commands::Bisect {} => println!("Not yet implemented"),
-        _ => {}
     }
 
     Ok(())
 }
 
-async fn run_auth(auth: &Auth) -> Result<()> {
+async fn run_auth(auth: &Auth, bar: ProgressBar) -> Result<()> {
     match auth {
         Auth::Login => auth_login()?,
-        Auth::Status => auth_status().await?,
+        Auth::Status => auth_status(bar).await?,
         Auth::Logout => clear_auth()?,
     }
     Ok(())
@@ -114,10 +121,9 @@ fn auth_login() -> Result<()> {
     Ok(())
 }
 
-async fn auth_status() -> Result<()> {
+async fn auth_status(bar: ProgressBar) -> Result<()> {
+    bar.set_message("Grabbing Status");
     let token = get_token()?;
-
-    println!("Grabbing status");
 
     let client = reqwest::Client::new();
     let resp = client
@@ -133,6 +139,8 @@ async fn auth_status() -> Result<()> {
     }
 
     let status = resp.json::<Status>().await?;
+
+    bar.finish();
 
     if let Some(date) =
         DateTime::from_timestamp(status.expiration.try_into()?, 0)
@@ -170,8 +178,8 @@ async fn run_commit(
 
         bar.reset();
         bar.set_message(format!(
-            "Awaiting response from {}",
-            provider_cfg.model
+            "Awaiting response from {} using {}",
+            cfg.ai.provider, provider_cfg.model
         ));
 
         let response =

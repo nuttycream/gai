@@ -136,7 +136,6 @@ impl UI {
                     UIMode::Content
                 };
             }
-            _ => {}
         }
     }
 
