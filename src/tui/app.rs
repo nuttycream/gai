@@ -256,13 +256,6 @@ impl App {
                     }
                 }
             }
-
-            _ => TabList {
-                main: Vec::new(),
-                secondary: None,
-                main_title: String::new(),
-                secondary_title: None,
-            },
         }
     }
 
@@ -341,10 +334,6 @@ impl App {
                     ))
                 }
             }
-
-            _ => TabContent::Description(
-                "Not Yet Implemented".to_owned(),
-            ),
         }
     }
 }

@@ -114,7 +114,7 @@ pub enum Commands {
         #[command(subcommand)]
         auth: Auth,
     },
-
+    /*
     /// Rebase commits
     Rebase {},
 
@@ -130,7 +130,7 @@ pub enum Commands {
     },
 
     /// Initiate interactive bisect
-    Bisect {},
+    Bisect {}, */
 }
 
 #[derive(Debug, Subcommand)]
