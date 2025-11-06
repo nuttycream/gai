@@ -323,8 +323,8 @@ impl App {
 
                     if self.is_loading {
                         return TabContent::Description(format!(
-                            "Awaiting response from {}",
-                            model
+                            "Awaiting response from {} using {}",
+                            self.cfg.ai.provider, model
                         ));
                     }
 

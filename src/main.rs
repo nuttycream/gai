@@ -178,8 +178,8 @@ async fn run_commit(
 
         bar.reset();
         bar.set_message(format!(
-            "Awaiting response from {}",
-            provider_cfg.model
+            "Awaiting response from {} using {}",
+            cfg.ai.provider, provider_cfg.model
         ));
 
         let response =
