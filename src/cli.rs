@@ -82,7 +82,7 @@ pub struct Cli {
 
     /// Addtional hinting for LLM's
     #[arg(short = 'A', long)]
-    pub hint: String,
+    pub hint: Option<String>,
 
     /// Force use ChatGPT
     #[arg(long)]
@@ -238,8 +238,8 @@ impl Cli {
             config.ai.rules.allow_body = true;
         }
 
-        if !self.hint.is_empty() {
-            config.ai.hint = Some(self.hint.to_owned());
+        if let Some(ref hint) = self.hint {
+            config.ai.hint = Some(hint.to_owned());
         }
     }
 }
