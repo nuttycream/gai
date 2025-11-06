@@ -12,7 +12,7 @@ Configure AI provider settings, prompts, and behavior rules.
 
 **`provider`** - Select your AI provider
 
-- Options: `"Gemini"`, `"OpenAI"`, `"Claude"`
+- Options: `"Gemini"`, `"OpenAI"`, `"Claude"`, `"Gai"`
 - Default: `"Gemini"`
 - Override with CLI: `--gemini`, `--chatgpt`, `--claude`
 
