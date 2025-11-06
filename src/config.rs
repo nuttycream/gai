@@ -131,6 +131,9 @@ pub struct AiConfig {
 
     /// ai response constraint/rules
     pub rules: RuleConfig,
+
+    /// optional hinting for LLM's to lean on
+    pub hint: Option<String>,
 }
 
 /// this is rules/constraints to send the ai
@@ -189,6 +192,7 @@ impl Default for AiConfig {
             files_to_truncate: vec![],
             rules: RuleConfig::default(),
             providers: Provider::create_defaults(),
+            hint: None,
         }
     }
 }

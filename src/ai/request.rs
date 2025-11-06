@@ -44,6 +44,17 @@ impl Request {
 
         prompt.push('\n');
 
+        if let Some(hint) = &cfg.ai.hint {
+            prompt.push_str(
+                format!(
+                    "USE THIS IS A HINT FOR YOUR COMMITS: {}",
+                    hint
+                )
+                .as_str(),
+            );
+            prompt.push('\n');
+        }
+
         prompt.push_str(&rules);
         prompt.push('\n');
 

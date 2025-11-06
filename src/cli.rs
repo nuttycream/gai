@@ -80,6 +80,10 @@ pub struct Cli {
     #[arg(short = 'B', long)]
     pub allow_body: bool,
 
+    /// Addtional hinting for LLM's
+    #[arg(short = 'A', long)]
+    pub hint: String,
+
     /// Force use ChatGPT
     #[arg(long)]
     pub chatgpt: bool,
@@ -232,6 +236,10 @@ impl Cli {
 
         if self.allow_body {
             config.ai.rules.allow_body = true;
+        }
+
+        if !self.hint.is_empty() {
+            config.ai.hint = Some(self.hint.to_owned());
         }
     }
 }
