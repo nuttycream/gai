@@ -43,17 +43,66 @@ async fn main() -> Result<()> {
 
     args.parse_args(&mut cfg);
 
-    let mut gai = GaiGit::new(
-        cfg.gai.stage_hunks,
-        cfg.gai.commit_config.capitalize_prefix,
-        cfg.gai.commit_config.include_scope,
-    )?;
+    match args.command {
+        Commands::Auth { ref auth } => {
+            let bar = create_spinner_bar();
+            run_auth(auth, bar).await?;
+        }
+        Commands::Tui { .. } | Commands::Commit { .. } => {
+            let mut gai = GaiGit::new(
+                cfg.gai.stage_hunks,
+                cfg.gai.commit_config.capitalize_prefix,
+                cfg.gai.commit_config.include_scope,
+            )?;
 
-    gai.create_diffs(&cfg.ai.files_to_truncate)?;
+            gai.create_diffs(&cfg.ai.files_to_truncate)?;
 
-    let mut stdout = stdout();
-    pretty_print_status(&mut stdout, &gai);
+            let mut stdout = stdout();
+            pretty_print_status(&mut stdout, &gai);
 
+            let bar = create_spinner_bar();
+            let req = build_request(&cfg, &gai, &bar);
+
+            match args.command {
+                Commands::Tui { auto_request } => {
+                    if auto_request {
+                        cfg.tui.auto_request = true;
+                    }
+                    run_tui(req, cfg, gai, None).await?
+                }
+                Commands::Commit { skip_confirmation } => {
+                    run_commit(
+                        stdout,
+                        bar,
+                        req,
+                        cfg,
+                        gai,
+                        skip_confirmation,
+                    )
+                    .await?
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn build_request(
+    cfg: &Config,
+    gai: &GaiGit,
+    bar: &ProgressBar,
+) -> Request {
+    bar.set_message("Building Request...");
+    let mut req = Request::default();
+    req.build_prompt(cfg, gai);
+    req.build_diffs_string(gai.get_file_diffs_as_str());
+    bar.finish();
+    req
+}
+
+fn create_spinner_bar() -> ProgressBar {
     let bar = ProgressBar::new_spinner();
     bar.enable_steady_tick(Duration::from_millis(80));
     bar.set_style(
@@ -61,42 +110,7 @@ async fn main() -> Result<()> {
             .unwrap()
             .tick_strings(&["⣼", "⣹", "⢻", "⠿", "⡟", "⣏", "⣧", "⣶"]),
     );
-
-    match args.command {
-        Commands::Auth { ref auth } => {
-            run_auth(auth, bar).await?;
-        }
-        Commands::Tui { auto_request } => {
-            // lmao.
-            bar.set_message("Building Request...");
-
-            let mut req = Request::default();
-            req.build_prompt(&cfg, &gai);
-            req.build_diffs_string(gai.get_file_diffs_as_str());
-
-            bar.finish();
-
-            if auto_request {
-                cfg.tui.auto_request = true;
-            }
-
-            run_tui(req, cfg, gai, None).await?
-        }
-        Commands::Commit { skip_confirmation } => {
-            bar.set_message("Building Request...");
-
-            let mut req = Request::default();
-            req.build_prompt(&cfg, &gai);
-            req.build_diffs_string(gai.get_file_diffs_as_str());
-
-            bar.finish();
-
-            run_commit(stdout, bar, req, cfg, gai, skip_confirmation)
-                .await?
-        }
-    }
-
-    Ok(())
+    bar
 }
 
 async fn run_auth(auth: &Auth, bar: ProgressBar) -> Result<()> {
