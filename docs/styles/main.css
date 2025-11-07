@@ -81,6 +81,17 @@ a:hover {
   border-bottom: none;
 }
 
+.is-da-best {
+  text-align: center;
+  padding-bottom: 2rem;
+  transition: all 0.2s ease;
+}
+
+.is-da-best:hover {
+  color: var(--text-secondary);
+  font-size: 1.01rem;
+}
+
 .call-to-action {
   margin: auto;
   max-width: 900px;
