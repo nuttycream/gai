@@ -211,6 +211,7 @@ a:hover {
   background: rgba(74, 78, 105, 0.8);
   backdrop-filter: blur(10px);
   padding: 1.5rem;
+  padding-top: 1rem;
   border-radius: 20px 0 20px 0;
   max-width: 500px;
   color: var(--text-primary);
