@@ -3,10 +3,13 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{{ title }}</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     </head>
     <body>
-        {% include "header" %}
-
+        <a href="https://github.com/cube-cult/gai" class="homepage-header">
+            <i class="fab fa-github"></i>
+            <h3>v0.0.1</h3>
+        </a>
         <section class="hero">
             <img src="{{ site_url }}gai_logo_light.svg" alt="logo">
             <div class="logo-text">
@@ -18,12 +21,14 @@
         </section>
 
         <div class="is-da-best">
-            Automate your Git workflow using the intelligence of LLM's.
+            Automate your Git workflow using the intelligence of Large Language Models
         </div>
 
         <section class="call-to-action">
             <a href="/install">Install</a>
+            <a href="/usage">Usage</a>
             <a href="/config">Configure</a>
+            <a href="/pricing">Pricing</a>
         </section>
 
         <section id="features" class="features">

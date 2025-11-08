@@ -36,11 +36,26 @@ a:hover {
   border-bottom: 1px solid #3498db;
 }
 
+.homepage-header {
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  border-bottom: none;
+  gap: 1rem;
+}
+
+.homepage-header:hover {
+  color: var(--text-secondary);
+  border-bottom: none;
+}
+
 .hero {
   margin: 0 auto;
   max-width: 900px;
-  padding: 5rem;
-  padding-bottom: 2rem;
+  padding: 2rem;
   display: flex;
   flex-direction: row;
   justify-content: center;
@@ -85,12 +100,6 @@ a:hover {
 .is-da-best {
   text-align: center;
   padding-bottom: 2rem;
-  transition: all 0.2s ease;
-}
-
-.is-da-best:hover {
-  color: var(--text-secondary);
-  font-size: 1.01rem;
 }
 
 .call-to-action {
