@@ -1,21 +1,17 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <div class="header">
 	<div class="header-content">
 		<div class="header-left">
-			<a href="/">
+			<a href="/" class="header-logo">
 				<img src="/gai_logo_light.svg" alt="logo">
 			</a>
 		</div>
 
 		<nav class="nav-bar">
-			<a href="/#features">Features</a>
-			<div class="nav-dropdown">
-				Documentation
-				<div class="nav-dropdown-content">
-					<a href="/install">Installation</a>
-					<a href="/usage">Usage</a>
-					<a href="/config">Configuration</a>
-				</div>
-			</div>
+			<a href="https://github.com/cube-cult/gai"><i class="fab fa-github"></i></a>
+			<a href="/install">Install</a>
+			<a href="/usage">Usage</a>
+			<a href="/config">Configure</a>
 			<a href="/pricing">Pricing</a>
 		</nav>
 	</div>
@@ -59,47 +55,32 @@
 		height: 2.5rem;
 	}
 	
-	.header-left a {
+	.header-logo {
 		border-bottom: none !important;
-		transition: opacity 0.2s ease;
+		transition: all 0.2s ease;
 	}
 	
-	.header-left a:hover {
-		border-bottom: none !important;
+	.header-logo:hover {
 		opacity: 0.7;
-	}
-	
-	.header a {
-		color: inherit;
 	}
 	
 	.nav-bar {
 		display: flex;
 		flex-direction: row;
+		align-items: center;
 		text-align: center;
 		font-size: 1.25rem;
 		gap: 1rem;
-	}
-	
-	.nav-dropdown-content {
-		display: none;
-		flex-direction: column;
-		position: absolute;
-		padding: 0.5rem 1rem 0.5rem 0.15rem;
-		background-color: var(--bg-secondary);
-		gap: 0.25rem;
 		
 		a {
-			width: fit-content;
+			border-bottom: none !important;
+			transition: all 0.2s ease;
 		}
 		
-		a:before {
-			content: " ";
+		a:hover {
+			color: var(--text-tertiary);
 		}
-	}
-	
-	.nav-dropdown:hover .nav-dropdown-content {
-		display: flex;
+		
 	}
 	
 	@media (max-width: 768px) {
@@ -133,9 +114,5 @@
 			width: 100%;
 		}
 		
-		.nav-dropdown-content {
-			position: relative;
-			margin-top: 0.25rem;
-		}
 	}
 </style>

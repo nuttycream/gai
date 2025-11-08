@@ -28,7 +28,7 @@ model = "gpt-4"
 max_tokens = 5000
 
 [ai.providers.Claude]
-model = "claude-3-5-sonnet-20241022"
+model = "claude-3-5-sonnet"
 max_tokens = 5000
 ```
 
@@ -53,6 +53,14 @@ max_tokens = 5000
 - Default: `true`
 - CLI: `-C, --include-convention`
 - Note: Includes full convention spec (uses a lot more tokens)
+
+**`hint`** - Additional hinting for LLMs
+
+- Type: Optional string
+- Default: `None`
+- CLI: `-A, --hint <text>`
+- Example: `"Focus on security-related changes"`
+- Provides additional context or instructions to guide the AI
 
 ### Context Options {#context-config}
 
@@ -128,6 +136,13 @@ respected
 - CLI: `-E, --allow-empty-scope`
 - Permits commits without a scope: `feat: message`
 
+**`allow_body`** - Allow commit message bodies
+
+- Type: Boolean
+- Default: `true`
+- CLI: `-B, --allow-body`
+- Enables generation of detailed commit message bodies
+
 **`max_header_length`** - Maximum commit header length
 
 - Type: Number (u16)
@@ -202,6 +217,7 @@ include_file_tree = false
 include_git_status = true
 include_untracked = true
 files_to_truncate = ["Cargo.lock", "package-lock.json"]
+hint = "Focus on explaining the 'why' behind changes"
 
 [ai.providers.Gemini]
 model = "gemini-2.5-flash-lite"
@@ -222,6 +238,7 @@ separate_by_purpose = true
 verbose_descriptions = true
 exclude_extension_in_scope = true
 allow_empty_scope = true
+allow_body = true
 max_header_length = 52
 max_body_length = 72
 
@@ -256,6 +273,8 @@ All configuration options can be overridden via command-line flags. Use
 - `-v, --verbose-descriptions` - Verbose descriptions
 - `-e, --exclude-extension-in-scope` - Exclude extensions
 - `-E, --allow-empty-scope` - Allow empty scope
+- `-B, --allow-body` - Allow commit bodies
+- `-A, --hint <text>` - Additional hinting for LLMs
 - `-m, --max-header-length <u16>` - Max header length
 - `-M, --max-body-length <u16>` - Max body length
 - `--chatgpt` - Force ChatGPT

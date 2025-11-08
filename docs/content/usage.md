@@ -17,7 +17,7 @@ gai commit
 **gai** will analyze your changes and generate intelligent commit messages based
 on your diffs.
 
-### Basic Commands
+### Basic Usage
 
 ```bash
 # Generate commits
@@ -33,21 +33,31 @@ gai tui
 gai tui --auto-request
 ```
 
-### Common Workflows
-
-```bash
-# Let gai analyze and create commits
-# No need to stage changes at this point
-gai commit
-
-# Review suggested commits and choose to apply, edit, or retry
-```
-
-**Interactive workflow with TUI**:
+### TUI
 
 ```bash
 # Open TUI to review diffs and manage generated commits interactively
 gai tui
+```
+
+### Advanced Usage
+
+```bash
+# Provide additional context to guide the AI with hinting
+# -A or --hint
+gai commit -A "This is a fix with performance improvements"
+
+# Use specific provider with custom hint
+gai commit --claude -A "Explain breaking changes clearly"
+
+# Disable commit bodies for concise messages (only header)
+gai commit -B
+
+# Combine multiple options
+gai commit -v -A "Emphasize performance optimizations" --gemini
+
+# Skip confirmation and apply immediately
+gai commit -y -A "Bug fixes only"
 ```
 
 ### Configuration
@@ -76,6 +86,29 @@ export ANTHROPIC_API_KEY="your_api_key_here"
 
 Add these to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to make them
 permanent.
+
+### Authentication with Gai Provider
+
+To use the **Gai** provider (powered by gemini-flash-2.5 ), authenticate using
+GitHub OAuth:
+
+```bash
+# Login via GitHub OAuth
+gai auth login
+```
+
+This will open your browser to authenticate with GitHub. After authorization,
+you'll receive a token to paste back into the terminal.
+
+```bash
+# Check authentication status and request limits
+gai auth status
+
+# Logout and clear stored token
+gai auth logout
+```
+
+The Gai provider offers 10 free requests that reset periodically.
 
 ### Getting Help
 

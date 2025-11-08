@@ -36,10 +36,26 @@ a:hover {
   border-bottom: 1px solid #3498db;
 }
 
+.homepage-header {
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  border-bottom: none;
+  gap: 1rem;
+}
+
+.homepage-header:hover {
+  color: var(--text-secondary);
+  border-bottom: none;
+}
+
 .hero {
   margin: 0 auto;
   max-width: 900px;
-  padding: 5rem;
+  padding: 2rem;
   display: flex;
   flex-direction: row;
   justify-content: center;
@@ -79,6 +95,11 @@ a:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   border-bottom: none;
+}
+
+.is-da-best {
+  text-align: center;
+  padding-bottom: 2rem;
 }
 
 .call-to-action {
@@ -160,45 +181,72 @@ a:hover {
 }
 
 .features {
-  margin: 4rem auto;
+  margin: auto;
   max-width: 1200px;
   padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
   animation: fadeInUp 0.5s ease-out;
 }
 
-.features h2 {
-  font-size: 2.5rem;
-  text-align: left;
-  margin-left: 3rem;
-  margin-bottom: 2rem;
+.feature-card {
+  padding: 5px;
+  size: 100%;
 }
 
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+.gif {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
 }
 
-.bento-item {
-  background: var(--bg-secondary);
-  border-radius: 15px;
+.gif img {
+  width: 100%;
+  display: block;
+  border-radius: 20px;
+  transition: transform 0.2s ease;
+  transform-origin: left center;
+}
+
+.gif:hover img {
+  transform: scale(1.05);
+}
+
+.cli-overlay {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: rgba(74, 78, 105, 0.8);
+  backdrop-filter: blur(10px);
   padding: 1.5rem;
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+  padding-top: 1rem;
+  border-radius: 20px 0 20px 0;
+  max-width: 500px;
+  color: var(--text-primary);
 
-.bento-item:hover {
-  transform: translateY(-5px);
-}
+  h3 {
+    color: var(--text-tertiary);
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
 
-.bento-item.large {
-  grid-column: span 2;
-}
+  p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+  }
 
-.bento-item h3 {
-  font-size: 1.5rem;
+  ul {
+    margin: 0.5rem 0 0.5rem 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  code {
+    color: var(--text-tertiary);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -229,17 +277,9 @@ a:hover {
     margin: 2rem auto;
   }
 
-  .features h2 {
-    font-size: 2rem;
-    margin-left: 1rem;
-  }
-
-  .bento-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .bento-item.large {
-    grid-column: span 1;
-    grid-row: span 1;
+  .cli-overlay {
+    position: static;
+    max-width: 100%;
+    border-radius: 0 0 20px 20px;
   }
 }
