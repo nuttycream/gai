@@ -171,7 +171,7 @@ a:hover {
 }
 
 .features {
-  margin: 4rem auto;
+  margin: auto;
   max-width: 1200px;
   padding: 2rem;
   animation: fadeInUp 0.5s ease-out;
@@ -198,6 +198,24 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+
+  .gifs {
+    border-radius: 20px;
+  }
+
+  .gif-container {
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  ul {
+    margin-left: 1rem;
+  }
+
+  code {
+    color: var(--text-tertiary);
+  }
 }
 
 .bento-item:hover {
@@ -211,6 +229,7 @@ a:hover {
 }
 
 .bento-item h3 {
+  color: var(--text-tertiary);
   font-size: 1.5rem;
 }
 
