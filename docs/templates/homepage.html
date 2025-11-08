@@ -1,72 +1,63 @@
 <html>
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>{{ title }}</title>
-	</head>
-	<body>
-		{% include "header" %}
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{ title }}</title>
+    </head>
+    <body>
+        {% include "header" %}
 
-		<section class="hero">
-			<img src="{{ site_url }}gai_logo_light.svg" alt="logo">
-			<div class="logo-text">
-				<h1>AI</h1>
-				<h1>Powered</h1>
-				<h1>Version</h1>
-				<h1>Control</h1>
-			</div>
-		</section>
+        <section class="hero">
+            <img src="{{ site_url }}gai_logo_light.svg" alt="logo">
+            <div class="logo-text">
+                <h1>AI</h1>
+                <h1>Powered</h1>
+                <h1>Version</h1>
+                <h1>Control</h1>
+            </div>
+        </section>
 
         <div class="is-da-best">
-           Automate your Git workflow using the intelligence of LLM's.
+            Automate your Git workflow using the intelligence of LLM's.
         </div>
 
-		<section class="call-to-action">
-			<a href="/install">Install</a>
-			<a href="/config">Configure</a>
-		</section>
+        <section class="call-to-action">
+            <a href="/install">Install</a>
+            <a href="/config">Configure</a>
+        </section>
 
-		<section id="features" class="features">
-			<div class="bento-grid">
-				<div class="bento-item large">
-                    <div class="gif-container">
-                        <img class="gifs" src="{{ site_url }}cli.gif" alt="cli-demo">
+        <section id="features" class="features">
+            <div class="feature-card">
+                <div class="gif">
+                    <img src="{{ site_url }}cli.gif" alt="cli-demo">
+                    <div class="cli-overlay">
+                        <h3>as a CLI</h3>
+                        <p>Use as a 
+                            drop-in replacement for common git actions, 
+                            using just the CLI, and similar git commands:
+                        </p>
+                        <ul>
+                            <li><strong>Commit</strong></li>
+                            <li><strong>Rebase</strong> (In-Development)</li>
+                            <li><strong>Find</strong> (In-Development)</li>
+                            <li><strong>Bisect</strong> (In-Development)</li>
+                        </ul>
+                        <p>
+                            Override config with flags and/or use 
+                            <code>--hint</code> 
+                            to steer AI responses.
+                        </p>
+                        <p>
+                            Visit <a href="/usage">Usage</a> to 
+                            learn more commands and examples
+                        </p>
                     </div>
-				</div>
+                </div>
+            </div>
+        </section>
 
-				<div class="bento-item">
-					<h3>as a CLI</h3>
-                    <p>Use as a 
-                        drop-in replacement for common git actions, 
-                        using just the CLI, and similar git commands:
-                    </p>
-                    <ul>
-                        <li><strong>Commit</strong></li>
-                        <li><strong>Rebase</strong> (In-Development)</li>
-                        <li><strong>Find</strong> (In-Development)</li>
-                        <li><strong>Bisect</strong> (In-Development)</li>
-                    </ul>
-                    <p>
-                        Override config with flags 
-                        or use <code>--hint</code> to steer AI responses.
-                    </p>
-                    <p>
-                        Visit <a href="/usage">Usage</a> to learn more commands and examples
-                    </p>
-				</div>
-
-				<div class="bento-item">
-					<h3>Custom providers</h3>
-				</div>
-
-				<div class="bento-item large">
-					<h3>Use as a CLI or TUI</h3>
-				</div>
-
-			</div>
-		</section>
-	</body>
+    </body>
     <footer>
-		{% include "footer" %}
+        {% include "footer" %}
     </footer>
 </html>
