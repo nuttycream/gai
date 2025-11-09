@@ -1,5 +1,5 @@
-use anyhow::{Result, bail};
-use git2::{Repository, Status, StatusOptions};
+use anyhow::Result;
+use git2::Repository;
 use std::collections::HashMap;
 use walkdir::WalkDir;
 
@@ -75,14 +75,6 @@ impl GaiGit {
         include_scope: bool,
     ) -> Result<Self> {
         let repo = Repository::open_from_env()?;
-        let mut options = StatusOptions::new();
-
-        options.include_untracked(true);
-
-        if repo.statuses(Some(&mut options))?.is_empty() {
-            bail!("no diffs");
-        }
-
         let status = Self::build_status(&repo)?;
 
         Ok(GaiGit {
@@ -95,96 +87,15 @@ impl GaiGit {
         })
     }
 
-    fn build_status(repo: &Repository) -> Result<GaiStatus> {
-        let mut status_opts = StatusOptions::new();
-
-        status_opts.include_untracked(true);
-
-        let statuses = repo.statuses(Some(&mut status_opts))?;
-
-        let mut status = GaiStatus {
-            s_new: Vec::new(),
-            s_modified: Vec::new(),
-            s_deleted: Vec::new(),
-            s_renamed: Vec::new(),
-            u_new: Vec::new(),
-            u_modified: Vec::new(),
-            u_deleted: Vec::new(),
-            u_renamed: Vec::new(),
+    pub fn get_branch(&self) -> String {
+        let head = match self.repo.head() {
+            Ok(h) => Some(h),
+            Err(e) => return format!("bad branch {e}"),
         };
 
-        for e in statuses.iter() {
-            if e.status().contains(Status::IGNORED) {
-                continue;
-            }
+        let head = head.as_ref().and_then(|h| h.shorthand());
 
-            let path = e.path().unwrap_or("").to_string();
-
-            if e.status().contains(Status::INDEX_NEW) {
-                status.s_new.push(path.to_owned());
-            }
-
-            if e.status().contains(Status::INDEX_MODIFIED) {
-                status.s_modified.push(path.to_owned());
-            }
-
-            if e.status().contains(Status::INDEX_DELETED) {
-                status.s_deleted.push(path.to_owned());
-            }
-
-            if e.status().contains(Status::INDEX_RENAMED)
-                && let Some(diff) = e.head_to_index()
-            {
-                let old_path = diff
-                    .old_file()
-                    .path()
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("");
-                let new_path = diff
-                    .new_file()
-                    .path()
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("");
-                status.s_renamed.push((
-                    old_path.to_string(),
-                    new_path.to_string(),
-                ));
-            }
-
-            if e.status().contains(Status::WT_NEW) {
-                status.u_new.push(path.to_owned());
-            }
-
-            if e.status().contains(Status::WT_MODIFIED) {
-                status.u_modified.push(path.to_owned());
-            }
-
-            if e.status().contains(Status::WT_DELETED) {
-                status.u_deleted.push(path.to_owned());
-            }
-
-            if e.status().contains(Status::WT_RENAMED)
-                && let Some(diff) = e.index_to_workdir()
-            {
-                let old = diff
-                    .old_file()
-                    .path()
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("");
-
-                let new = diff
-                    .new_file()
-                    .path()
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("");
-
-                status
-                    .u_renamed
-                    .push((old.to_owned(), new.to_owned()));
-            }
-        }
-
-        Ok(status)
+        head.unwrap_or("HEAD").to_string()
     }
 
     pub fn get_repo_tree(&self) -> String {
