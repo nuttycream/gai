@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
             let bar = create_spinner_bar();
             run_auth(auth, bar).await?;
         }
-        Commands::Tui { .. } | Commands::Commit { .. } => {
+        _ => {
             let mut gai = GaiGit::new(
                 cfg.gai.stage_hunks,
                 cfg.gai.commit_config.capitalize_prefix,
@@ -58,19 +58,20 @@ async fn main() -> Result<()> {
             gai.create_diffs(&cfg.ai.files_to_truncate)?;
 
             let mut stdout = stdout();
-            pretty_print_status(&mut stdout, &gai);
-
-            let bar = create_spinner_bar();
-            let req = build_request(&cfg, &gai, &bar);
+            pretty_print_status(&mut stdout, &gai)?;
 
             match args.command {
                 Commands::Tui { auto_request } => {
+                    let bar = create_spinner_bar();
+                    let req = build_request(&cfg, &gai, &bar);
                     if auto_request {
                         cfg.tui.auto_request = true;
                     }
                     run_tui(req, cfg, gai, None).await?
                 }
                 Commands::Commit { skip_confirmation } => {
+                    let bar = create_spinner_bar();
+                    let req = build_request(&cfg, &gai, &bar);
                     run_commit(
                         stdout,
                         bar,
@@ -81,7 +82,14 @@ async fn main() -> Result<()> {
                     )
                     .await?
                 }
-                _ => unreachable!(),
+                Commands::Status { print_request } => {
+                    if print_request {
+                        let bar = create_spinner_bar();
+                        let req = build_request(&cfg, &gai, &bar);
+                        println!("{:#?}", req);
+                    }
+                }
+                _ => {}
             }
         }
     }
