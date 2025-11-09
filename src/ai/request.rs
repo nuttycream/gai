@@ -84,7 +84,7 @@ impl Request {
 
         if cfg.ai.include_git_status {
             prompt.push_str("Current Git Status: \n");
-            prompt.push_str(&gai.get_repo_status());
+            prompt.push_str(&gai.get_repo_status_as_str());
         }
 
         self.prompt = prompt;

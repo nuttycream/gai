@@ -299,7 +299,7 @@ async fn run_commit(
 }
 
 fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
-    let status = gai.get_repo_status();
+    let status = gai.get_repo_status_as_str();
     if status.is_empty() {
         return;
     }
