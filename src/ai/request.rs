@@ -6,7 +6,7 @@ use crate::{
     git::repo::GaiGit,
 };
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Request {
     pub prompt: String,
     pub diffs: String,
