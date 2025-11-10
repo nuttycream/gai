@@ -8,6 +8,10 @@ use crate::{ai::provider::Provider, config::Config};
 #[command(about, long_about = None)]
 #[command(override_usage = "\n  gai [OPTIONS] [COMMAND]")]
 pub struct Cli {
+    /// Only generate for staged files/hunks
+    #[arg(long)]
+    pub only_staged: bool,
+
     /// include untracked files
     #[arg(short = 'u', long)]
     pub include_untracked: bool,
@@ -116,7 +120,7 @@ pub enum Commands {
         auto_request: bool,
     },
 
-    /// Create commits
+    /// Create commits from the diffs in the working tree
     Commit {
         /// Skips the confirmation prompt and applies
         /// the commits
@@ -247,6 +251,10 @@ impl Cli {
 
         if let Some(ref hint) = self.hint {
             config.ai.hint = Some(hint.to_owned());
+        }
+
+        if self.only_staged {
+            config.gai.only_staged = true;
         }
     }
 }

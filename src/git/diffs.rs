@@ -19,8 +19,15 @@ impl GaiGit {
         let repo = &self.repo;
 
         let head = repo.head()?.peel_to_tree()?;
-        let diff =
-            repo.diff_tree_to_workdir(Some(&head), Some(&mut opts))?;
+        let diff = if self.only_staged {
+            repo.diff_tree_to_index(
+                Some(&head),
+                None,
+                Some(&mut opts),
+            )?
+        } else {
+            repo.diff_tree_to_workdir(Some(&head), Some(&mut opts))?
+        };
 
         let mut gai_files: Vec<GaiFile> = Vec::new();
 
@@ -53,6 +60,10 @@ impl GaiGit {
 
             true
         })?;
+
+        if self.only_staged {
+            return Ok(());
+        }
 
         self.files = gai_files;
 

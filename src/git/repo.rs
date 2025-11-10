@@ -12,6 +12,7 @@ pub struct GaiGit {
 
     pub status: GaiStatus,
 
+    pub only_staged: bool,
     pub stage_hunks: bool,
     pub capitalize_prefix: bool,
     pub include_scope: bool,
@@ -70,6 +71,7 @@ impl GaiGit {
     /// for now, im not gonna handle those and we
     /// just straight up panic if we failed to open
     pub fn new(
+        only_staged: bool,
         stage_hunks: bool,
         capitalize_prefix: bool,
         include_scope: bool,
@@ -81,6 +83,7 @@ impl GaiGit {
             repo,
             files: Vec::new(),
             status,
+            only_staged,
             stage_hunks,
             capitalize_prefix,
             include_scope,

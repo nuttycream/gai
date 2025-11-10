@@ -50,6 +50,7 @@ async fn main() -> Result<()> {
         }
         _ => {
             let mut gai = GaiGit::new(
+                cfg.gai.only_staged,
                 cfg.gai.stage_hunks,
                 cfg.gai.commit_config.capitalize_prefix,
                 cfg.gai.commit_config.include_scope,

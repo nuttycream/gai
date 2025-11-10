@@ -56,6 +56,7 @@ impl Config {
 /// gai git specific settings
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct GaiConfig {
+    pub only_staged: bool,
     /// should we apply as hunks?
     pub stage_hunks: bool,
     pub commit_config: CommitConfig,
