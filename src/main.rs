@@ -321,7 +321,7 @@ fn pretty_print_status(
     execute!(
         stdout,
         SetForegroundColor(Color::Cyan),
-        Print(format!("On Branch: {}\n", branch)),
+        Print(format!("On Branch: {}\n", branch).bold()),
         ResetColor
     )?;
 
