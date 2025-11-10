@@ -69,6 +69,14 @@ impl Request {
             prompt.push('\n');
         }
 
+        if cfg.gai.only_staged {
+            prompt.push_str(
+                "ONLY GENERATE COMMITS FOR THE STAGED FILES",
+            );
+
+            prompt.push('\n');
+        }
+
         prompt.push_str(&rules);
         prompt.push('\n');
 

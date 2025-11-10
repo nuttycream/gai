@@ -1,4 +1,4 @@
-use git2::{DiffHunk, DiffLine, DiffOptions, StatusOptions};
+use git2::{DiffHunk, DiffLine, DiffOptions};
 use walkdir::WalkDir;
 
 use crate::git::repo::{
@@ -19,27 +19,19 @@ impl GaiGit {
         let repo = &self.repo;
 
         let head = repo.head()?.peel_to_tree()?;
-        let diff =
-            repo.diff_tree_to_workdir(Some(&head), Some(&mut opts))?;
+        let diff = if self.only_staged {
+            repo.diff_tree_to_index(
+                Some(&head),
+                None,
+                Some(&mut opts),
+            )?
+        } else {
+            repo.diff_tree_to_workdir(Some(&head), Some(&mut opts))?
+        };
 
         let mut gai_files: Vec<GaiFile> = Vec::new();
 
         diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
-            /* match delta.status() {
-                Delta::Added => todo!(),
-                Delta::Deleted => todo!(),
-                Delta::Modified => todo!(),
-                Delta::Renamed => todo!(),
-                Delta::Copied => todo!(),
-                Delta::Ignored => todo!(),
-                Delta::Untracked => todo!(),
-                Delta::Typechange => todo!(),
-                Delta::Unreadable => todo!(),
-                Delta::Conflicted => todo!(),
-                ignore unmodified
-                _ => {}
-            } */
-
             let path = delta
                 .new_file()
                 .path()
@@ -69,52 +61,46 @@ impl GaiGit {
             true
         })?;
 
+        if self.only_staged {
+            return Ok(());
+        }
+
         self.files = gai_files;
 
         // handle untracked files here
-        // would create a sep func, but lesdodis for now
-        // also i had this before, forgot to re-add after rewrite
-        let mut status_opts = StatusOptions::new();
-        status_opts.include_untracked(true);
-        let statuses = self.repo.statuses(Some(&mut status_opts))?;
+        for path in &self.status.u_new {
+            let should_truncate =
+                files_to_truncate.iter().any(|f| path.ends_with(f));
 
-        for entry in statuses.iter() {
-            if entry.status().contains(git2::Status::WT_NEW) {
-                let path = entry.path().unwrap();
-                let should_truncate = files_to_truncate
-                    .iter()
-                    .any(|f| path.ends_with(f));
-
-                for entry in WalkDir::new(path)
-                    .follow_links(true)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
+            for entry in WalkDir::new(path)
+                .follow_links(true)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                if entry.path().is_file()
+                    && let Ok(content) =
+                        std::fs::read_to_string(entry.path())
                 {
-                    if entry.path().is_file()
-                        && let Ok(content) =
-                            std::fs::read_to_string(entry.path())
-                    {
-                        let path = entry.path().to_str().unwrap();
-                        let lines: Vec<LineDiff> = content
-                            .lines()
-                            .map(|line| LineDiff {
-                                diff_type: DiffType::Additions,
-                                content: format!("{}\n", line),
-                            })
-                            .collect();
+                    let path = entry.path().to_str().unwrap();
+                    let lines: Vec<LineDiff> = content
+                        .lines()
+                        .map(|line| LineDiff {
+                            diff_type: DiffType::Additions,
+                            content: format!("{}\n", line),
+                        })
+                        .collect();
 
-                        self.files.push(GaiFile {
-                            path: path.to_owned(),
-                            should_truncate,
-                            hunks: vec![HunkDiff {
-                                header: format!(
-                                    "New File {}",
-                                    lines.len()
-                                ),
-                                line_diffs: lines,
-                            }],
-                        });
-                    }
+                    self.files.push(GaiFile {
+                        path: path.to_owned(),
+                        should_truncate,
+                        hunks: vec![HunkDiff {
+                            header: format!(
+                                "New File {}",
+                                lines.len()
+                            ),
+                            line_diffs: lines,
+                        }],
+                    });
                 }
             }
         }
