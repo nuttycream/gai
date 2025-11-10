@@ -325,6 +325,17 @@ fn pretty_print_status(
         ResetColor
     )?;
 
+    if unstaged_count == 0 && staged_count == 0 {
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Yellow),
+            Print("No Diffs".bold()),
+            ResetColor
+        )?;
+
+        return Ok(());
+    }
+
     if staged_count > 0 {
         execute!(
             stdout,
