@@ -86,7 +86,7 @@ async fn main() -> Result<()> {
                     if print_request {
                         let bar = create_spinner_bar();
                         let req = build_request(&cfg, &gai, &bar);
-                        println!("{:#?}", req);
+                        println!("{}", req);
                     }
                 }
                 _ => {}

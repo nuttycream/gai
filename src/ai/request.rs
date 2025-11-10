@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use crate::{
     config::{Config, RuleConfig},
@@ -10,6 +10,20 @@ use crate::{
 pub struct Request {
     pub prompt: String,
     pub diffs: String,
+}
+
+impl fmt::Display for Request {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Request Prompt:")?;
+        writeln!(f, "{}", self.prompt)?;
+
+        writeln!(f)?;
+
+        writeln!(f, "Request Diffs:")?;
+        writeln!(f, "{}", self.diffs)?;
+
+        writeln!(f)
+    }
 }
 
 impl Request {
