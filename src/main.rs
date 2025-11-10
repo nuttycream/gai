@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
             let bar = create_spinner_bar();
             run_auth(auth, bar).await?;
         }
-        Commands::Tui { .. } | Commands::Commit { .. } => {
+        _ => {
             let mut gai = GaiGit::new(
                 cfg.gai.stage_hunks,
                 cfg.gai.commit_config.capitalize_prefix,
@@ -58,19 +58,20 @@ async fn main() -> Result<()> {
             gai.create_diffs(&cfg.ai.files_to_truncate)?;
 
             let mut stdout = stdout();
-            pretty_print_status(&mut stdout, &gai);
-
-            let bar = create_spinner_bar();
-            let req = build_request(&cfg, &gai, &bar);
+            pretty_print_status(&mut stdout, &gai)?;
 
             match args.command {
                 Commands::Tui { auto_request } => {
+                    let bar = create_spinner_bar();
+                    let req = build_request(&cfg, &gai, &bar);
                     if auto_request {
                         cfg.tui.auto_request = true;
                     }
                     run_tui(req, cfg, gai, None).await?
                 }
                 Commands::Commit { skip_confirmation } => {
+                    let bar = create_spinner_bar();
+                    let req = build_request(&cfg, &gai, &bar);
                     run_commit(
                         stdout,
                         bar,
@@ -81,7 +82,14 @@ async fn main() -> Result<()> {
                     )
                     .await?
                 }
-                _ => unreachable!(),
+                Commands::Status { print_request } => {
+                    if print_request {
+                        let bar = create_spinner_bar();
+                        let req = build_request(&cfg, &gai, &bar);
+                        println!("{}", req);
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -298,61 +306,278 @@ async fn run_commit(
     Ok(())
 }
 
-fn pretty_print_status(stdout: &mut Stdout, gai: &GaiGit) {
-    let status = gai.get_repo_status();
-    if status.is_empty() {
-        return;
-    }
+// llm generated from the boring Status []
+// its a lot prettier lol
+fn pretty_print_status(
+    stdout: &mut Stdout,
+    gai: &GaiGit,
+) -> Result<()> {
+    let branch = &gai.get_branch();
+    let status = &gai.status;
 
-    let lines: Vec<&str> = status.lines().collect();
-    let staged: Vec<&str> = lines
-        .iter()
-        .filter(|l| {
-            !l.starts_with(' ')
-                && !l.starts_with("Staged")
-                && !l.starts_with("Unstaged")
-                && !l.is_empty()
-        })
-        .copied()
-        .collect();
-    let unstaged: Vec<&str> = lines
-        .iter()
-        .filter(|l| l.starts_with(" "))
-        .copied()
-        .collect();
+    let staged_count = gai.staged_len();
+    let unstaged_count = gai.unstaged_len();
 
     execute!(
         stdout,
-        SetForegroundColor(Color::DarkGrey),
-        Print("Status: "),
+        SetForegroundColor(Color::Cyan),
+        Print(format!("On Branch: {}\n", branch).bold()),
         ResetColor
-    )
-    .unwrap();
+    )?;
 
-    if !staged.is_empty() {
-        execute!(
-            stdout,
-            SetForegroundColor(Color::Green),
-            Print(format!("{} staged", staged.len())),
-            ResetColor
-        )
-        .unwrap();
-    }
-
-    if !unstaged.is_empty() {
-        if !staged.is_empty() {
-            execute!(stdout, Print(", "), ResetColor).unwrap();
-        }
+    if unstaged_count == 0 && staged_count == 0 {
         execute!(
             stdout,
             SetForegroundColor(Color::Yellow),
-            Print(format!("{} unstaged", unstaged.len())),
+            Print("No Diffs".bold()),
             ResetColor
-        )
-        .unwrap();
+        )?;
+
+        return Ok(());
     }
 
-    println!();
+    if staged_count > 0 {
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Green),
+            Print("├─ ✓ Staged"),
+            SetForegroundColor(Color::DarkGrey),
+            Print(format!(" [{}]\n", staged_count)),
+            ResetColor
+        )?;
+
+        let mut staged_sections = Vec::new();
+        if !status.s_new.is_empty() {
+            staged_sections.push((
+                "New",
+                &status.s_new,
+                Color::Green,
+                "A",
+            ));
+        }
+
+        if !status.s_modified.is_empty() {
+            staged_sections.push((
+                "Modified",
+                &status.s_modified,
+                Color::Blue,
+                "M",
+            ));
+        }
+
+        if !status.s_deleted.is_empty() {
+            staged_sections.push((
+                "Deleted",
+                &status.s_deleted,
+                Color::Red,
+                "D",
+            ));
+        }
+
+        let staged_last_idx = staged_sections.len() - 1;
+
+        for (idx, (label, files, color, prefix)) in
+            staged_sections.iter().enumerate()
+        {
+            let is_last =
+                idx == staged_last_idx && status.s_renamed.is_empty();
+
+            let branch =
+                if is_last { "└──" } else { "├──" };
+
+            let continuation = if is_last { "   " } else { "│  " };
+
+            execute!(
+                stdout,
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("│  {} ", branch)),
+                SetForegroundColor(*color),
+                Print(format!("{} ", label)),
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("[{}]\n", files.len())),
+                ResetColor
+            )?;
+
+            for (file_idx, file) in files.iter().enumerate() {
+                let is_last_file = file_idx == files.len() - 1;
+                let file_branch =
+                    if is_last_file { "└─" } else { "├─" };
+
+                execute!(
+                    stdout,
+                    SetForegroundColor(Color::DarkGrey),
+                    Print(format!(
+                        "│  {}  {} ",
+                        continuation, file_branch
+                    )),
+                    SetForegroundColor(*color),
+                    Print(format!("{} ", prefix)),
+                    ResetColor,
+                    Print(format!("{}\n", file)),
+                )?;
+            }
+        }
+
+        if !status.s_renamed.is_empty() {
+            let is_last = unstaged_count == 0;
+            let branch =
+                if is_last { "└──" } else { "├──" };
+            let continuation = if is_last { "   " } else { "│  " };
+
+            execute!(
+                stdout,
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("│  {} ", branch)),
+                SetForegroundColor(Color::Magenta),
+                Print("Renamed ".to_string()),
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("[{}]\n", status.s_renamed.len())),
+                ResetColor
+            )?;
+
+            for (file_idx, (old, new)) in
+                status.s_renamed.iter().enumerate()
+            {
+                let is_last_file =
+                    file_idx == status.s_renamed.len() - 1;
+                let file_branch =
+                    if is_last_file { "└─" } else { "├─" };
+
+                execute!(
+                    stdout,
+                    SetForegroundColor(Color::DarkGrey),
+                    Print(format!(
+                        "│  {}  {} ",
+                        continuation, file_branch
+                    )),
+                    SetForegroundColor(Color::Magenta),
+                    Print("R "),
+                    SetForegroundColor(Color::DarkGrey),
+                    Print(old.to_string()),
+                    Print(" → "),
+                    ResetColor,
+                    Print(format!("{}\n", new)),
+                )?;
+            }
+        }
+    }
+
+    if unstaged_count > 0 {
+        execute!(
+            stdout,
+            SetForegroundColor(Color::Yellow),
+            Print("└─ ⚠ Unstaged"),
+            SetForegroundColor(Color::DarkGrey),
+            Print(format!(" [{}]\n", unstaged_count)),
+            ResetColor
+        )?;
+
+        let mut unstaged_sections = Vec::new();
+        if !status.u_new.is_empty() {
+            unstaged_sections.push((
+                "New",
+                &status.u_new,
+                Color::Green,
+                "?",
+            ));
+        }
+        if !status.u_modified.is_empty() {
+            unstaged_sections.push((
+                "Modified",
+                &status.u_modified,
+                Color::Blue,
+                "M",
+            ));
+        }
+        if !status.u_deleted.is_empty() {
+            unstaged_sections.push((
+                "Deleted",
+                &status.u_deleted,
+                Color::Red,
+                "D",
+            ));
+        }
+
+        let unstaged_last_idx = unstaged_sections.len() - 1;
+
+        for (idx, (label, files, color, prefix)) in
+            unstaged_sections.iter().enumerate()
+        {
+            let is_last = idx == unstaged_last_idx
+                && status.u_renamed.is_empty();
+
+            let branch =
+                if is_last { "└──" } else { "├──" };
+            let continuation = if is_last { "   " } else { "│  " };
+
+            execute!(
+                stdout,
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("   {} ", branch)),
+                SetForegroundColor(*color),
+                Print(format!("{} ", label)),
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("[{}]\n", files.len())),
+                ResetColor
+            )?;
+
+            for (file_idx, file) in files.iter().enumerate() {
+                let is_last_file = file_idx == files.len() - 1;
+                let file_branch =
+                    if is_last_file { "└─" } else { "├─" };
+
+                execute!(
+                    stdout,
+                    SetForegroundColor(Color::DarkGrey),
+                    Print(format!(
+                        "   {}  {} ",
+                        continuation, file_branch
+                    )),
+                    SetForegroundColor(*color),
+                    Print(format!("{} ", prefix)),
+                    ResetColor,
+                    Print(format!("{}\n", file)),
+                )?;
+            }
+        }
+
+        if !status.u_renamed.is_empty() {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::DarkGrey),
+                Print("   └── "),
+                SetForegroundColor(Color::Magenta),
+                Print("Renamed ".to_string()),
+                SetForegroundColor(Color::DarkGrey),
+                Print(format!("[{}]\n", status.u_renamed.len())),
+                ResetColor
+            )?;
+
+            for (file_idx, (old, new)) in
+                status.u_renamed.iter().enumerate()
+            {
+                let is_last_file =
+                    file_idx == status.u_renamed.len() - 1;
+                let file_branch =
+                    if is_last_file { "└─" } else { "├─" };
+
+                execute!(
+                    stdout,
+                    SetForegroundColor(Color::DarkGrey),
+                    Print(format!("       {} ", file_branch)),
+                    SetForegroundColor(Color::Magenta),
+                    Print("R "),
+                    SetForegroundColor(Color::DarkGrey),
+                    Print(old.to_string()),
+                    Print(" → "),
+                    ResetColor,
+                    Print(format!("{}\n", new)),
+                )?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn pretty_print_commits(

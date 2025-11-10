@@ -1,5 +1,5 @@
-use anyhow::{Result, bail};
-use git2::{Repository, StatusOptions};
+use anyhow::Result;
+use git2::Repository;
 use std::collections::HashMap;
 use walkdir::WalkDir;
 
@@ -10,9 +10,27 @@ pub struct GaiGit {
     /// git2 based Repo
     pub repo: Repository,
 
+    pub status: GaiStatus,
+
     pub stage_hunks: bool,
     pub capitalize_prefix: bool,
     pub include_scope: bool,
+}
+
+/// helper to store paths for the files
+/// marked along status
+pub struct GaiStatus {
+    pub s_new: Vec<String>,
+    pub s_modified: Vec<String>,
+    pub s_deleted: Vec<String>,
+    // old -> new
+    pub s_renamed: Vec<(String, String)>,
+
+    // unstaged
+    pub u_new: Vec<String>,
+    pub u_modified: Vec<String>,
+    pub u_deleted: Vec<String>,
+    pub u_renamed: Vec<(String, String)>,
 }
 
 /// a sort of DiffDelta struct
@@ -57,21 +75,27 @@ impl GaiGit {
         include_scope: bool,
     ) -> Result<Self> {
         let repo = Repository::open_from_env()?;
-        let mut options = StatusOptions::new();
-
-        options.include_untracked(true);
-
-        if repo.statuses(Some(&mut options))?.is_empty() {
-            bail!("no diffs");
-        }
+        let status = Self::build_status(&repo)?;
 
         Ok(GaiGit {
             repo,
             files: Vec::new(),
+            status,
             stage_hunks,
             capitalize_prefix,
             include_scope,
         })
+    }
+
+    pub fn get_branch(&self) -> String {
+        let head = match self.repo.head() {
+            Ok(h) => Some(h),
+            Err(e) => return format!("bad branch {e}"),
+        };
+
+        let head = head.as_ref().and_then(|h| h.shorthand());
+
+        head.unwrap_or("HEAD").to_string()
     }
 
     pub fn get_repo_tree(&self) -> String {
@@ -80,12 +104,12 @@ impl GaiGit {
 
         let mut repo_tree = String::new();
 
-        for entry in WalkDir::new(repo_root)
+        for e in WalkDir::new(repo_root)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
         {
-            if let Ok(rel_path) = entry.path().strip_prefix(repo_root)
+            if let Ok(rel_path) = e.path().strip_prefix(repo_root)
                 && !self.repo.status_should_ignore(rel_path).unwrap()
             {
                 repo_tree
@@ -96,71 +120,40 @@ impl GaiGit {
         repo_tree
     }
 
-    // this should be stored when we create_diffs
-    // todo: refactor
-    pub fn get_repo_status(&self) -> String {
-        let mut status_opts = StatusOptions::new();
-        status_opts.include_untracked(true);
-        let statuses = self.repo
-            .statuses(Some(&mut status_opts))
-            .expect("somehow failed to get statuses the second time around");
-
+    pub fn get_repo_status_as_str(&self) -> String {
         let mut staged = String::new();
         let mut unstaged = String::new();
 
-        for entry in statuses
-            .iter()
-            .filter(|e| e.status() != git2::Status::CURRENT)
-        {
-            let istatus = match entry.status() {
-                s if s.contains(git2::Status::INDEX_NEW) => 'A',
-                s if s.contains(git2::Status::INDEX_MODIFIED) => 'M',
-                s if s.contains(git2::Status::INDEX_DELETED) => 'D',
-                s if s.contains(git2::Status::INDEX_RENAMED) => 'R',
-                s if s.contains(git2::Status::INDEX_TYPECHANGE) => {
-                    'T'
-                }
-                _ => ' ',
-            };
+        for path in &self.status.s_new {
+            staged.push_str(&format!("A  {}\n", path));
+        }
 
-            let wstatus = match entry.status() {
-                s if s.contains(git2::Status::WT_NEW) => '?',
-                s if s.contains(git2::Status::WT_MODIFIED) => 'M',
-                s if s.contains(git2::Status::WT_DELETED) => 'D',
-                s if s.contains(git2::Status::WT_RENAMED) => 'R',
-                s if s.contains(git2::Status::WT_TYPECHANGE) => 'T',
-                _ => ' ',
-            };
+        for path in &self.status.s_modified {
+            staged.push_str(&format!("M  {}\n", path));
+        }
 
-            if entry.status().contains(git2::Status::IGNORED) {
-                continue;
-            }
+        for path in &self.status.s_deleted {
+            staged.push_str(&format!("D  {}\n", path));
+        }
 
-            let path = if let Some(diff) = entry.head_to_index() {
-                diff.new_file().path()
-            } else if let Some(diff) = entry.index_to_workdir() {
-                diff.old_file().path()
-            } else {
-                None
-            };
+        for (old, new) in &self.status.s_renamed {
+            staged.push_str(&format!("R  {} -> {}\n", old, new));
+        }
 
-            if let Some(path) = path {
-                let path_str = path.display().to_string();
+        for path in &self.status.u_new {
+            unstaged.push_str(&format!("? {}\n", path));
+        }
 
-                if istatus != ' ' {
-                    staged.push_str(&format!(
-                        "{}  {}\n",
-                        istatus, path_str
-                    ));
-                }
+        for path in &self.status.u_modified {
+            unstaged.push_str(&format!("M {}\n", path));
+        }
 
-                if wstatus != ' ' {
-                    unstaged.push_str(&format!(
-                        " {} {}\n",
-                        wstatus, path_str
-                    ));
-                }
-            }
+        for path in &self.status.u_deleted {
+            unstaged.push_str(&format!("D {}\n", path));
+        }
+
+        for (old, new) in &self.status.u_renamed {
+            unstaged.push_str(&format!("R {} -> {}\n", old, new));
         }
 
         let mut status_str = String::new();

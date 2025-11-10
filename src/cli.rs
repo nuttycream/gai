@@ -102,6 +102,13 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    /// Prints the repo status
+    Status {
+        /// prints the LLM request
+        #[arg(short = 'r', long)]
+        print_request: bool,
+    },
+
     /// Open Terminal User Interface
     Tui {
         /// send request on launch

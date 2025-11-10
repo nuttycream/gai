@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use crate::{
     config::{Config, RuleConfig},
@@ -6,10 +6,24 @@ use crate::{
     git::repo::GaiGit,
 };
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Request {
     pub prompt: String,
     pub diffs: String,
+}
+
+impl fmt::Display for Request {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Request Prompt:")?;
+        writeln!(f, "{}", self.prompt)?;
+
+        writeln!(f)?;
+
+        writeln!(f, "Request Diffs:")?;
+        writeln!(f, "{}", self.diffs)?;
+
+        writeln!(f)
+    }
 }
 
 impl Request {
@@ -84,7 +98,7 @@ impl Request {
 
         if cfg.ai.include_git_status {
             prompt.push_str("Current Git Status: \n");
-            prompt.push_str(&gai.get_repo_status());
+            prompt.push_str(&gai.get_repo_status_as_str());
         }
 
         self.prompt = prompt;
