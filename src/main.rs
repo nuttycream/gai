@@ -4,6 +4,7 @@ pub mod cli;
 pub mod config;
 pub mod consts;
 pub mod git;
+pub mod graph;
 pub mod tui;
 
 use anyhow::Result;
