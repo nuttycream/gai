@@ -20,6 +20,7 @@ version control with the added benefit of a clean commit history.
 - [x] Per Hunk Staging [#5](https://github.com/nuttycream/gai/issues/5)
 - [ ] Magic Rebasing [#6](https://github.com/nuttycream/gai/issues/6)
 - [ ] Magic Bisect [#12](https://github.com/nuttycream/gai/issues/12)
+- [ ] Magic Sync [#29](https://github.com/nuttycream/gai/issues/29)
 - [ ] Recreate/Amend Existing Commits
       [#7](https://github.com/nuttycream/gai/issues/7)
 - [ ] GitHub Marketplace App [#9](https://github.com/nuttycream/gai/issues/9)
