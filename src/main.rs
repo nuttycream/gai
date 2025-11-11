@@ -32,6 +32,7 @@ use crate::{
     cli::{Auth, Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
+    graph::Arena,
     tui::run_tui,
 };
 
@@ -308,12 +309,12 @@ async fn run_commit(
     Ok(())
 }
 
-// llm generated from the boring Status []
-// its a lot prettier lol
 fn pretty_print_status(
     stdout: &mut Stdout,
     gai: &GaiGit,
 ) -> Result<()> {
+    let mut arena = Arena::new();
+
     let branch = &gai.get_branch();
     let status = &gai.status;
 
@@ -339,245 +340,122 @@ fn pretty_print_status(
     }
 
     if staged_count > 0 {
-        execute!(
-            stdout,
-            SetForegroundColor(Color::Green),
-            Print("├─ ✓ Staged"),
-            SetForegroundColor(Color::DarkGrey),
-            Print(format!(" [{}]\n", staged_count)),
-            ResetColor
-        )?;
+        let staged_root = arena.new_node("✓ Staged", Color::Green);
+        arena.set_count(staged_root, staged_count);
 
-        let mut staged_sections = Vec::new();
         if !status.s_new.is_empty() {
-            staged_sections.push((
-                "New",
-                &status.s_new,
-                Color::Green,
-                "A",
-            ));
-        }
+            let new_node = arena.new_node("New", Color::Green);
+            arena.set_count(new_node, status.s_new.len());
+            arena.add_child(staged_root, new_node);
 
-        if !status.s_modified.is_empty() {
-            staged_sections.push((
-                "Modified",
-                &status.s_modified,
-                Color::Blue,
-                "M",
-            ));
-        }
-
-        if !status.s_deleted.is_empty() {
-            staged_sections.push((
-                "Deleted",
-                &status.s_deleted,
-                Color::Red,
-                "D",
-            ));
-        }
-
-        let staged_last_idx = staged_sections.len() - 1;
-
-        for (idx, (label, files, color, prefix)) in
-            staged_sections.iter().enumerate()
-        {
-            let is_last =
-                idx == staged_last_idx && status.s_renamed.is_empty();
-
-            let branch =
-                if is_last { "└──" } else { "├──" };
-
-            let continuation = if is_last { "   " } else { "│  " };
-
-            execute!(
-                stdout,
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("│  {} ", branch)),
-                SetForegroundColor(*color),
-                Print(format!("{} ", label)),
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("[{}]\n", files.len())),
-                ResetColor
-            )?;
-
-            for (file_idx, file) in files.iter().enumerate() {
-                let is_last_file = file_idx == files.len() - 1;
-                let file_branch =
-                    if is_last_file { "└─" } else { "├─" };
-
-                execute!(
-                    stdout,
-                    SetForegroundColor(Color::DarkGrey),
-                    Print(format!(
-                        "│  {}  {} ",
-                        continuation, file_branch
-                    )),
-                    SetForegroundColor(*color),
-                    Print(format!("{} ", prefix)),
-                    ResetColor,
-                    Print(format!("{}\n", file)),
-                )?;
+            for file in &status.s_new {
+                let file_node = arena.new_node(file, Color::Green);
+                arena.set_prefix(file_node, "A");
+                arena.add_child(new_node, file_node);
             }
         }
 
+        // mod
+        if !status.s_modified.is_empty() {
+            let modified_node =
+                arena.new_node("Modified", Color::Blue);
+            arena.set_count(modified_node, status.s_modified.len());
+            arena.add_child(staged_root, modified_node);
+
+            for file in &status.s_modified {
+                let file_node = arena.new_node(file, Color::Blue);
+                arena.set_prefix(file_node, "M");
+                arena.add_child(modified_node, file_node);
+            }
+        }
+
+        // del
+        if !status.s_deleted.is_empty() {
+            let deleted_node = arena.new_node("Deleted", Color::Red);
+            arena.set_count(deleted_node, status.s_deleted.len());
+            arena.add_child(staged_root, deleted_node);
+
+            for file in &status.s_deleted {
+                let file_node = arena.new_node(file, Color::Red);
+                arena.set_prefix(file_node, "D");
+                arena.add_child(deleted_node, file_node);
+            }
+        }
+
+        // ren
         if !status.s_renamed.is_empty() {
-            let is_last = unstaged_count == 0;
-            let branch =
-                if is_last { "└──" } else { "├──" };
-            let continuation = if is_last { "   " } else { "│  " };
+            let renamed_node =
+                arena.new_node("Renamed", Color::Magenta);
+            arena.set_count(renamed_node, status.s_renamed.len());
+            arena.add_child(staged_root, renamed_node);
 
-            execute!(
-                stdout,
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("│  {} ", branch)),
-                SetForegroundColor(Color::Magenta),
-                Print("Renamed ".to_string()),
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("[{}]\n", status.s_renamed.len())),
-                ResetColor
-            )?;
-
-            for (file_idx, (old, new)) in
-                status.s_renamed.iter().enumerate()
-            {
-                let is_last_file =
-                    file_idx == status.s_renamed.len() - 1;
-                let file_branch =
-                    if is_last_file { "└─" } else { "├─" };
-
-                execute!(
-                    stdout,
-                    SetForegroundColor(Color::DarkGrey),
-                    Print(format!(
-                        "│  {}  {} ",
-                        continuation, file_branch
-                    )),
-                    SetForegroundColor(Color::Magenta),
-                    Print("R "),
-                    SetForegroundColor(Color::DarkGrey),
-                    Print(old.to_string()),
-                    Print(" → "),
-                    ResetColor,
-                    Print(format!("{}\n", new)),
-                )?;
+            for (old, new) in &status.s_renamed {
+                let label = format!("{} → {}", old, new);
+                let file_node = arena.new_node(label, Color::White);
+                arena.set_prefix(file_node, "R");
+                arena.add_child(renamed_node, file_node);
             }
         }
     }
 
     if unstaged_count > 0 {
-        execute!(
-            stdout,
-            SetForegroundColor(Color::Yellow),
-            Print("└─ ⚠ Unstaged"),
-            SetForegroundColor(Color::DarkGrey),
-            Print(format!(" [{}]\n", unstaged_count)),
-            ResetColor
-        )?;
+        let unstaged_root =
+            arena.new_node("⚠ Unstaged", Color::Yellow);
+        arena.set_count(unstaged_root, unstaged_count);
 
-        let mut unstaged_sections = Vec::new();
         if !status.u_new.is_empty() {
-            unstaged_sections.push((
-                "New",
-                &status.u_new,
-                Color::Green,
-                "?",
-            ));
+            let new_node = arena.new_node("New", Color::Green);
+            arena.set_count(new_node, status.u_new.len());
+            arena.add_child(unstaged_root, new_node);
+
+            for file in &status.u_new {
+                let file_node = arena.new_node(file, Color::Green);
+                arena.set_prefix(file_node, "?");
+                arena.add_child(new_node, file_node);
+            }
         }
+
         if !status.u_modified.is_empty() {
-            unstaged_sections.push((
-                "Modified",
-                &status.u_modified,
-                Color::Blue,
-                "M",
-            ));
+            let modified_node =
+                arena.new_node("Modified", Color::Blue);
+            arena.set_count(modified_node, status.u_modified.len());
+            arena.add_child(unstaged_root, modified_node);
+
+            for file in &status.u_modified {
+                let file_node = arena.new_node(file, Color::Blue);
+                arena.set_prefix(file_node, "M");
+                arena.add_child(modified_node, file_node);
+            }
         }
+
         if !status.u_deleted.is_empty() {
-            unstaged_sections.push((
-                "Deleted",
-                &status.u_deleted,
-                Color::Red,
-                "D",
-            ));
-        }
+            let deleted_node = arena.new_node("Deleted", Color::Red);
+            arena.set_count(deleted_node, status.u_deleted.len());
+            arena.add_child(unstaged_root, deleted_node);
 
-        let unstaged_last_idx = unstaged_sections.len() - 1;
-
-        for (idx, (label, files, color, prefix)) in
-            unstaged_sections.iter().enumerate()
-        {
-            let is_last = idx == unstaged_last_idx
-                && status.u_renamed.is_empty();
-
-            let branch =
-                if is_last { "└──" } else { "├──" };
-            let continuation = if is_last { "   " } else { "│  " };
-
-            execute!(
-                stdout,
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("   {} ", branch)),
-                SetForegroundColor(*color),
-                Print(format!("{} ", label)),
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("[{}]\n", files.len())),
-                ResetColor
-            )?;
-
-            for (file_idx, file) in files.iter().enumerate() {
-                let is_last_file = file_idx == files.len() - 1;
-                let file_branch =
-                    if is_last_file { "└─" } else { "├─" };
-
-                execute!(
-                    stdout,
-                    SetForegroundColor(Color::DarkGrey),
-                    Print(format!(
-                        "   {}  {} ",
-                        continuation, file_branch
-                    )),
-                    SetForegroundColor(*color),
-                    Print(format!("{} ", prefix)),
-                    ResetColor,
-                    Print(format!("{}\n", file)),
-                )?;
+            for file in &status.u_deleted {
+                let file_node = arena.new_node(file, Color::Red);
+                arena.set_prefix(file_node, "D");
+                arena.add_child(deleted_node, file_node);
             }
         }
 
         if !status.u_renamed.is_empty() {
-            execute!(
-                stdout,
-                SetForegroundColor(Color::DarkGrey),
-                Print("   └── "),
-                SetForegroundColor(Color::Magenta),
-                Print("Renamed ".to_string()),
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("[{}]\n", status.u_renamed.len())),
-                ResetColor
-            )?;
+            let renamed_node =
+                arena.new_node("Renamed", Color::Magenta);
+            arena.set_count(renamed_node, status.u_renamed.len());
+            arena.add_child(unstaged_root, renamed_node);
 
-            for (file_idx, (old, new)) in
-                status.u_renamed.iter().enumerate()
-            {
-                let is_last_file =
-                    file_idx == status.u_renamed.len() - 1;
-                let file_branch =
-                    if is_last_file { "└─" } else { "├─" };
-
-                execute!(
-                    stdout,
-                    SetForegroundColor(Color::DarkGrey),
-                    Print(format!("       {} ", file_branch)),
-                    SetForegroundColor(Color::Magenta),
-                    Print("R "),
-                    SetForegroundColor(Color::DarkGrey),
-                    Print(old.to_string()),
-                    Print(" → "),
-                    ResetColor,
-                    Print(format!("{}\n", new)),
-                )?;
+            for (old, new) in &status.u_renamed {
+                let label = format!("{} → {}", old, new);
+                let file_node = arena.new_node(label, Color::White);
+                arena.set_prefix(file_node, "R");
+                arena.add_child(renamed_node, file_node);
             }
         }
     }
+
+    arena.print_tree(stdout)?;
 
     Ok(())
 }
