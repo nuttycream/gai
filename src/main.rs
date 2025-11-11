@@ -465,8 +465,8 @@ fn pretty_print_commits(
     commits: &[ResponseCommit],
     cfg: &Config,
     gai: &GaiGit,
-) {
-    println!();
+) -> Result<()> {
+    let mut arena = Arena::new();
 
     for (i, commit) in commits.iter().enumerate() {
         let prefix = commit.get_commit_prefix(
@@ -474,66 +474,47 @@ fn pretty_print_commits(
             cfg.gai.commit_config.include_scope,
         );
 
-        execute!(
-            stdout,
-            SetForegroundColor(Color::DarkGrey),
-            Print(format!("Commit {} --------\n", i + 1)),
-            ResetColor
-        )
-        .unwrap();
+        let commit_root = arena
+            .new_node(format!("Commit {}", i + 1), Color::DarkGrey);
 
-        execute!(
-            stdout,
-            SetForegroundColor(Color::Green),
-            Print("→ "),
-            SetForegroundColor(Color::White),
-            Print(format!("{}\n", prefix.bold())),
-            ResetColor
-        )
-        .unwrap();
+        let prefix_node = arena.new_node(prefix, Color::Green);
+        arena.add_child(commit_root, prefix_node);
 
-        execute!(
-            stdout,
-            SetForegroundColor(Color::Green),
-            Print("  Header: "),
-            ResetColor,
-            Print(format!("{}\n", commit.message.header)),
-        )
-        .unwrap();
+        let header_node = arena.new_node(
+            format!("Header: {}", commit.message.header),
+            Color::White,
+        );
+        arena.add_child(commit_root, header_node);
 
         if !commit.message.body.is_empty() {
-            execute!(
-                stdout,
-                SetForegroundColor(Color::Blue),
-                Print("  Body:\n"),
-                ResetColor,
-                Print(format!("{}\n", commit.message.body)),
-            )
-            .unwrap();
+            let body_text = arena.truncate(&commit.message.body, 45);
+            let body_node = arena.new_node(
+                format!("Body: {}", body_text),
+                Color::Blue,
+            );
+            arena.add_child(commit_root, body_node);
         }
 
         if gai.stage_hunks {
-            execute!(
-                stdout,
-                SetForegroundColor(Color::Magenta),
-                Print("  Hunks:  "),
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("{:?}\n", commit.hunk_ids)),
-                ResetColor
-            )
-            .unwrap();
+            let hunks_node = arena.new_node(
+                format!("Hunks: {:?}", commit.hunk_ids),
+                Color::Magenta,
+            );
+            arena.add_child(commit_root, hunks_node);
         } else {
-            execute!(
-                stdout,
-                SetForegroundColor(Color::Magenta),
-                Print("  Files:  "),
-                SetForegroundColor(Color::DarkGrey),
-                Print(format!("{:?}\n", commit.files)),
-                ResetColor
-            )
-            .unwrap();
-        }
+            let files_parent =
+                arena.new_node("Files", Color::Magenta);
+            arena.set_count(files_parent, commit.files.len());
+            arena.add_child(commit_root, files_parent);
 
-        println!();
+            for file in &commit.files {
+                let file_node = arena.new_node(file, Color::White);
+                arena.add_child(files_parent, file_node);
+            }
+        }
     }
+
+    arena.print_tree(stdout)?;
+
+    Ok(())
 }
