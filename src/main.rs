@@ -245,7 +245,7 @@ async fn run_commit(
         }
 
         let finished_msg = format!(
-            "Done! Received {} Commit{}\n",
+            "Done! Received {} Commit{}",
             result.commits.len(),
             if result.commits.len() == 1 { "" } else { "s" }
         );
@@ -257,7 +257,7 @@ async fn run_commit(
             &result.commits,
             &cfg,
             &gai,
-        );
+        )?;
 
         let commits: Vec<GaiCommit> = result
             .commits
