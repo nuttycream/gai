@@ -1,3 +1,7 @@
+pub const PROGRESS_TEMPLATE: &str = "{spinner:.cyan} {msg}";
+pub const PROGRESS_TICK: &[&str; 9] =
+    &["⣼", "⣹", "⢻", "⠿", "⡟", "⣏", "⣧", "⣶", "⣿"];
+
 pub const CHATGPT_DEFAULT: &str = "gpt-5-nano";
 pub const CLAUDE_DEFAULT: &str = "claude-3-5-haiku";
 pub const GEMINI_DEFAULT: &str = "gemini-2.5-flash";
