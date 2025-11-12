@@ -1,6 +1,6 @@
 pub mod ai;
+pub mod args;
 pub mod auth;
-pub mod cli;
 pub mod config;
 pub mod consts;
 pub mod git;
@@ -20,8 +20,8 @@ use std::{
 
 use crate::{
     ai::{request::Request, response::get_response},
+    args::{Args, Auth, Commands},
     auth::{auth_login, auth_status, clear_auth},
-    cli::{Auth, Cli, Commands},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
     print::{pretty_print_commits, pretty_print_status},
@@ -33,15 +33,15 @@ async fn main() -> Result<()> {
     dotenv().ok();
     let mut cfg = config::Config::init()?;
 
-    let args = Cli::parse();
+    let args = Args::parse();
 
-    args.parse_args(&mut cfg);
+    args.parse_flags(&mut cfg)?;
 
     match args.command {
         Commands::Auth { ref auth } => {
-            let bar = create_spinner_bar();
-            run_auth(auth, bar).await?;
+            run_auth(auth).await?;
         }
+
         _ => {
             let mut gai = GaiGit::new(
                 cfg.gai.only_staged,
@@ -59,10 +59,12 @@ async fn main() -> Result<()> {
             let req = build_request(&cfg, &gai, &bar);
 
             match args.command {
-                Commands::Commit { skip_confirmation } => {
+                Commands::Commit {
+                    skip_confirmation, ..
+                } => {
                     run_commit(
                         stdout,
-                        bar,
+                        &bar,
                         req,
                         cfg,
                         gai,
@@ -70,8 +72,8 @@ async fn main() -> Result<()> {
                     )
                     .await?
                 }
-                Commands::Status { print_request } => {
-                    if print_request {
+                Commands::Status { verbose } => {
+                    if verbose {
                         println!("{}", req);
                     }
                 }
@@ -100,17 +102,17 @@ fn create_spinner_bar() -> ProgressBar {
     let bar = ProgressBar::new_spinner();
     bar.enable_steady_tick(Duration::from_millis(80));
     bar.set_style(
-        ProgressStyle::with_template("{spinner:.cyan} {msg}")
+        ProgressStyle::with_template(consts::PROGRESS_TEMPLATE)
             .unwrap()
-            .tick_strings(&["⣼", "⣹", "⢻", "⠿", "⡟", "⣏", "⣧", "⣶"]),
+            .tick_strings(consts::PROGRESS_TICK),
     );
     bar
 }
 
-async fn run_auth(auth: &Auth, bar: ProgressBar) -> Result<()> {
+async fn run_auth(auth: &Auth) -> Result<()> {
     match auth {
         Auth::Login => auth_login()?,
-        Auth::Status => auth_status(bar).await?,
+        Auth::Status => auth_status().await?,
         Auth::Logout => clear_auth()?,
     }
 
@@ -119,7 +121,7 @@ async fn run_auth(auth: &Auth, bar: ProgressBar) -> Result<()> {
 
 async fn run_commit(
     mut stdout: Stdout,
-    bar: ProgressBar,
+    bar: &ProgressBar,
     req: Request,
     cfg: Config,
     gai: GaiGit,

@@ -2,6 +2,8 @@ use anyhow::Result;
 use dialoguer::{Password, theme::ColorfulTheme};
 use std::{fs, path::PathBuf};
 
+use crate::create_spinner_bar;
+
 pub fn auth_login() -> Result<()> {
     println!("Opening Browser for https://cli.gai.fyi/login");
     open::that("https://cli.gai.fyi/login")?;
@@ -15,7 +17,9 @@ pub fn auth_login() -> Result<()> {
     Ok(())
 }
 
-pub async fn auth_status(bar: indicatif::ProgressBar) -> Result<()> {
+pub async fn auth_status() -> Result<()> {
+    let bar = create_spinner_bar();
+
     bar.set_message("Grabbing Status");
     let token = get_token()?;
 
@@ -35,6 +39,7 @@ pub async fn auth_status(bar: indicatif::ProgressBar) -> Result<()> {
     let status = resp.json::<Status>().await?;
 
     bar.finish();
+    bar.reset();
 
     if let Some(date) = chrono::DateTime::from_timestamp(
         status.expiration.try_into()?,
