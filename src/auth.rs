@@ -1,16 +1,61 @@
+use anyhow::Result;
+use dialoguer::{Password, theme::ColorfulTheme};
 use std::{fs, path::PathBuf};
 
-use anyhow::Result;
+pub fn auth_login() -> Result<()> {
+    println!("Opening Browser for https://cli.gai.fyi/login");
+    open::that("https://cli.gai.fyi/login")?;
+    let token = Password::with_theme(&ColorfulTheme::default())
+        .with_prompt("Paste Token: ")
+        .interact()?;
 
-pub fn store_token(token: &str) -> Result<()> {
-    if token.is_empty() {
-        return Err(anyhow::anyhow!("token cannot be empty"));
+    println!("Storing token of length: {}", token.len());
+
+    store_token(&token)?;
+    Ok(())
+}
+
+pub async fn auth_status(bar: indicatif::ProgressBar) -> Result<()> {
+    bar.set_message("Grabbing Status");
+    let token = get_token()?;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("https://cli.gai.fyi/status")
+        .bearer_auth(token)
+        .send()
+        .await?;
+
+    #[derive(serde::Deserialize, serde::Serialize, Debug)]
+    struct Status {
+        requests_made: i32,
+        expiration: u64,
     }
 
+    let status = resp.json::<Status>().await?;
+
+    bar.finish();
+
+    if let Some(date) = chrono::DateTime::from_timestamp(
+        status.expiration.try_into()?,
+        0,
+    ) {
+        println!("Requests made: {}/10", status.requests_made);
+        println!("Resets at {}", date);
+    } else {
+        println!("Failed to convert expiration to datetime");
+    }
+
+    Ok(())
+}
+
+pub fn clear_auth() -> Result<()> {
     let token_path = token_path()?;
 
-    fs::write(&token_path, token)?;
-
+    if token_path.exists() {
+        fs::remove_file(token_path)?;
+    }
+    println!("No longer aunthenticated");
     Ok(())
 }
 
@@ -20,12 +65,14 @@ pub fn get_token() -> Result<String> {
     Ok(fs::read_to_string(token_path)?.trim().to_string())
 }
 
-pub fn delete_token() -> Result<()> {
+fn store_token(token: &str) -> Result<()> {
+    if token.is_empty() {
+        return Err(anyhow::anyhow!("token cannot be empty"));
+    }
+
     let token_path = token_path()?;
 
-    if token_path.exists() {
-        fs::remove_file(token_path)?;
-    }
+    fs::write(&token_path, token)?;
 
     Ok(())
 }
