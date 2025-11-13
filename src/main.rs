@@ -48,6 +48,12 @@ async fn main() -> Result<()> {
 
             gai.create_diffs(&cfg.ai.files_to_truncate)?;
 
+            if args.interactive {
+                let req = build_request(&cfg, &gai, &spinner);
+                run_tui(req, cfg, gai, None).await?;
+                return Ok(());
+            }
+
             pretty_print_status(&gai)?;
 
             match args.command {
@@ -194,12 +200,7 @@ async fn run_commit(
             break;
         }
 
-        let options = [
-            "Apply All",
-            "Edit Commit/s (Opens the TUI)",
-            "Retry",
-            "Exit",
-        ];
+        let options = ["Apply All", "Show in TUI", "Retry", "Exit"];
 
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Select an option:")
