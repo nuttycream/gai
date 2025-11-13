@@ -1,4 +1,5 @@
 use anyhow::Result;
+use config::{Config as ConfigBuilder, File};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, io::ErrorKind};
@@ -29,27 +30,56 @@ impl Config {
 
             cfg_dir.push("config.toml");
 
-            let cfg_str = match fs::read_to_string(&cfg_dir) {
-                Ok(contents) => contents,
-                Err(e) if e.kind() == ErrorKind::NotFound => {
-                    println!(
-                        "No config.toml found. Creating anew. in {}",
-                        cfg_dir.display()
-                    );
-                    let def = Config::default();
-                    let def_toml = toml::to_string_pretty(&def)?;
-                    fs::write(cfg_dir, &def_toml)?;
-                    def_toml
-                }
-                Err(e) => return Err(e.into()),
-            };
-            let cfg: Config = toml::from_str(&cfg_str)?;
+            if !cfg_dir.exists() {
+                println!(
+                    "No config.toml found. Creating anew. in {}",
+                    cfg_dir.display()
+                );
+                let def = Config::default();
+                let def_toml = toml::to_string_pretty(&def)?;
+                fs::write(&cfg_dir, &def_toml)?;
+            }
+
+            // assuming it parses the toml
+            let builder = ConfigBuilder::builder()
+                .add_source(File::from(cfg_dir))
+                .build()?;
+
+            let cfg: Config = builder.try_deserialize()?;
             Ok(cfg)
         } else {
             Err(anyhow::anyhow!(
                 "Cannot find a valid home directory."
             ))
         }
+    }
+
+    pub fn override_cfg(
+        &self,
+        overrides: &[String],
+    ) -> Result<Config> {
+        let cur_cfg = toml::to_string(self)?;
+
+        let mut builder = ConfigBuilder::builder().add_source(
+            config::File::from_str(
+                &cur_cfg,
+                config::FileFormat::Toml,
+            ),
+        );
+
+        for override_str in overrides {
+            let (key, value) =
+                override_str.split_once('=').ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "can't parse this: {}",
+                        override_str
+                    )
+                })?;
+            builder = builder.set_override(key, value)?;
+        }
+
+        let config = builder.build()?.try_deserialize()?;
+        Ok(config)
     }
 }
 
