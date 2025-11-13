@@ -3,17 +3,15 @@ use crossterm::{
     execute,
     style::{Color, Print, ResetColor, SetForegroundColor, Stylize},
 };
-use std::io::Stdout;
+use std::io::stdout;
 
 use crate::{
     ai::response::ResponseCommit, config::Config, git::repo::GaiGit,
     graph::Arena,
 };
 
-pub fn pretty_print_status(
-    stdout: &mut Stdout,
-    gai: &GaiGit,
-) -> Result<()> {
+pub fn pretty_print_status(gai: &GaiGit) -> Result<()> {
+    let mut stdout = stdout();
     let mut arena = Arena::new();
 
     let branch = &gai.get_branch();
@@ -156,17 +154,17 @@ pub fn pretty_print_status(
         }
     }
 
-    arena.print_tree(stdout)?;
+    arena.print_tree(&mut stdout)?;
 
     Ok(())
 }
 
 pub fn pretty_print_commits(
-    stdout: &mut Stdout,
     commits: &[ResponseCommit],
     cfg: &Config,
     gai: &GaiGit,
 ) -> Result<()> {
+    let mut stdout = stdout();
     let mut arena = Arena::new();
 
     for (i, commit) in commits.iter().enumerate() {
@@ -215,7 +213,7 @@ pub fn pretty_print_commits(
         }
     }
 
-    arena.print_tree(stdout)?;
+    arena.print_tree(&mut stdout)?;
 
     Ok(())
 }

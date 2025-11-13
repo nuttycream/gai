@@ -2,7 +2,7 @@ use anyhow::Result;
 use dialoguer::{Password, theme::ColorfulTheme};
 use std::{fs, path::PathBuf};
 
-use crate::create_spinner_bar;
+use crate::SpinDeez;
 
 pub fn auth_login() -> Result<()> {
     println!("Opening Browser for https://cli.gai.fyi/login");
@@ -17,10 +17,8 @@ pub fn auth_login() -> Result<()> {
     Ok(())
 }
 
-pub async fn auth_status() -> Result<()> {
-    let bar = create_spinner_bar();
-
-    bar.set_message("Grabbing Status");
+pub async fn auth_status(spinner: &SpinDeez) -> Result<()> {
+    spinner.start("Fetching User Status");
     let token = get_token()?;
 
     let client = reqwest::Client::new();
@@ -38,8 +36,7 @@ pub async fn auth_status() -> Result<()> {
 
     let status = resp.json::<Status>().await?;
 
-    bar.finish();
-    bar.reset();
+    spinner.stop(None);
 
     if let Some(date) = chrono::DateTime::from_timestamp(
         status.expiration.try_into()?,

@@ -13,10 +13,7 @@ use clap::Parser;
 use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::{
-    io::{Stdout, stdout},
-    time::Duration,
-};
+use std::time::Duration;
 
 use crate::{
     ai::{request::Request, response::get_response},
@@ -28,18 +25,50 @@ use crate::{
     tui::run_tui,
 };
 
+pub struct SpinDeez {
+    spinner: ProgressBar,
+}
+
+impl SpinDeez {
+    pub fn new() -> Result<Self> {
+        let bar = ProgressBar::new_spinner();
+        bar.set_style(
+            ProgressStyle::with_template(consts::PROGRESS_TEMPLATE)?
+                .tick_strings(consts::PROGRESS_TICK),
+        );
+
+        Ok(Self { spinner: bar })
+    }
+
+    pub fn start(&self, msg: &str) {
+        self.spinner.reset();
+
+        self.spinner.enable_steady_tick(Duration::from_millis(80));
+        self.spinner.set_message(msg.to_owned());
+    }
+
+    pub fn stop(&self, msg: Option<&str>) {
+        if let Some(message) = msg {
+            self.spinner.finish_with_message(message.to_owned());
+        } else {
+            self.spinner.finish();
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
     let mut cfg = config::Config::init()?;
 
     let args = Args::parse();
+    let spinner = SpinDeez::new()?;
 
     args.parse_flags(&mut cfg)?;
 
     match args.command {
         Commands::Auth { ref auth } => {
-            run_auth(auth).await?;
+            run_auth(auth, &spinner).await?;
         }
 
         _ => {
@@ -52,19 +81,16 @@ async fn main() -> Result<()> {
 
             gai.create_diffs(&cfg.ai.files_to_truncate)?;
 
-            let mut stdout = stdout();
-            pretty_print_status(&mut stdout, &gai)?;
-
-            let bar = create_spinner_bar();
-            let req = build_request(&cfg, &gai, &bar);
+            pretty_print_status(&gai)?;
 
             match args.command {
                 Commands::Commit {
                     skip_confirmation, ..
                 } => {
+                    let req = build_request(&cfg, &gai, &spinner);
+
                     run_commit(
-                        stdout,
-                        &bar,
+                        &spinner,
                         req,
                         cfg,
                         gai,
@@ -74,6 +100,7 @@ async fn main() -> Result<()> {
                 }
                 Commands::Status { verbose } => {
                     if verbose {
+                        let req = build_request(&cfg, &gai, &spinner);
                         println!("{}", req);
                     }
                 }
@@ -88,31 +115,20 @@ async fn main() -> Result<()> {
 fn build_request(
     cfg: &Config,
     gai: &GaiGit,
-    bar: &ProgressBar,
+    spinner: &SpinDeez,
 ) -> Request {
-    bar.set_message("Building Request...");
+    spinner.start("Building Request...");
     let mut req = Request::default();
     req.build_prompt(cfg, gai);
     req.build_diffs_string(gai.get_file_diffs_as_str());
-    bar.finish();
+    spinner.stop(None);
     req
 }
 
-fn create_spinner_bar() -> ProgressBar {
-    let bar = ProgressBar::new_spinner();
-    bar.enable_steady_tick(Duration::from_millis(80));
-    bar.set_style(
-        ProgressStyle::with_template(consts::PROGRESS_TEMPLATE)
-            .unwrap()
-            .tick_strings(consts::PROGRESS_TICK),
-    );
-    bar
-}
-
-async fn run_auth(auth: &Auth) -> Result<()> {
+async fn run_auth(auth: &Auth, spinner: &SpinDeez) -> Result<()> {
     match auth {
         Auth::Login => auth_login()?,
-        Auth::Status => auth_status().await?,
+        Auth::Status => auth_status(spinner).await?,
         Auth::Logout => clear_auth()?,
     }
 
@@ -120,23 +136,21 @@ async fn run_auth(auth: &Auth) -> Result<()> {
 }
 
 async fn run_commit(
-    mut stdout: Stdout,
-    bar: &ProgressBar,
+    spinner: &SpinDeez,
     req: Request,
     cfg: Config,
     gai: GaiGit,
     skip_confirmation: bool,
 ) -> Result<()> {
-    loop {
-        let provider = cfg.ai.provider;
-        let provider_cfg = cfg
-            .ai
-            .providers
-            .get(&provider)
-            .expect("somehow did not find provider config");
+    let provider = cfg.ai.provider;
+    let provider_cfg = cfg
+        .ai
+        .providers
+        .get(&provider)
+        .expect("somehow did not find provider config");
 
-        bar.reset();
-        bar.set_message(format!(
+    loop {
+        spinner.start(&format!(
             "Awaiting response from {} using {}",
             cfg.ai.provider, provider_cfg.model
         ));
@@ -148,9 +162,9 @@ async fn run_commit(
         let result = match response.result.clone() {
             Ok(r) => r,
             Err(e) => {
-                bar.finish_with_message(
-                    "Done! But Gai received an error from the provider:",
-                );
+                spinner.stop(Some(
+                    "Done! But Gai received an error from the provider:"
+                ));
 
                 println!("{:#}", e);
 
@@ -178,20 +192,15 @@ async fn run_commit(
             }
         }
 
-        let finished_msg = format!(
+        spinner.stop(None);
+
+        println!(
             "Done! Received {} Commit{}",
             result.commits.len(),
             if result.commits.len() == 1 { "" } else { "s" }
         );
 
-        bar.finish_with_message(finished_msg);
-
-        pretty_print_commits(
-            &mut stdout,
-            &result.commits,
-            &cfg,
-            &gai,
-        )?;
+        pretty_print_commits(&result.commits, &cfg, &gai)?;
 
         let commits: Vec<GaiCommit> = result
             .commits
