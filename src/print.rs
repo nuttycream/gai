@@ -3,12 +3,52 @@ use crossterm::{
     execute,
     style::{Color, Print, ResetColor, SetForegroundColor, Stylize},
 };
+use indicatif::{ProgressBar, ProgressStyle};
 use std::io::stdout;
 
 use crate::{
-    ai::response::ResponseCommit, config::Config, git::repo::GaiGit,
+    ai::response::ResponseCommit,
+    config::Config,
+    consts::{PROGRESS_TEMPLATE, PROGRESS_TICK},
+    git::repo::GaiGit,
     graph::Arena,
 };
+
+// yes lmao
+// i realize this wasn't the problem,
+// but already made it
+// so I'll keep it.
+pub struct SpinDeez {
+    spinner: ProgressBar,
+}
+
+impl SpinDeez {
+    pub fn new() -> Result<Self> {
+        let bar = ProgressBar::new_spinner();
+        bar.set_style(
+            ProgressStyle::with_template(PROGRESS_TEMPLATE)?
+                .tick_strings(PROGRESS_TICK),
+        );
+
+        Ok(Self { spinner: bar })
+    }
+
+    pub fn start(&self, msg: &str) {
+        self.spinner.reset();
+
+        self.spinner
+            .enable_steady_tick(std::time::Duration::from_millis(80));
+        self.spinner.set_message(msg.to_owned());
+    }
+
+    pub fn stop(&self, msg: Option<&str>) {
+        if let Some(message) = msg {
+            self.spinner.finish_with_message(message.to_owned());
+        } else {
+            self.spinner.finish();
+        }
+    }
+}
 
 pub fn pretty_print_status(gai: &GaiGit) -> Result<()> {
     let mut stdout = stdout();

@@ -12,8 +12,6 @@ use anyhow::Result;
 use clap::Parser;
 use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use dotenv::dotenv;
-use indicatif::{ProgressBar, ProgressStyle};
-use std::time::Duration;
 
 use crate::{
     ai::{request::Request, response::get_response},
@@ -21,40 +19,9 @@ use crate::{
     auth::{auth_login, auth_status, clear_auth},
     config::Config,
     git::{commit::GaiCommit, repo::GaiGit},
-    print::{pretty_print_commits, pretty_print_status},
+    print::{SpinDeez, pretty_print_commits, pretty_print_status},
     tui::run_tui,
 };
-
-pub struct SpinDeez {
-    spinner: ProgressBar,
-}
-
-impl SpinDeez {
-    pub fn new() -> Result<Self> {
-        let bar = ProgressBar::new_spinner();
-        bar.set_style(
-            ProgressStyle::with_template(consts::PROGRESS_TEMPLATE)?
-                .tick_strings(consts::PROGRESS_TICK),
-        );
-
-        Ok(Self { spinner: bar })
-    }
-
-    pub fn start(&self, msg: &str) {
-        self.spinner.reset();
-
-        self.spinner.enable_steady_tick(Duration::from_millis(80));
-        self.spinner.set_message(msg.to_owned());
-    }
-
-    pub fn stop(&self, msg: Option<&str>) {
-        if let Some(message) = msg {
-            self.spinner.finish_with_message(message.to_owned());
-        } else {
-            self.spinner.finish();
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
