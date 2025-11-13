@@ -52,8 +52,15 @@ async fn main() -> Result<()> {
 
             match args.command {
                 Commands::Commit {
-                    skip_confirmation, ..
+                    skip_confirmation,
+                    config,
+                    ..
                 } => {
+                    let cfg = match config {
+                        Some(c) => cfg.override_cfg(&c)?,
+                        None => cfg,
+                    };
+
                     let req = build_request(&cfg, &gai, &spinner);
 
                     run_commit(

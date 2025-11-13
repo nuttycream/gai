@@ -74,9 +74,9 @@ pub enum Commands {
         #[arg(short = 'f', long)]
         files: bool,
 
-        /// Override config option for this command
+        /// Override config option for this commit
         #[arg(short = 'c', long, value_name = "KEY=VALUE")]
-        config: Vec<String>,
+        config: Option<Vec<String>>,
     },
     /* todo: implement, see feature tracking
     /// Rebase commits
