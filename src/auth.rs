@@ -1,6 +1,6 @@
 use anyhow::Result;
 use dialoguer::{Password, theme::ColorfulTheme};
-use std::{fs, path::PathBuf};
+use std::{fs, io::ErrorKind, path::PathBuf};
 
 use crate::SpinDeez;
 
@@ -63,8 +63,20 @@ pub fn clear_auth() -> Result<()> {
 
 pub fn get_token() -> Result<String> {
     let token_path = token_path()?;
+    let token = match fs::read_to_string(token_path) {
+        Ok(t) => t.trim().to_string(),
+        Err(e) => {
+            if matches!(e.kind(), ErrorKind::NotFound) {
+                return Err(anyhow::anyhow!(
+                    "Token not found, have you tried logging in with: gai auth login?"
+                ));
+            } else {
+                return Err(e.into());
+            }
+        }
+    };
 
-    Ok(fs::read_to_string(token_path)?.trim().to_string())
+    Ok(token)
 }
 
 fn store_token(token: &str) -> Result<()> {
