@@ -213,7 +213,7 @@ pub struct ProviderConfig {
 impl Default for AiConfig {
     fn default() -> Self {
         Self {
-            provider: Provider::Gemini,
+            provider: Provider::Gai,
             system_prompt: None,
             commit_convention: None,
             include_convention: true,
