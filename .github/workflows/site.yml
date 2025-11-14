@@ -1,6 +1,11 @@
 name: deploy docs
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/**
 
 env: 
   CARGO_TERM_COLOR: always
