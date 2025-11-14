@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            pretty_print_status(&gai)?;
+            pretty_print_status(&gai, args.compact)?;
 
             match args.command {
                 Commands::Commit {
@@ -75,6 +75,7 @@ async fn main() -> Result<()> {
                         cfg,
                         gai,
                         skip_confirmation,
+                        args.compact,
                     )
                     .await?
                 }
@@ -121,6 +122,7 @@ async fn run_commit(
     cfg: Config,
     gai: GaiGit,
     skip_confirmation: bool,
+    compact: bool,
 ) -> Result<()> {
     let provider = cfg.ai.provider;
     let provider_cfg = cfg
@@ -180,7 +182,7 @@ async fn run_commit(
             if result.commits.len() == 1 { "" } else { "s" }
         );
 
-        pretty_print_commits(&result.commits, &cfg, &gai)?;
+        pretty_print_commits(&result.commits, &cfg, &gai, compact)?;
 
         let commits: Vec<GaiCommit> = result
             .commits
