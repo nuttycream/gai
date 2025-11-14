@@ -1,25 +1,190 @@
 <div class="footer">
-	<div class="made-with">
-		Made With
-		<a href="https://github.com/nuttycream/sussg">Sussg</a>
+	<div class="footer-content">
+		<div class="footer-logo">
+			<img src="/gai_logo_light.svg" alt="Gai Logo">
+			<p class="footer-tagline">AI-Powered Version Control</p>
+		</div>
+
+		<nav class="footer-links">
+			<div class="footer-section">
+				<h4>Documentation</h4>
+				<a href="/install">Install</a>
+				<a href="/usage">Usage</a>
+				<a href="/config">Configure</a>
+			</div>
+
+			<div class="footer-section">
+				<h4>Resources</h4>
+				<a href="https://github.com/cube-cult/gai/issues">
+					<i class="fab fa-github"></i>
+					Issues
+				</a>
+				<a href="https://github.com/cube-cult/gai">
+					<i class="fab fa-github"></i>
+					Source
+				</a>
+			</div>
+
+			<div class="footer-section">
+				<h4>Legal Stuff</h4>
+				<a href="/privacy">Privacy Policy</a>
+			</div>
+		</nav>
+	</div>
+
+	<div class="footer-bottom">
+		<p>Made with <a href="https://github.com/nuttycream/sussg">Sussg</a></p>
+		<p>tty/gai</p>
 	</div>
 </div>
+
 <style>
 	.footer {
-		display: flex;
-		flex-direction: row;
-		justify-content: center;
-		font-size: 0.8rem;
+		background: var(--bg-secondary);
+		margin-top: 4rem;
+		padding: 3rem 2rem 1.5rem;
 	}
 	
-	.made-with {
-		border-top: 1px solid var(--bg-secondary);
-		padding: 1rem;
-		padding-bottom: 3rem;
+	.footer-content {
+		max-width: 1200px;
+		margin: 0 auto;
+		display: grid;
+		grid-template-columns: 1.5fr 2fr;
+		gap: 3rem;
+		padding-bottom: 2rem;
+	}
+	
+	.footer-logo {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	
+	.footer-logo img {
+		width: 80px;
+		height: auto;
+		opacity: 0.9;
+		transition: opacity 0.2s ease;
+	}
+	
+	.footer-logo img:hover {
+		opacity: 1;
+	}
+	
+	.footer-tagline {
 		color: var(--text-secondary);
+		font-size: 0.9rem;
+		margin: 0;
+	}
+	
+	.footer-links {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 2rem;
+	}
+	
+	.footer-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	
+	.footer-section h4 {
+		color: var(--text-tertiary);
+		font-size: 0.95rem;
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	
+	.footer-section a {
+		color: var(--text-primary);
+		font-size: 0.9rem;
+		text-decoration: none;
+		border-bottom: 1px solid transparent;
+		width: fit-content;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	
+	.footer-section a:hover {
+		color: var(--link-primary);
+		border-bottom-color: var(--link-primary);
+	}
+	
+	.footer-section a i {
+		font-size: 1rem;
+	}
+	
+	.footer-bottom {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding-top: 1.5rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.25);
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		color: var(--text-secondary);
+		font-size: 0.85rem;
+	}
+	
+	.footer-bottom p {
+		margin: 0;
+	}
+	
+	.footer-bottom a {
+		color: var(--text-secondary);
+		text-decoration: none;
+		border-bottom: 1px solid transparent;
+	}
+	
+	.footer-bottom a:hover {
+		color: var(--text-primary);
+		border-bottom-color: var(--text-primary);
+	}
+	
+	@media (max-width: 768px) {
+		.footer {
+			padding: 2rem 1.5rem 1rem;
+			margin-top: 2rem;
+		}
 		
-		a {
-			color: inherit;
+		.footer-content {
+			grid-template-columns: 1fr;
+			gap: 2rem;
+		}
+		
+		.footer-logo {
+			align-items: center;
+			text-align: center;
+		}
+		
+		.footer-logo img {
+			width: 70px;
+		}
+		
+		.footer-links {
+			grid-template-columns: 1fr;
+			gap: 1.5rem;
+			text-align: center;
+		}
+		
+		.footer-section {
+			align-items: center;
+		}
+		
+		.footer-bottom {
+			flex-direction: column;
+			gap: 0.5rem;
+			text-align: center;
+		}
+	}
+	
+	@media (min-width: 769px) and (max-width: 1024px) {
+		.footer-links {
+			grid-template-columns: repeat(3, 1fr);
 		}
 	}
 </style>

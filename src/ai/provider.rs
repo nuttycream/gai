@@ -35,6 +35,7 @@ use crate::{
     Display,
     Serialize,
     Deserialize,
+    clap::ValueEnum,
 )]
 pub enum Provider {
     OpenAI,
