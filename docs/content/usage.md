@@ -17,80 +17,10 @@ gai commit
 **gai** will analyze your changes and generate intelligent commit messages based
 on your diffs.
 
-### Basic Usage
-
-```bash
-# Generate commits
-gai commit
-
-# Skip confirmation and apply immediately**:
-gai commit -y
-
-# Launch the Terminal User Interface
-gai tui
-
-# Launch TUI and send request automatically
-gai tui --auto-request
-```
-
-### TUI
-
-```bash
-# Open TUI to review diffs and manage generated commits interactively
-gai tui
-```
-
-### Advanced Usage
-
-```bash
-# Provide additional context to guide the AI with hinting
-# -A or --hint
-gai commit -A "This is a fix with performance improvements"
-
-# Use specific provider with custom hint
-gai commit --claude -A "Explain breaking changes clearly"
-
-# Disable commit bodies for concise messages (only header)
-gai commit -B
-
-# Combine multiple options
-gai commit -v -A "Emphasize performance optimizations" --gemini
-
-# Skip confirmation and apply immediately
-gai commit -y -A "Bug fixes only"
-```
-
-### Configuration
-
-On first run, **gai** creates a default configuration file at:
-
-- **Linux/macOS**: `~/.config/gai/config.toml`
-
-See the [Configuration Guide](/config) for detailed customization options.
-
-### Setting Up API Keys
-
-**gai** requires an API key from your chosen AI provider. Set it using
-environment variables:
-
-```bash
-# For Gemini (default)
-export GEMINI_API_KEY="your_api_key_here"
-
-# For OpenAI
-export OPENAI_API_KEY="your_api_key_here"
-
-# For Claude
-export ANTHROPIC_API_KEY="your_api_key_here"
-```
-
-Add these to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to make them
-permanent.
-
 ### Authentication with Gai Provider
 
-To use the **Gai** provider (powered by gemini-flash-2.5 ), authenticate using
-GitHub OAuth:
+To use the **Gai** provider (uses Gemini Flash 2.5 or 2.5-lite), first
+authenticate using GitHub OAuth:
 
 ```bash
 # Login via GitHub OAuth
@@ -108,7 +38,102 @@ gai auth status
 gai auth logout
 ```
 
-The Gai provider offers 10 free requests that reset periodically.
+Our Gai provider offers free requests that reset every 24 hours.
+
+### Basic Commands
+
+```bash
+# Generate commits interactively
+gai commit
+
+# Skip confirmation and apply immediately
+gai commit -y
+
+# Launch the Terminal User Interface
+gai -i commit
+```
+
+### Working with Staged Changes
+
+```bash
+# Only generate commits for staged changes
+gai commit -s
+
+# Stage changes as individual hunks
+gai commit -H
+
+# Stage changes as complete files
+gai commit -f
+
+# Combine staged-only with hunks
+gai commit -s -H
+```
+
+### Using AI Providers
+
+```bash
+# Use a specific provider
+gai -p gemini commit
+gai -p claude commit
+gai -p openai commit
+
+# Use the Gai provider (requires authentication)
+gai -p gai commit
+```
+
+### Adding Context with Hints
+
+```bash
+# Provide additional context to guide the AI
+gai -H "These are a list of chore changes" commit
+```
+
+### Overriding Configuration
+
+```bash
+# Temporarily override config options
+gai commit -c ai.rules.verbose_descriptions=false
+
+# Override multiple options
+gai commit -c ai.rules.max_header_length=80 -c ai.rules.allow_body=false
+
+# Change model for this commit only
+gai commit -c ai.providers.Gemini.model=gemini-2.5-flash-lite
+
+# Override commit format settings
+gai commit -c gai.commit_config.capitalize_prefix=true
+```
+
+### Repository Status
+
+```bash
+# Show current repository status
+gai status
+
+# Show verbose status (includes prompt and diffs that will be sent to AI)
+gai status -v
+```
+
+### Advanced Examples
+
+```bash
+# Compact output without confirmation 
+gai -c commit -y
+
+# Override multiple settings for a quick commit
+gai -H "Quick fixes" commit \
+  -c ai.rules.allow_body=false \
+  -c ai.rules.max_header_length=50 \
+  -y
+
+# Generate commits from hunks with verbose descriptions
+gai commit -H -c ai.rules.verbose_descriptions=true
+
+# Use OpenAI with specific model and max header length
+gai commit -p openai \
+  -c ai.providers.OpenAI.model=gpt-5 \
+  -c ai.rules.max_header_length=67
+```
 
 ### Getting Help
 
@@ -122,19 +147,31 @@ View help for specific commands:
 
 ```bash
 gai commit --help
-gai tui --help
+gai auth --help
+gai status --help
 ```
 
-### Contributing
+### Tips and Best Practices
 
-For contributors or those who want to build from source:
+**Use hints effectively**: Provide context that helps the AI understand the
+purpose of your changes.
 
 ```bash
-git clone https://github.com/nuttycream/gai.git
-cd gai
-cargo build --release
+gai -H "Refactoring for better testability" commit
 ```
 
-The project comes with a `flake.nix` and a `.envrc` that automatically drops you
-in a known working nix environment using
-[direnv](https://github.com/nix-community/nix-direnv)
+**Stage incrementally**: Use `-s` to commit already-staged changes separately
+from unstaged work.
+
+```bash
+git add file1.rs file2.rs
+gai commit -s
+```
+
+### Notes:
+
+- Always review generated commits before applying them (unless using `-y`).
+- Most options are better set in `config.toml` for consistency. Use `-c`
+  overrides for one-off situations.
+- Before committing, use `gai status -v` to see exactly what will be sent to the
+  AI.
