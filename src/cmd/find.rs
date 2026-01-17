@@ -5,7 +5,7 @@ use serde_json::Value;
 use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
-    print::{InputHistory, find::print, loading, print_query_prompt},
+    print::{InputHistory, find::print, loading, print_input_prompt},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
     responses::find::parse_from_schema,
@@ -105,7 +105,7 @@ pub fn run(
         let q = if should_retry {
             query.to_owned()
         } else {
-            match print_query_prompt(
+            match print_input_prompt(
                 "What is your query?",
                 &mut history,
             )? {

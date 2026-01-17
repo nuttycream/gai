@@ -8,4 +8,4 @@ pub mod status;
 pub mod tree;
 
 pub use history::InputHistory;
-pub use query::print_query_prompt;
+pub use query::print_input_prompt;

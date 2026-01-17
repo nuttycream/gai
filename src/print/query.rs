@@ -4,7 +4,7 @@ use dialoguer::{Input, theme::ColorfulTheme};
 use super::InputHistory;
 
 /// Input prompt
-pub fn print_query_prompt(
+pub fn print_input_prompt(
     prompt: &str,
     history: &mut InputHistory,
 ) -> anyhow::Result<Option<String>> {
@@ -35,4 +35,11 @@ pub fn print_query_prompt(
     } else {
         Ok(Some(s))
     }
+}
+
+pub fn print_choice_prompt(
+    prompt: &str,
+    choices: &[String],
+) -> anyhow::Result<Option<usize>> {
+    Ok(None)
 }
