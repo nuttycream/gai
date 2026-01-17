@@ -1,4 +1,4 @@
-use git2::{Diff, Oid, Repository};
+use git2::{Diff, ErrorCode, Oid, Repository, Signature};
 
 use super::{
     status::{FileStatus, StatusItemType},

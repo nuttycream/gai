@@ -11,6 +11,7 @@ pub enum GitError {
     NoHead,
     Generic(String),
     PatchError,
+    RebaseConflict,
 }
 
 impl std::fmt::Display for GitError {
@@ -31,6 +32,9 @@ impl std::fmt::Display for GitError {
             GitError::NoHead => write!(f, "No Head found"),
             GitError::Generic(e) => write!(f, "{}", e),
             GitError::PatchError => write!(f, "Patch Error"),
+            GitError::RebaseConflict => {
+                write!(f, "Conflict exists, aborting")
+            }
         }
     }
 }

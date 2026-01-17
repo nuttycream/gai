@@ -6,6 +6,7 @@ pub mod errors;
 pub mod lines;
 pub mod log;
 pub mod patches;
+pub mod rebase;
 pub mod repo;
 pub mod staging;
 pub mod status;
