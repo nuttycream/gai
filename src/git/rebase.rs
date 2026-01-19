@@ -22,3 +22,9 @@
 // operations (might be an option) and more
 // to do with generating commits from the diff
 // of the specified divergent point
+
+use git2::Repository;
+
+pub fn rebase(_repo: &Repository) -> anyhow::Result<()> {
+    Ok(())
+}
