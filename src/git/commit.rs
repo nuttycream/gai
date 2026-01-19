@@ -1,6 +1,10 @@
-use git2::{Diff, ErrorCode, Oid, Repository, Signature};
+use std::collections::HashMap;
+
+use git2::{Diff, Oid, Repository};
 
 use super::{
+    diffs::{FileDiff, HunkId},
+    staging::{StagingStrategy, stage_all, stage_file, stage_hunks},
     status::{FileStatus, StatusItemType},
     utils::get_head_repo,
 };
@@ -21,7 +25,110 @@ struct OldNew<T> {
     pub new: T,
 }
 
-pub fn commit(
+pub fn apply_commits(
+    repo: &Repository,
+    git_commits: &[GitCommit],
+    og_file_diffs: &mut Vec<FileDiff>,
+    staging_stragey: &StagingStrategy,
+) -> anyhow::Result<()> {
+    //todo when we implement verbose logging
+    // make sure we log the files, hunks etc
+    // before we apply commits
+
+    for git_commit in git_commits {
+        match staging_stragey {
+            StagingStrategy::AllFilesOneCommit => {
+                stage_all(repo, ".")?;
+                og_file_diffs.clear();
+                commit(repo, git_commit)?;
+
+                // return early
+                return Ok(());
+            }
+            StagingStrategy::AtomicCommits
+            | StagingStrategy::OneFilePerCommit => {
+                for file in &git_commit.files {
+                    stage_file(repo, file)?;
+                    // remove if status matches
+                    //remove_file(&git.repo, file)?;
+                    og_file_diffs.retain(|f| f.path != file.as_str());
+                }
+            }
+            StagingStrategy::Hunks => {
+                // this commit should define its hunkids
+                // to stage like:
+                // commit 1: src/main.rs:0, src/main.rs:1 etc
+                // group hunks based on the file paths
+                // iterate over each file
+                // find what hunks to stage
+                // pass it into stage_hunks
+                // stage_hunks should be able to apply
+                // only the hunks it gets from here
+
+                // file_path and a list of hunk indecises
+                let mut files: HashMap<String, Vec<usize>> =
+                    HashMap::new();
+
+                // group hunks to their file_paths
+                for hunk in &git_commit.hunk_ids {
+                    let hunk_id = HunkId::try_from(hunk.as_str())?;
+                    files
+                        .entry(hunk_id.path.clone())
+                        .or_default()
+                        .push(hunk_id.index);
+                }
+
+                // now process each file
+                for (file_path, hunk_ids) in files {
+                    // find the original file associated
+                    // with this from the og database
+                    let og_file_diff = og_file_diffs
+                        .iter()
+                        .find(|f| f.path == file_path)
+                        .ok_or({
+                            anyhow::anyhow!(
+                                "{} is not in the og_file_diffs",
+                                file_path
+                            )
+                        })?;
+
+                    if og_file_diff.untracked {
+                        stage_file(repo, &file_path)?;
+                        og_file_diffs.retain(|f| f.path != file_path);
+                        continue;
+                    }
+
+                    // get relevant hunk ids
+                    let hunks = super::diffs::find_file_hunks(
+                        og_file_diff,
+                        hunk_ids,
+                    )?;
+
+                    // stage hunks relevant to this file ONLY
+                    let used = stage_hunks(repo, &file_path, &hunks)?;
+
+                    super::diffs::remove_hunks(
+                        og_file_diffs,
+                        &file_path,
+                        &used,
+                    );
+                }
+            }
+        }
+
+        commit(repo, git_commit)?;
+    }
+
+    for file in og_file_diffs {
+        for hunk in &file.hunks {
+            println!("hunk [{}:{}] not applied", file.path, hunk.id);
+        }
+    }
+
+    Ok(())
+}
+
+fn commit(
     repo: &Repository,
     commit: &GitCommit,
 ) -> anyhow::Result<Oid> {

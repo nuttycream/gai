@@ -9,7 +9,7 @@ use crate::{
 /// tho the amount will differ
 /// depending on the StagingStrategy
 /// we can handle as is
-pub fn parse_from_schema(
+pub fn parse_to_commit_schema(
     value: serde_json::Value,
     strategy: &StagingStrategy,
 ) -> anyhow::Result<Vec<CommitSchema>> {

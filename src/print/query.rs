@@ -1,5 +1,5 @@
 use console::style;
-use dialoguer::{Input, theme::ColorfulTheme};
+use dialoguer::{Confirm, Input, Select, theme::ColorfulTheme};
 
 use super::InputHistory;
 
@@ -38,8 +38,25 @@ pub fn print_input_prompt(
 }
 
 pub fn print_choice_prompt(
-    prompt: &str,
-    choices: &[String],
-) -> anyhow::Result<Option<usize>> {
-    Ok(None)
+    options: &[String],
+    default: Option<usize>,
+    prompt: Option<&str>,
+) -> anyhow::Result<usize> {
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .with_prompt(prompt.unwrap_or("Select an Option:"))
+        .items(options)
+        .default(default.unwrap_or(0))
+        .interact()?;
+
+    Ok(selection)
+}
+
+pub fn print_retry_prompt(
+    prompt: Option<&str>
+) -> anyhow::Result<bool> {
+    let selection = Confirm::with_theme(&ColorfulTheme::default())
+        .with_prompt(prompt.unwrap_or("Retry?"))
+        .interact()?;
+
+    Ok(selection)
 }

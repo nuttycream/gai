@@ -8,7 +8,7 @@ use crate::{
     print::{InputHistory, find::print, loading, print_input_prompt},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
-    responses::find::parse_from_schema,
+    responses::find::parse_to_find_schema,
     schema::{SchemaSettings, find::create_find_schema},
     state::State,
 };
@@ -162,7 +162,7 @@ pub fn run(
             }
         };
 
-        let result = parse_from_schema(response)?;
+        let result = parse_to_find_schema(response)?;
 
         loading.stop();
 
