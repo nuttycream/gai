@@ -23,8 +23,38 @@
 // to do with generating commits from the diff
 // of the specified divergent point
 
-use git2::Repository;
+use git2::{Oid, Repository};
 
-pub fn rebase(_repo: &Repository) -> anyhow::Result<()> {
+use super::{
+    StagingStrategy,
+    commit::{GitCommit, apply_commits},
+    diffs::FileDiff,
+};
+
+/// recreate commits from diverged_from commit
+/// to head. Pass in an optional commit to rebase from
+/// essentially recreates/"rebases" commits
+/// from commit -> to commit, erasing all commits
+/// in between, for the new commits
+pub fn rebase_commits(
+    repo: &Repository,
+    diverged_from: Oid,
+    commits: &[GitCommit],
+    og_file_diffs: &mut Vec<FileDiff>,
+    staging_strategy: &StagingStrategy,
+) -> anyhow::Result<()> {
+    let commit_diverged = repo.find_commit(diverged_from)?;
+
+    // reset to the diverged commit
+    // mixed, to keep changes "unstaged"
+    repo.reset(
+        commit_diverged.as_object(),
+        git2::ResetType::Mixed,
+        None,
+    )?;
+
+    // call apply commits
+    apply_commits(repo, commits, og_file_diffs, staging_strategy)?;
+
     Ok(())
 }
