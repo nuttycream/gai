@@ -10,7 +10,10 @@ use crate::{
         diffs::{FileDiff, get_diffs},
         log::get_logs,
     },
-    print::{commits, loading, query::print_retry_prompt},
+    print::{
+        commits::print_response_commits, loading,
+        query::print_retry_prompt,
+    },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
     responses::{
@@ -81,7 +84,7 @@ pub fn run(
         return Ok(());
     }
 
-    let commit =
+    let diverging_commit =
         find_divergence_branch(&state.git.repo, &args.branch)?
             .to_string();
 
@@ -95,7 +98,7 @@ pub fn run(
         // pick from_hash
         0,
         false,
-        Some(&commit),
+        Some(&diverging_commit),
         None,
         None,
     )?;
@@ -147,6 +150,9 @@ pub fn run(
         SchemaSettings::default().allow_min_max_ints(true)
     };
 
+    // FIXME: this only grabs diffs of current repo state
+    // needs to get diffs from point of divergence
+    // aka diverging_commit
     state.diffs = get_diffs(&state.git, &diff_strategy)?;
 
     let req = create_rebase_request(&state.settings, &log_strs);
@@ -207,7 +213,7 @@ pub fn run(
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let selected = commits::print_response_commits(
+        let selected = print_response_commits(
             &raw_commits,
             global.compact,
             matches!(
