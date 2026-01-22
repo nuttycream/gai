@@ -18,7 +18,7 @@ pub struct GitCommit {
 
 /// struct containing a new and an old version
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-struct OldNew<T> {
+pub(super) struct OldNew<T> {
     /// The old version
     pub old: T,
     /// The new version
@@ -227,7 +227,7 @@ pub fn get_commit_diff<'a>(
 }
 
 /// get diff of two arbitrary commits
-fn get_compare_commits_diff(
+pub(super) fn get_compare_commits_diff(
     repo: &Repository,
     ids: OldNew<Oid>,
 ) -> anyhow::Result<Diff<'_>> {

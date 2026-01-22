@@ -3,6 +3,17 @@ use git2::{Branch, BranchType, Oid, Repository};
 
 use super::errors::GitError;
 
+/// returns the head of the current branch
+pub fn get_head_oid(
+    repo: &Repository,
+    _branch: Option<&str>,
+) -> anyhow::Result<Oid> {
+    repo.head()?
+        .target()
+        .ok_or(GitError::NoHead)
+        .with_context(|| "HEAD has no target, detached")
+}
+
 /// finds the divergence
 /// commit from a specified
 /// spec str
@@ -10,11 +21,7 @@ pub fn find_divergence_branch(
     repo: &Repository,
     spec: &str,
 ) -> anyhow::Result<Oid> {
-    let head_oid = repo
-        .head()?
-        .target()
-        .ok_or(GitError::NoHead)
-        .with_context(|| "HEAD has no target, detached")?;
+    let head_oid = get_head_oid(repo, None)?;
 
     let divergent_oid = repo
         .revparse_single(spec)?
