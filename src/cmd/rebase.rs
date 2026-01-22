@@ -4,11 +4,12 @@ use serde_json::Value;
 use crate::{
     args::{GlobalArgs, RebaseArgs},
     git::{
-        DiffStrategy, GitRepo, StagingStrategy, StatusStrategy,
+        GitRepo, StagingStrategy,
         branch::{find_divergence_branch, validate_branch_exists},
-        commit::{GitCommit, apply_commits},
-        diffs::{FileDiff, get_diffs},
+        commit::GitCommit,
+        diffs::{FileDiff, get_diffs_from_commits},
         log::get_logs,
+        rebase::rebase_commits,
     },
     print::{
         commits::print_response_commits, loading,
@@ -85,8 +86,7 @@ pub fn run(
     }
 
     let diverging_commit =
-        find_divergence_branch(&state.git.repo, &args.branch)?
-            .to_string();
+        find_divergence_branch(&state.git.repo, &args.branch)?;
 
     // collected logs from diverging branch
     let logs = get_logs(
@@ -98,12 +98,20 @@ pub fn run(
         // pick from_hash
         0,
         false,
-        Some(&diverging_commit),
+        Some(&diverging_commit.to_string()),
         None,
         None,
     )?;
 
     //println!("{:#?}", logs);
+
+    // collect diffs from the diverging_commit
+    state.diffs = get_diffs_from_commits(
+        &state.git.repo,
+        &state.git.workdir,
+        diverging_commit,
+        None,
+    )?;
 
     let mut log_strs = Vec::new();
 
@@ -122,21 +130,6 @@ pub fn run(
         log_strs.push(item);
     }
 
-    let status_strategy = if state
-        .settings
-        .commit
-        .only_staged
-    {
-        StatusStrategy::Stage
-    } else {
-        StatusStrategy::default()
-    };
-
-    let diff_strategy = DiffStrategy {
-        status_strategy,
-        ..Default::default()
-    };
-
     let schema_settings = if matches!(
         state
             .settings
@@ -150,12 +143,9 @@ pub fn run(
         SchemaSettings::default().allow_min_max_ints(true)
     };
 
-    // FIXME: this only grabs diffs of current repo state
-    // needs to get diffs from point of divergence
-    // aka diverging_commit
-    state.diffs = get_diffs(&state.git, &diff_strategy)?;
+    let request = create_rebase_request(&state.settings, &log_strs);
 
-    let req = create_rebase_request(&state.settings, &log_strs);
+    //println!("{request}");
 
     let schema = create_rebase_schema(
         schema_settings,
@@ -167,6 +157,14 @@ pub fn run(
             .diffs
             .as_hunks(),
     )?;
+
+    //println!("{:#?}", schema);
+
+    // an huge chunk of diffs are generated here
+    // if the branch is ahead by LOTS of changes
+    // in this case, setting a specific limit in terms
+    // of the specific commit to go back from should be in place
+    //    println!("{}", state.diffs);
 
     loop {
         let loading = loading::Loading::new(
@@ -180,7 +178,7 @@ pub fn run(
             &state
                 .settings
                 .provider,
-            req.to_owned(),
+            request.to_owned(),
             schema.to_owned(),
         ) {
             Ok(r) => r,
@@ -235,6 +233,7 @@ pub fn run(
             None => {
                 if apply(
                     &state.git,
+                    diverging_commit,
                     &git_commits,
                     &mut state.diffs.files,
                     &state
@@ -250,6 +249,7 @@ pub fn run(
         if selected == 0 {
             if apply(
                 &state.git,
+                diverging_commit,
                 &git_commits,
                 &mut state.diffs.files,
                 &state
@@ -273,13 +273,15 @@ pub fn run(
 
 fn apply(
     repo: &GitRepo,
+    diverged_from: git2::Oid,
     git_commits: &[GitCommit],
     og_file_diffs: &mut Vec<FileDiff>,
     staging_stragey: &StagingStrategy,
 ) -> anyhow::Result<bool> {
     println!("Applying Commits...");
-    match apply_commits(
+    match rebase_commits(
         &repo.repo,
+        diverged_from,
         git_commits,
         og_file_diffs,
         staging_stragey,
