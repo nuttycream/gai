@@ -1,7 +1,7 @@
 use crate::{
     args::{GlobalArgs, StatusArgs},
     git::{
-        DiffStrategy, StatusStrategy, diffs::get_diffs,
+        DiffStrategy, StatusStrategy, diffs::get_diffs_from_statuses,
         status::get_status,
     },
     print::status,
@@ -56,7 +56,11 @@ pub fn run(
             diff_strategy.ignored_files = files_to_ignore.to_owned();
         }
 
-        let diffs = get_diffs(&state.git, &diff_strategy)?;
+        let diffs = get_diffs_from_statuses(
+            &state.git.repo,
+            &state.git.workdir,
+            &diff_strategy,
+        )?;
 
         println!("{}", diffs);
     }

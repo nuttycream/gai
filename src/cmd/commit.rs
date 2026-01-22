@@ -8,7 +8,7 @@ use crate::{
         DiffStrategy, Diffs, GitRepo, StagingStrategy,
         StatusStrategy,
         commit::{GitCommit, apply_commits},
-        diffs::{FileDiff, get_diffs},
+        diffs::{FileDiff, get_diffs_from_statuses},
     },
     print::{commits, loading::Loading},
     providers::{extract_from_provider, provider::ProviderKind},
@@ -81,7 +81,11 @@ pub fn run(
         diff_strategy.ignored_files = files_to_ignore.to_owned();
     }
 
-    state.diffs = get_diffs(&state.git, &diff_strategy)?;
+    state.diffs = get_diffs_from_statuses(
+        &state.git.repo,
+        &state.git.workdir,
+        &diff_strategy,
+    )?;
 
     if state
         .diffs
