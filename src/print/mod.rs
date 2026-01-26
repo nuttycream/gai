@@ -4,6 +4,7 @@ pub mod history;
 pub mod loading;
 pub mod log;
 pub mod query;
+pub mod rebase;
 pub mod status;
 pub mod tree;
 
