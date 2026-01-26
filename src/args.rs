@@ -179,18 +179,22 @@ pub struct FindArgs {
 
 #[derive(Debug, Args)]
 pub struct RebaseArgs {
-    /// Specify the branch from which topic diverged from. i.e main
+    /// Specify the branch from which current branch diverged from
+    #[arg(short = 'b', long, default_value = "main")]
     pub branch: String,
 
-    /// Rewrite all the commits in the current branch, in-place
-    #[arg(long)]
-    pub clean: bool,
-
     /// Specify the amount of last commits to rebase from
-    #[arg(short = 'n', long)]
-    pub number: Option<usize>,
+    #[arg(short = 'l', long, default_value = "10")]
+    pub last: usize,
+
+    #[arg(
+        short = 'r',
+        long,
+        help = "Specify the commit range to regenerate and rebase from.\nDelimitted with '..' ie.: 123abcd..456efgi"
+    )]
+    pub range: Option<String>,
 
     /// Specify branch name to rebase onto
-    #[arg(long)]
+    #[arg(short = 'o', long)]
     pub onto: Option<String>,
 }
