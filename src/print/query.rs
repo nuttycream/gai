@@ -37,18 +37,30 @@ pub fn print_input_prompt(
     }
 }
 
+// prints multiple choice prompt
+// does not require to add Exit to
+// option list, if Exit is selected
+// returns None
 pub fn print_choice_prompt(
-    options: &[String],
+    options: &[&str],
     default: Option<usize>,
     prompt: Option<&str>,
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<Option<usize>> {
+    let mut options = options.to_vec();
+
+    options.push("Exit");
+
     let selection = Select::with_theme(&ColorfulTheme::default())
         .with_prompt(prompt.unwrap_or("Select an Option:"))
-        .items(options)
+        .items(&options)
         .default(default.unwrap_or(0))
         .interact()?;
 
-    Ok(selection)
+    if selection == options.len() - 1 {
+        return Ok(None);
+    }
+
+    Ok(Some(selection))
 }
 
 pub fn print_retry_prompt(
