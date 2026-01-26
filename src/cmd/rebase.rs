@@ -1,19 +1,20 @@
-use console::style;
 use serde_json::Value;
 
 use crate::{
     args::{GlobalArgs, RebaseArgs},
     git::{
         GitRepo, StagingStrategy,
-        branch::{find_divergence_branch, validate_branch_exists},
+        branch::{find_divergence_branch, get_diverged_branches},
         commit::GitCommit,
         diffs::{FileDiff, get_diffs_from_commits},
         log::get_logs,
         rebase::rebase_commits,
+        repo,
     },
     print::{
         commits::print_response_commits, loading,
-        query::print_retry_prompt,
+        print_choice_prompt, query::print_retry_prompt,
+        rebase::print_branches_info,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
@@ -61,32 +62,37 @@ pub fn run(
             .as_deref(),
     )?;
 
-    if !validate_branch_exists(&state.git.repo, &args.branch)? {
-        println!(
-            "Branch {}, {}",
-            style(&args.branch).bold(),
-            style("does not exist or is an invalid branch name")
-                .red()
-        );
+    let options = [
+        "Commits Since Divergence",
+        "Last Number of Commits",
+        "Specific Commit Range",
+    ];
 
+    let selected_flow = if let Some(s) = print_choice_prompt(
+        &options,
+        None,
+        Some("Select a Scope for the Rebase Operation"),
+    )? {
+        s
+    } else {
+        println!("Exiting...");
         return Ok(());
+    };
+
+    match selected_flow {
+        0 => match divergence_flow(&state.git, global.compact)? {
+            Some(oid) => println!("{oid}"),
+            None => return Ok(()),
+        },
+        1 => {}
+        2 => {}
+        _ => unreachable!(),
     }
 
-    if let Some(onto) = &args.onto
-        && !validate_branch_exists(&state.git.repo, onto)?
-    {
-        println!(
-            "Branch {}, {}",
-            style(&onto).bold(),
-            style("does not exist or is an invalid branch name")
-                .red()
-        );
-
-        return Ok(());
-    }
+    let branch = &args.branch;
 
     let diverging_commit =
-        find_divergence_branch(&state.git.repo, &args.branch)?;
+        find_divergence_branch(&state.git.repo, branch)?;
 
     // collected logs from diverging branch
     let logs = get_logs(
@@ -96,7 +102,7 @@ pub fn run(
         // count shouldn't
         // matter considering, we
         // pick from_hash
-        0,
+        args.last,
         false,
         Some(&diverging_commit.to_string()),
         None,
@@ -269,6 +275,26 @@ pub fn run(
     }
 
     Ok(())
+}
+
+fn divergence_flow(
+    repo: &GitRepo,
+    compact: bool,
+) -> anyhow::Result<Option<git2::Oid>> {
+    let branches = get_diverged_branches(&repo.repo)?;
+
+    let opts = print_branches_info(&branches, compact)?;
+
+    let selected_branch = if let Some(b) =
+        print_choice_prompt(&opts, None, Some("Select a Branch"))?
+    {
+        b
+    } else {
+        println!("Exiting...");
+        return Ok(None);
+    };
+
+    todo!()
 }
 
 fn apply(
