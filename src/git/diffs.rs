@@ -365,7 +365,7 @@ pub fn get_diffs_from_statuses(
             get_diff_raw_from_statuses(repo, &file.path, strategy)?;
 
         let file_diff =
-            raw_diff_to_file_diff(&raw_diff, &file.path, &work_dir)?;
+            raw_diff_to_file_diff(&raw_diff, &file.path, work_dir)?;
 
         files.push(file_diff);
     }
