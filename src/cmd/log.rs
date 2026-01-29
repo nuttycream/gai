@@ -26,7 +26,7 @@ pub fn run(
         None,
     )?;
 
-    match log::print_logs(&logs.git_logs)? {
+    match log::print_logs(&logs.git_logs, None, None)? {
         Some(s) => {
             // todo impl perform checkout
             let log: String = logs.git_logs[s]

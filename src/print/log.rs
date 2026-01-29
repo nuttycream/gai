@@ -5,7 +5,9 @@ use std::fmt;
 use crate::git::log::{GitLog, get_short_hash};
 
 pub fn print_logs(
-    git_logs: &[GitLog]
+    git_logs: &[GitLog],
+    prompt: Option<&str>,
+    limit: Option<usize>,
 ) -> anyhow::Result<Option<usize>> {
     let mut selection_display = Vec::new();
 
@@ -47,7 +49,6 @@ pub fn print_logs(
             Some("docs") => Color::Blue,
             _ => Color::White,
         };
-
         let message = style(&truncated).fg(color);
 
         let display = format!("{} {}", hash_display, message);
@@ -55,10 +56,18 @@ pub fn print_logs(
         selection_display.push(display.to_owned());
     }
 
-    let selected = FuzzySelect::with_theme(&LogTheme)
-        .with_prompt("Select a commit")
-        .items(&selection_display)
-        .interact_opt()?;
+    let selected = if let Some(limit) = limit {
+        FuzzySelect::with_theme(&LogTheme)
+            .max_length(limit)
+            .with_prompt(prompt.unwrap_or("Select a commit"))
+            .items(&selection_display)
+            .interact_opt()?
+    } else {
+        FuzzySelect::with_theme(&LogTheme)
+            .with_prompt(prompt.unwrap_or("Select a commit"))
+            .items(&selection_display)
+            .interact_opt()?
+    };
 
     Ok(selected)
 }

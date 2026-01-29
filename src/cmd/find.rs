@@ -107,7 +107,7 @@ pub fn run(
         } else {
             match print_input_prompt(
                 "What is your query?",
-                &mut history,
+                Some(&mut history),
             )? {
                 Some(q) => {
                     query = q.to_owned();
