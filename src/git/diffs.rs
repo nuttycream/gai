@@ -350,6 +350,7 @@ pub fn find_file_hunks(
 }
 
 /// build a list of FileDiff's
+/// using DiffStrategy
 /// calls get_status() first
 pub fn get_diffs_from_statuses(
     repo: &Repository,
@@ -373,6 +374,11 @@ pub fn get_diffs_from_statuses(
     Ok(Diffs { files })
 }
 
+/// builds a list of FileDiffs
+/// from specified Oid, can use
+/// an optional to Oid, if None
+/// is supplied, will use the head
+/// of current branch
 pub fn get_diffs_from_commits(
     repo: &Repository,
     work_dir: &Path,
