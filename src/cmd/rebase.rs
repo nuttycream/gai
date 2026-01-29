@@ -1,20 +1,21 @@
+use console::style;
+use git2::Oid;
 use serde_json::Value;
 
 use crate::{
     args::{GlobalArgs, RebaseArgs},
     git::{
         GitRepo, StagingStrategy,
-        branch::{find_divergence_branch, get_diverged_branches},
-        commit::GitCommit,
+        branch::get_diverged_branches,
+        commit::{GitCommit, find_parent_commit},
         diffs::{FileDiff, get_diffs_from_commits},
         log::get_logs,
         rebase::rebase_commits,
-        repo,
     },
     print::{
-        commits::print_response_commits, loading,
-        print_choice_prompt, query::print_retry_prompt,
-        rebase::print_branches_info,
+        commits::print_response_commits, loading, log::print_logs,
+        print_choice_prompt, print_input_prompt,
+        query::print_retry_prompt, rebase::print_branches_info,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
@@ -65,7 +66,7 @@ pub fn run(
     let options = [
         "Commits Since Divergence",
         "Last Number of Commits",
-        "Specific Commit Range",
+        "Specify Commit Range",
     ];
 
     let selected_flow = if let Some(s) = print_choice_prompt(
@@ -79,33 +80,64 @@ pub fn run(
         return Ok(());
     };
 
+    let diverge_from: Oid;
+    let mut from_hash: Option<String> = None;
+    let mut to_hash: Option<String> = None;
+
     match selected_flow {
-        0 => match divergence_flow(&state.git, global.compact)? {
-            Some(oid) => println!("{oid}"),
-            None => return Ok(()),
-        },
-        1 => {}
-        2 => {}
+        0 => {
+            // handle commits since divergence
+            // user can pick a branch, then run the logic
+            // to find where it diverged from head
+            // colllect all commits from that point to head
+            diverge_from =
+                match divergence_flow(&state.git, global.compact)? {
+                    Some(oid) => oid,
+                    None => return Ok(()),
+                };
+
+            from_hash = Some(diverge_from.to_string());
+        }
+        1 => {
+            // handle specify last N fo commits
+            // pretty straightfoward, prompt for
+            // count, specify max,
+
+            diverge_from = match last_n_flow(&state.git)? {
+                Some(oid) => oid,
+                None => return Ok(()),
+            };
+
+            from_hash = Some(diverge_from.to_string());
+        }
+        2 => {
+            // handle commit range
+            // use something akin to print_query_logs()
+            // first bring up the query logs
+            // to fuzzy find a commit from_hash
+            // then use it again for to_hash
+            diverge_from = match specify_range_flow(&state.git)? {
+                Some(oid) => oid,
+                None => return Ok(()),
+            };
+        }
         _ => unreachable!(),
-    }
+    };
 
-    let branch = &args.branch;
-
-    let diverging_commit =
-        find_divergence_branch(&state.git.repo, branch)?;
-
-    // collected logs from diverging branch
+    // collect logs
     let logs = get_logs(
         &state.git,
+        // FIXME: args option
         true,
+        // not going to include diffs, as
+        // they should be unified diff
         false,
-        // count shouldn't
-        // matter considering, we
-        // pick from_hash
-        args.last,
+        // count limits specified
+        // from hash ranges
+        0,
         false,
-        Some(&diverging_commit.to_string()),
-        None,
+        from_hash.as_deref(),
+        to_hash.as_deref(),
         None,
     )?;
 
@@ -115,7 +147,7 @@ pub fn run(
     state.diffs = get_diffs_from_commits(
         &state.git.repo,
         &state.git.workdir,
-        diverging_commit,
+        diverge_from,
         None,
     )?;
 
@@ -170,7 +202,7 @@ pub fn run(
     // if the branch is ahead by LOTS of changes
     // in this case, setting a specific limit in terms
     // of the specific commit to go back from should be in place
-    //    println!("{}", state.diffs);
+    // println!("{}", state.diffs);
 
     loop {
         let loading = loading::Loading::new(
@@ -239,7 +271,7 @@ pub fn run(
             None => {
                 if apply(
                     &state.git,
-                    diverging_commit,
+                    diverge_from,
                     &git_commits,
                     &mut state.diffs.files,
                     &state
@@ -255,7 +287,7 @@ pub fn run(
         if selected == 0 {
             if apply(
                 &state.git,
-                diverging_commit,
+                diverge_from,
                 &git_commits,
                 &mut state.diffs.files,
                 &state
@@ -280,7 +312,7 @@ pub fn run(
 fn divergence_flow(
     repo: &GitRepo,
     compact: bool,
-) -> anyhow::Result<Option<git2::Oid>> {
+) -> anyhow::Result<Option<Oid>> {
     let branches = get_diverged_branches(&repo.repo)?;
 
     let opts = print_branches_info(&branches, compact)?;
@@ -294,12 +326,140 @@ fn divergence_flow(
         return Ok(None);
     };
 
-    todo!()
+    let commit_oid = if let Some(d) = branches[selected_branch]
+        .divergence
+        .to_owned()
+    {
+        d.merge_base
+    } else {
+        println!(
+            "No merge_base available... exiting, this shouldn't happen"
+        );
+        return Ok(None);
+    };
+
+    Ok(Some(commit_oid))
+}
+
+fn last_n_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
+    let n: usize;
+
+    loop {
+        let input =
+            match print_input_prompt("Specify a valid number", None)?
+            {
+                Some(i) => i,
+                None => {
+                    println!("Exiting...");
+                    return Ok(None);
+                }
+            };
+
+        match input.parse::<usize>() {
+            Ok(v) => {
+                if v == 0 {
+                    println!("Please enter a value greater than 0");
+                    continue;
+                }
+
+                n = v;
+                break;
+            }
+            Err(_) => {
+                println!("Cannot parse {} as a valid number", input);
+                continue;
+            }
+        }
+    }
+
+    let logs =
+        get_logs(repo, false, false, n, false, None, None, None)?;
+
+    // if n exceeds log length, continue, regardless
+    if n > logs.git_logs.len() {
+        println!(
+            "Only {} commits exist in history but you requested {}",
+            style(logs.git_logs.len()).red(),
+            style(n).red()
+        );
+    }
+
+    // this should get the last logged commit
+    // if the count exceeds, get_logs()
+    // will handle that and return or "take"
+    // the last commit
+    let oldest_commit_hash = match logs
+        .git_logs
+        .last()
+        .map(|l| {
+            l.commit_hash
+                .to_owned()
+        }) {
+        Some(h) => h,
+        None => {
+            println!("No Commits Found, Exiting...");
+            return Ok(None);
+        }
+    };
+
+    let oid = find_parent_commit(&repo.repo, &oldest_commit_hash)?;
+
+    Ok(Some(oid))
+}
+
+fn specify_range_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
+    let mut logs =
+        get_logs(repo, false, false, 0, false, None, None, None)?;
+
+    loop {
+        let mut selected = match print_logs(
+            &logs.git_logs,
+            Some("Select the FIRST commit in the range:"),
+            Some(10),
+        )? {
+            Some(s) => s,
+            None => continue,
+        };
+
+        let from = logs.git_logs[selected].to_owned();
+
+        selected = match print_logs(
+            &logs.git_logs,
+            Some("Select the LAST commit in the range:"),
+            Some(10),
+        )? {
+            Some(s) => s,
+            None => continue,
+        };
+
+        let to = logs.git_logs[selected].to_owned();
+
+        // calc range, display how many commits that is,
+        logs.git_logs
+            .clear();
+
+        logs = get_logs(
+            repo,
+            false,
+            false,
+            0,
+            false,
+            Some(&from.commit_hash),
+            Some(&to.commit_hash),
+            None,
+        )?;
+
+        println!("Info: Amount: {}", logs.git_logs.len());
+
+        break;
+    }
+
+    Ok(None)
 }
 
 fn apply(
     repo: &GitRepo,
-    diverged_from: git2::Oid,
+    diverged_from: Oid,
     git_commits: &[GitCommit],
     og_file_diffs: &mut Vec<FileDiff>,
     staging_stragey: &StagingStrategy,
