@@ -69,17 +69,6 @@ impl BranchInfo {
     }
 }
 
-/// returns the head of the current branch
-pub fn get_head_oid(
-    repo: &Repository,
-    _branch: Option<&str>,
-) -> anyhow::Result<Oid> {
-    repo.head()?
-        .target()
-        .ok_or(GitError::NoHead)
-        .with_context(|| "HEAD has no target, detached")
-}
-
 /// finds the divergence
 /// commit from a specified
 /// spec str
@@ -273,4 +262,15 @@ fn get_branches_info(
     branches_for_display.sort_by(|a, b| a.name.cmp(&b.name));
 
     Ok(branches_for_display)
+}
+
+/// returns the head of the current branch
+pub(super) fn get_head_oid(
+    repo: &Repository,
+    _branch: Option<&str>,
+) -> anyhow::Result<Oid> {
+    repo.head()?
+        .target()
+        .ok_or(GitError::NoHead)
+        .with_context(|| "HEAD has no target, detached")
 }
