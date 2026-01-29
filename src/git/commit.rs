@@ -4,6 +4,7 @@ use git2::{Diff, Oid, Repository};
 
 use super::{
     diffs::{FileDiff, HunkId},
+    errors::GitError,
     staging::{StagingStrategy, stage_all, stage_file, stage_hunks},
     status::{FileStatus, StatusItemType},
     utils::get_head_repo,
@@ -23,6 +24,35 @@ pub(super) struct OldNew<T> {
     pub old: T,
     /// The new version
     pub new: T,
+}
+
+/// returns the parent commit
+/// used specifically when specifying a N
+/// commit range, where we want to reset TO
+pub fn find_parent_commit(
+    repo: &Repository,
+    commit_hash: &str,
+) -> anyhow::Result<Oid> {
+    let c = match repo.find_commit(Oid::from_str(commit_hash)?) {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(GitError::Generic(e.to_string()).into());
+        }
+    };
+
+    match c.parent_id(0) {
+        Ok(p) => Ok(p),
+        Err(_) => {
+            // no parent means this is the initial commit
+            // user is trying to rewrite entire history
+            // FIXME: implement initial commit rebase
+            // what do here
+
+            Err(GitError::Generic(
+                "this is an initial commit, no parent, should support this".to_string())
+                .into())
+        }
+    }
 }
 
 pub fn apply_commits(
