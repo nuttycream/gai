@@ -12,5 +12,6 @@ pub fn create_rebase_request(
 }
 
 fn build_prompt(_cfg: &Settings) -> &str {
-    "No"
+    "You are a Git expert tasked with rewriting commits. \
+        You are supplied a diff and the past commit messages."
 }

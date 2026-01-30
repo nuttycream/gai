@@ -81,8 +81,7 @@ pub fn run(
     };
 
     let diverge_from: Oid;
-    let mut from_hash: Option<String> = None;
-    let mut to_hash: Option<String> = None;
+    let from_hash: Option<String>;
 
     match selected_flow {
         0 => {
@@ -116,10 +115,13 @@ pub fn run(
             // first bring up the query logs
             // to fuzzy find a commit from_hash
             // then use it again for to_hash
-            diverge_from = match specify_range_flow(&state.git)? {
-                Some(oid) => oid,
+            let res = match specify_range_flow(&state.git)? {
+                Some(r) => r,
                 None => return Ok(()),
             };
+
+            diverge_from = res.0;
+            from_hash = Some(res.1);
         }
         _ => unreachable!(),
     };
@@ -127,7 +129,7 @@ pub fn run(
     // collect logs
     let logs = get_logs(
         &state.git,
-        // FIXME: args option
+        // FIXME: args option should override this
         true,
         // not going to include diffs, as
         // they should be unified diff
@@ -137,7 +139,7 @@ pub fn run(
         0,
         false,
         from_hash.as_deref(),
-        to_hash.as_deref(),
+        None,
         None,
     )?;
 
@@ -249,6 +251,8 @@ pub fn run(
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
+        loading.stop();
+
         let selected = print_response_commits(
             &raw_commits,
             global.compact,
@@ -302,8 +306,6 @@ pub fn run(
         } else if selected == 2 {
             println!("Exiting");
         }
-
-        loading.stop();
     }
 
     Ok(())
@@ -407,54 +409,77 @@ fn last_n_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
     Ok(Some(oid))
 }
 
-fn specify_range_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
-    let mut logs =
+fn specify_range_flow(
+    repo: &GitRepo
+) -> anyhow::Result<Option<(Oid, String)>> {
+    let logs =
         get_logs(repo, false, false, 0, false, None, None, None)?;
 
+    if logs
+        .git_logs
+        .is_empty()
+    {
+        println!("No commits found. Exiting...");
+        return Ok(None);
+    }
+
     loop {
-        let mut selected = match print_logs(
+        // logs are ordered newwest, so we use
+        // older and newer terms
+        // to avoid confusion with list position
+        let first = match print_logs(
             &logs.git_logs,
-            Some("Select the FIRST commit in the range:"),
+            Some("Select the starting range"),
             Some(10),
         )? {
             Some(s) => s,
-            None => continue,
+            None => {
+                println!("Exiting...");
+                return Ok(None);
+            }
         };
 
-        let from = logs.git_logs[selected].to_owned();
+        let commit = &logs.git_logs[first];
 
-        selected = match print_logs(
-            &logs.git_logs,
-            Some("Select the LAST commit in the range:"),
-            Some(10),
-        )? {
-            Some(s) => s,
-            None => continue,
-        };
-
-        let to = logs.git_logs[selected].to_owned();
-
-        // calc range, display how many commits that is,
-        logs.git_logs
-            .clear();
-
-        logs = get_logs(
+        let logs = get_logs(
             repo,
             false,
             false,
             0,
             false,
-            Some(&from.commit_hash),
-            Some(&to.commit_hash),
+            Some(&commit.commit_hash),
+            None,
             None,
         )?;
 
-        println!("Info: Amount: {}", logs.git_logs.len());
+        let count = logs.git_logs.len();
 
-        break;
+        if count == 0 {
+            println!(
+                "No commits in selected range OR commit selected is HEAD. Resetting..."
+            );
+            continue;
+        }
+
+        println!(
+            "{} Rebasing {} commit{} since {}:",
+            style("→").green(),
+            style(count).cyan(),
+            if count == 1 { "" } else { "s" },
+            style("HEAD").red(),
+        );
+
+        println!(
+            " From: {} {}",
+            style(&commit.commit_hash[..7]).dim(),
+            String::from(commit.to_owned())
+        );
+
+        let diverge_from =
+            find_parent_commit(&repo.repo, &commit.commit_hash)?;
+
+        return Ok(Some((diverge_from, diverge_from.to_string())));
     }
-
-    Ok(None)
 }
 
 fn apply(
