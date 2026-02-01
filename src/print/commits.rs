@@ -229,7 +229,7 @@ pub fn print_response_commits(
         .with_prompt("Select an option:")
         .items(options)
         .default(0)
-        .interact()?;
+        .interact_opt()?;
 
-    Ok(Some(selection))
+    Ok(selection)
 }

@@ -38,7 +38,8 @@ pub const RULE_HEADER_BASE: &str = "  * header: CRITICAL - This field contains O
     - Example WRONG: 'feat: add new parser' or 'feat(api): add endpoint'\n\
     - Example CORRECT: 'add new parser' or 'add endpoint'\n";
 
-pub const RULE_BODY_BASE: &str = "  * body: Provide detailed explanation of what changed and why\n";
+pub const RULE_BODY_BASE: &str = "  * body: Provide detailed explanation of what changed and why, make sure to use proper indentation and markdown formatting.
+    If you are told to be verbose, make sure you're verbose especially so in the BODY\n";
 
 pub const RULE_MESSAGE_VERBOSE: &str = "    - Make descriptions ACCURATE and VERBOSE\n\
     - Descriptions must closely align with the actual code changes\n";
