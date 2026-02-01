@@ -33,6 +33,7 @@ pub fn run(
         global
             .config
             .as_deref(),
+        global,
     )?;
 
     state
