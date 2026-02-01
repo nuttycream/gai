@@ -17,16 +17,9 @@ pub fn run(
     args: &FindArgs,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let mut state = State::new(None, global)?;
+    let state = State::new(None, global)?;
 
     let count = args.number;
-
-    // todo add global args overrider
-    if let Some(provider) = global.provider {
-        state
-            .settings
-            .provider = provider;
-    }
 
     let logs = get_logs(
         &state.git,

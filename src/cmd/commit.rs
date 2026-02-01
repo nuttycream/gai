@@ -44,12 +44,6 @@ pub fn run(
             .only_staged = true;
     }
 
-    if let Some(provider) = global.provider {
-        state
-            .settings
-            .provider = provider;
-    }
-
     let status_strategy = if state
         .settings
         .commit

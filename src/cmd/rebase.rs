@@ -61,15 +61,8 @@ pub fn run(
         global
             .config
             .as_deref(),
+        global,
     )?;
-
-    // FIXME: tempfix for provider override
-    // should be OVERRIDED as we parse arguments
-    if let Some(provider) = global.provider {
-        state
-            .settings
-            .provider = provider;
-    }
 
     //println!("{:#?}", state.settings);
 
