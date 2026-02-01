@@ -16,6 +16,7 @@ pub fn run(
         global
             .config
             .as_deref(),
+        global,
     )?;
 
     // todo impl something for this

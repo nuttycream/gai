@@ -17,7 +17,7 @@ pub fn run(
     args: &FindArgs,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let mut state = State::new(None)?;
+    let mut state = State::new(None, global)?;
 
     let count = args.number;
 

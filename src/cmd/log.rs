@@ -7,9 +7,9 @@ use crate::{
 
 pub fn run(
     args: &LogArgs,
-    _global: &GlobalArgs,
+    global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let state = State::new(None)?;
+    let state = State::new(None, global)?;
 
     let count = args
         .number
