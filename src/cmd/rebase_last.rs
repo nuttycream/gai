@@ -9,47 +9,52 @@ use crate::{
 pub(super) fn rebase_last(
     git: &GitRepo,
     is_interactive: bool,
-    last_n: usize,
+    last_n: Option<usize>,
 ) -> anyhow::Result<Option<Oid>> {
     if is_interactive {
         return last_n_flow(git);
     }
 
-    let logs =
-        get_logs(git, false, false, last_n, false, None, None, None)?;
+    if let Some(last_n) = last_n {
+        let logs = get_logs(
+            git, false, false, last_n, false, None, None, None,
+        )?;
 
-    if last_n > logs.git_logs.len() {
+        if last_n > logs.git_logs.len() {
+            println!(
+                "{} Only {} commits exist in history but you requested {}",
+                style("Warning:").yellow(),
+                style(logs.git_logs.len()).red(),
+                style(last_n).red()
+            );
+        }
+
+        // this should get the last logged commit
+        // if the count exceeds, get_logs()
+        // will handle that and return or "take"
+        // the last commit
+        let oldest_commit_hash = logs
+            .git_logs
+            .last()
+            .map(|l| {
+                l.commit_hash
+                    .to_owned()
+            })
+            .unwrap();
+
+        let oid = find_parent_commit(&git.repo, &oldest_commit_hash)?;
+
         println!(
-            "{} Only {} commits exist in history but you requested {}",
-            style("Warning:").yellow(),
-            style(logs.git_logs.len()).red(),
-            style(last_n).red()
+            "{} Rebasing last {} commit{}",
+            style("→").green(),
+            style(last_n).cyan(),
+            if last_n == 1 { "" } else { "s" }
         );
+
+        Ok(Some(oid))
+    } else {
+        return Ok(None);
     }
-
-    // this should get the last logged commit
-    // if the count exceeds, get_logs()
-    // will handle that and return or "take"
-    // the last commit
-    let oldest_commit_hash = logs
-        .git_logs
-        .last()
-        .map(|l| {
-            l.commit_hash
-                .to_owned()
-        })
-        .unwrap();
-
-    let oid = find_parent_commit(&git.repo, &oldest_commit_hash)?;
-
-    println!(
-        "{} Rebasing last {} commit{}",
-        style("→").green(),
-        style(last_n).cyan(),
-        if last_n == 1 { "" } else { "s" }
-    );
-
-    Ok(Some(oid))
 }
 
 fn last_n_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {

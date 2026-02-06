@@ -4,9 +4,10 @@ use serde_json::Value;
 
 use crate::{
     args::{GlobalArgs, RebaseArgs},
+    cmd::{rebase_branch::rebase_branch, rebase_range::rebase_range},
     git::{
         GitRepo, StagingStrategy,
-        branch::{find_divergence_branch, get_diverged_branches},
+        branch::get_diverged_branches,
         commit::{GitCommit, find_parent_commit},
         diffs::{FileDiff, get_diffs_from_commits},
         log::{get_logs, get_short_hash},
@@ -14,8 +15,8 @@ use crate::{
     },
     print::{
         commits::print_response_commits, loading, log::print_logs,
-        print_choice_prompt, print_input_prompt,
-        query::print_retry_prompt, rebase::print_branches_info,
+        print_choice_prompt, query::print_retry_prompt,
+        rebase::print_branches_info,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
@@ -25,6 +26,8 @@ use crate::{
     schema::{SchemaSettings, rebase::create_rebase_schema},
     state::State,
 };
+
+use super::rebase_last::rebase_last;
 
 pub fn run(
     args: &RebaseArgs,
@@ -67,85 +70,32 @@ pub fn run(
     //println!("{:#?}", state.settings);
 
     let diverge_from = if let Some(ref div_branch_arg) = args.branch {
-        let oid =
-            find_divergence_branch(&state.git.repo, div_branch_arg)?;
-
-        println!(
-            "{} Using divergence from branch: {}",
-            style("→").green(),
-            style(div_branch_arg).cyan()
-        );
-
-        oid
-    } else if let Some(last_n) = args.last {
-        let logs = get_logs(
-            &state.git, false, false, last_n, false, None, None, None,
-        )?;
-
-        if last_n > logs.git_logs.len() {
-            println!(
-                "{} Only {} commits exist in history but you requested {}",
-                style("Warning:").yellow(),
-                style(logs.git_logs.len()).red(),
-                style(last_n).red()
-            );
-        }
-
-        // this should get the last logged commit
-        // if the count exceeds, get_logs()
-        // will handle that and return or "take"
-        // the last commit
-        let oldest_commit_hash = logs
-            .git_logs
-            .last()
-            .map(|l| {
-                l.commit_hash
-                    .to_owned()
-            })
-            .unwrap();
-
-        let oid =
-            find_parent_commit(&state.git.repo, &oldest_commit_hash)?;
-
-        println!(
-            "{} Rebasing last {} commit{}",
-            style("→").green(),
-            style(last_n).cyan(),
-            if last_n == 1 { "" } else { "s" }
-        );
-
-        oid
-    } else if let Some(ref from_hash) = args.from {
-        let logs = get_logs(
+        if let Some(oid) = rebase_branch(
             &state.git,
+            Some(div_branch_arg),
             false,
-            false,
-            0,
-            false,
-            Some(from_hash),
-            None,
-            None,
-        )?;
-
-        let count = logs.git_logs.len();
-
-        let oid = find_parent_commit(&state.git.repo, from_hash)?;
-
-        println!(
-            "{} Rebasing {} commit{} from {}",
-            style("→").green(),
-            style(count).cyan(),
-            if count == 1 { "" } else { "s" },
-            //get_short_hash()
-            style(
-                &from_hash[..from_hash
-                    .len()
-                    .min(7)]
-            )
-            .dim()
-        );
-
-        oid
+            global.compact,
+        )? {
+            oid
+        } else {
+            return Ok(());
+        }
+    } else if let Some(last_n) = args.last {
+        if let Some(oid) =
+            rebase_last(&state.git, false, Some(last_n))?
+        {
+            oid
+        } else {
+            return Ok(());
+        }
+    } else if let Some(ref from_hash) = args.from {
+        if let Some(oid) =
+            rebase_range(&state.git, Some(from_hash), false)?
+        {
+            oid
+        } else {
+            return Ok(());
+        }
     } else {
         let options = [
             "Commits Since Divergence",
@@ -170,7 +120,12 @@ pub fn run(
                 // user can pick a branch, then run the logic
                 // to find where it diverged from head
                 // colllect all commits from that point to head
-                match divergence_flow(&state.git, global.compact)? {
+                match rebase_branch(
+                    &state.git,
+                    None,
+                    true,
+                    global.compact,
+                )? {
                     Some(oid) => oid,
                     None => return Ok(()),
                 }
@@ -179,8 +134,7 @@ pub fn run(
                 // handle specify last N fo commits
                 // pretty straightfoward, prompt for
                 // count, specify max,
-
-                match last_n_flow(&state.git)? {
+                match rebase_last(&state.git, true, None)? {
                     Some(oid) => oid,
                     None => return Ok(()),
                 }
@@ -191,7 +145,7 @@ pub fn run(
                 // first bring up the query logs
                 // to fuzzy find a commit from_hash
                 // then use it again for to_hash
-                match specify_range_flow(&state.git)? {
+                match rebase_range(&state.git, None, true)? {
                     Some(oid) => oid,
                     None => return Ok(()),
                 }
@@ -379,109 +333,6 @@ pub fn run(
     }
 
     Ok(())
-}
-
-fn divergence_flow(
-    repo: &GitRepo,
-    compact: bool,
-) -> anyhow::Result<Option<Oid>> {
-    let branches = get_diverged_branches(&repo.repo)?;
-
-    let opts = print_branches_info(&branches, compact)?;
-
-    let selected_branch = if let Some(b) =
-        print_choice_prompt(&opts, None, Some("Select a Branch"))?
-    {
-        b
-    } else {
-        println!("Exiting...");
-        return Ok(None);
-    };
-
-    let commit_oid = if let Some(d) = branches[selected_branch]
-        .divergence
-        .to_owned()
-    {
-        d.merge_base
-    } else {
-        println!(
-            "No merge_base available... exiting, this shouldn't happen"
-        );
-        return Ok(None);
-    };
-
-    Ok(Some(commit_oid))
-}
-
-fn specify_range_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
-    let logs =
-        get_logs(repo, false, false, 0, false, None, None, None)?;
-
-    if logs
-        .git_logs
-        .is_empty()
-    {
-        println!("No commits found. Exiting...");
-        return Ok(None);
-    }
-
-    loop {
-        // logs are ordered newwest, so we use
-        // older and newer terms
-        // to avoid confusion with list position
-        let first = match print_logs(
-            &logs.git_logs,
-            Some("Select the starting range"),
-            Some(10),
-        )? {
-            Some(s) => s,
-            None => {
-                println!("Exiting...");
-                return Ok(None);
-            }
-        };
-
-        let commit = &logs.git_logs[first];
-
-        let logs = get_logs(
-            repo,
-            false,
-            false,
-            0,
-            false,
-            Some(&commit.commit_hash),
-            None,
-            None,
-        )?;
-
-        let count = logs.git_logs.len();
-
-        if count == 0 {
-            println!(
-                "No commits in selected range OR commit selected is HEAD. Resetting..."
-            );
-            continue;
-        }
-
-        println!(
-            "{} Rebasing {} commit{} since {}:",
-            style("→").green(),
-            style(count).cyan(),
-            if count == 1 { "" } else { "s" },
-            style("HEAD").red(),
-        );
-
-        println!(
-            " From: {} {}",
-            style(&get_short_hash(commit)).dim(),
-            String::from(commit.to_owned())
-        );
-
-        let diverge_from =
-            find_parent_commit(&repo.repo, &commit.commit_hash)?;
-
-        return Ok(Some(diverge_from));
-    }
 }
 
 fn apply(
