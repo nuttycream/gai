@@ -188,6 +188,10 @@ pub struct RebaseArgs {
     pub last: Option<usize>,
 
     /// Specify the commit hash to regenerate and rebase from.
-    #[arg(short = 'r', long)]
+    #[arg(long)]
     pub from: Option<String>,
+
+    /// Specify ending range of the commits to regenerate to.
+    #[arg(long)]
+    pub to: Option<String>,
 }

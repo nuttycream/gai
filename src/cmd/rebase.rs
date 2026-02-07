@@ -1,4 +1,3 @@
-use console::style;
 use git2::Oid;
 use serde_json::Value;
 
@@ -7,16 +6,14 @@ use crate::{
     cmd::{rebase_branch::rebase_branch, rebase_range::rebase_range},
     git::{
         GitRepo, StagingStrategy,
-        branch::get_diverged_branches,
-        commit::{GitCommit, find_parent_commit},
+        commit::GitCommit,
         diffs::{FileDiff, get_diffs_from_commits},
-        log::{get_logs, get_short_hash},
+        log::get_logs,
         rebase::rebase_commits,
     },
     print::{
-        commits::print_response_commits, loading, log::print_logs,
+        commits::print_response_commits, loading,
         print_choice_prompt, query::print_retry_prompt,
-        rebase::print_branches_info,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
@@ -89,12 +86,29 @@ pub fn run(
             return Ok(());
         }
     } else if let Some(ref from_hash) = args.from {
-        if let Some(oid) =
-            rebase_range(&state.git, Some(from_hash), false)?
-        {
-            oid
-        } else {
-            return Ok(());
+        match args.to {
+            Some(ref to_hash) => {
+                match rebase_range(
+                    &state.git,
+                    Some(from_hash),
+                    Some(to_hash),
+                    false,
+                )? {
+                    Some(oid) => oid,
+                    None => return Ok(()),
+                }
+            }
+            None => {
+                match rebase_range(
+                    &state.git,
+                    Some(from_hash),
+                    None,
+                    false,
+                )? {
+                    Some(oid) => oid,
+                    None => return Ok(()),
+                }
+            }
         }
     } else {
         let options = [
@@ -145,7 +159,7 @@ pub fn run(
                 // first bring up the query logs
                 // to fuzzy find a commit from_hash
                 // then use it again for to_hash
-                match rebase_range(&state.git, None, true)? {
+                match rebase_range(&state.git, None, None, true)? {
                     Some(oid) => oid,
                     None => return Ok(()),
                 }

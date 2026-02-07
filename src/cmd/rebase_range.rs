@@ -13,6 +13,7 @@ use crate::{
 pub(super) fn rebase_range(
     repo: &GitRepo,
     from_hash: Option<&str>,
+    to_hash: Option<&str>,
     interactive: bool,
 ) -> anyhow::Result<Option<Oid>> {
     if interactive {
