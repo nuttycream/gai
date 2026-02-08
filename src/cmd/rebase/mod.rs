@@ -1,9 +1,14 @@
+pub mod branch;
+pub mod interactive;
+pub mod last;
+pub mod plan;
+pub mod range;
+
 use git2::Oid;
 use serde_json::Value;
 
 use crate::{
     args::{GlobalArgs, RebaseArgs},
-    cmd::{rebase_branch::rebase_branch, rebase_range::rebase_range},
     git::{
         GitRepo, StagingStrategy,
         commit::GitCommit,
@@ -24,7 +29,9 @@ use crate::{
     state::State,
 };
 
-use super::rebase_last::rebase_last;
+use super::rebase::{
+    branch::rebase_branch, last::rebase_last, range::rebase_range,
+};
 
 pub fn run(
     args: &RebaseArgs,
@@ -86,29 +93,14 @@ pub fn run(
             return Ok(());
         }
     } else if let Some(ref from_hash) = args.from {
-        match args.to {
-            Some(ref to_hash) => {
-                match rebase_range(
-                    &state.git,
-                    Some(from_hash),
-                    Some(to_hash),
-                    false,
-                )? {
-                    Some(oid) => oid,
-                    None => return Ok(()),
-                }
-            }
-            None => {
-                match rebase_range(
-                    &state.git,
-                    Some(from_hash),
-                    None,
-                    false,
-                )? {
-                    Some(oid) => oid,
-                    None => return Ok(()),
-                }
-            }
+        match rebase_range(
+            &state.git,
+            Some(from_hash),
+            args.to.as_deref(),
+            false,
+        )? {
+            Some(oid) => oid,
+            None => return Ok(()),
         }
     } else {
         let options = [

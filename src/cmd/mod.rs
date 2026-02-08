@@ -3,8 +3,6 @@ pub mod commit;
 pub mod find;
 pub mod log;
 pub mod rebase;
-pub mod rebase_branch;
-pub mod rebase_last;
-pub mod rebase_plan;
-pub mod rebase_range;
 pub mod status;
+
+pub use rebase::run;
