@@ -10,53 +10,62 @@ use crate::{
     print::log::print_logs,
 };
 
+/// stores additional range info
+/// such as trailing commits and to hash
+/// should this be used in all rebase
+/// workflows?
+pub(super) struct RebaseRange {
+    pub from: Oid,
+    pub to: Option<Oid>,
+    pub trailing: Vec<Oid>,
+}
+
 pub(super) fn rebase_range(
     repo: &GitRepo,
     from_hash: Option<&str>,
     to_hash: Option<&str>,
     interactive: bool,
-) -> anyhow::Result<Option<Oid>> {
+) -> anyhow::Result<Option<RebaseRange>> {
     if interactive {
         return specify_range_flow(repo);
     }
 
-    if let Some(from_hash) = from_hash {
-        let logs = get_logs(
-            repo,
-            false,
-            false,
-            0,
-            false,
-            Some(from_hash),
-            None,
-            None,
-        )?;
+    let from = from_hash.unwrap();
 
-        let count = logs.git_logs.len();
+    let logs = get_logs(
+        repo,
+        false,
+        false,
+        0,
+        false,
+        Some(from),
+        to_hash,
+        None,
+    )?;
 
-        let oid = find_parent_commit(&repo.repo, from_hash)?;
+    let count = logs.git_logs.len();
 
-        println!(
-            "{} Rebasing {} commit{} from {}",
-            style("→").green(),
-            style(count).cyan(),
-            if count == 1 { "" } else { "s" },
-            //get_short_hash()
-            style(
-                &from_hash[..from_hash
-                    .len()
-                    .min(7)]
-            )
-            .dim()
-        );
+    let oid = find_parent_commit(&repo.repo, from)?;
 
-        Ok(Some(oid))
-    } else {
-        return Ok(None);
-    }
+    println!(
+        "{} Rebasing {} commit{} from {}",
+        style("→").green(),
+        style(count).cyan(),
+        if count == 1 { "" } else { "s" },
+        //get_short_hash()
+        style(&from[..from.len().min(7)]).dim()
+    );
+
+    Ok(Some(RebaseRange {
+        from: oid,
+        to: todo!(),
+        trailing: todo!(),
+    }))
 }
 
-fn specify_range_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
+fn specify_range_flow(
+    repo: &GitRepo
+) -> anyhow::Result<Option<RebaseRange>> {
     let logs =
         get_logs(repo, false, false, 0, false, None, None, None)?;
 
@@ -123,6 +132,10 @@ fn specify_range_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
         let diverge_from =
             find_parent_commit(&repo.repo, &commit.commit_hash)?;
 
-        return Ok(Some(diverge_from));
+        return Ok(Some(RebaseRange {
+            from: diverge_from,
+            to: todo!(),
+            trailing: todo!(),
+        }));
     }
 }

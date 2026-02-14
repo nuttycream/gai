@@ -99,7 +99,7 @@ pub fn run(
             args.to.as_deref(),
             false,
         )? {
-            Some(oid) => oid,
+            Some(rebase_range) => rebase_range.from,
             None => return Ok(()),
         }
     } else {
@@ -152,7 +152,7 @@ pub fn run(
                 // to fuzzy find a commit from_hash
                 // then use it again for to_hash
                 match rebase_range(&state.git, None, None, true)? {
-                    Some(oid) => oid,
+                    Some(rebase_range) => rebase_range.from,
                     None => return Ok(()),
                 }
             }
