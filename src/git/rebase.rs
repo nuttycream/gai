@@ -23,7 +23,7 @@
 // to do with generating commits from the diff
 // of the specified divergent point
 
-use git2::{Oid, Repository};
+use git2::{Oid, Repository, Sort};
 
 use crate::git::errors::GitError;
 
@@ -111,6 +111,32 @@ pub fn cherry_pick_commits(
     }
 
     Ok(())
+}
+
+/// helper func to get a list of trailing commits
+/// from a specified oid, this just walks from that commit
+/// back
+pub fn trailing_commits(
+    repo: &Repository,
+    from: Oid,
+) -> anyhow::Result<Vec<Oid>> {
+    let mut trails = Vec::new();
+
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_head()?;
+    revwalk.set_sorting(Sort::TOPOLOGICAL)?;
+
+    for oid in revwalk {
+        let oid = oid?;
+
+        if oid == from {
+            break;
+        }
+
+        trails.push(oid);
+    }
+
+    Ok(trails)
 }
 
 #[cfg(test)]
@@ -456,5 +482,41 @@ mod tests {
             tree.get_name("b.txt")
                 .is_some()
         );
+    }
+
+    #[test]
+    fn test_trailing_commits() {
+        let (_dir, repo) = repo_init();
+
+        let initial = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id();
+
+        println!("initial: {}", initial);
+
+        let c1 = write_commit_file(&repo, "a.txt", "testa", "add a");
+        let c2 = write_commit_file(&repo, "b.txt", "testb", "add b");
+        let c3 = write_commit_file(&repo, "c.txt", "testc", "add c");
+
+        println!("c1 {}\n c2 {}\n c3 {}", c1, c2, c3);
+
+        let trails = trailing_commits(&repo, initial).unwrap();
+
+        println!("from initial:");
+        for t in &trails {
+            println!("{}", t);
+        }
+
+        assert_eq!(trails.len(), 3);
+        assert_eq!(trails[0], c3);
+        assert_eq!(trails[1], c2);
+        assert_eq!(trails[2], c1);
+
+        let trails = trailing_commits(&repo, c3).unwrap();
+
+        assert!(trails.is_empty());
     }
 }
