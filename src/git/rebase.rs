@@ -118,7 +118,7 @@ pub fn cherry_pick_commits(
 /// back
 pub fn trailing_commits(
     repo: &Repository,
-    from: Oid,
+    from: &str,
 ) -> anyhow::Result<Vec<Oid>> {
     let mut trails = Vec::new();
 
@@ -126,16 +126,19 @@ pub fn trailing_commits(
     revwalk.push_head()?;
     revwalk.set_sorting(Sort::TOPOLOGICAL)?;
 
+    let from_oid = Oid::from_str(from)?;
+
     for oid in revwalk {
         let oid = oid?;
 
-        if oid == from {
+        if oid == from_oid {
             break;
         }
 
         trails.push(oid);
     }
 
+    trails.reverse();
     Ok(trails)
 }
 
@@ -493,7 +496,8 @@ mod tests {
             .unwrap()
             .peel_to_commit()
             .unwrap()
-            .id();
+            .id()
+            .to_string();
 
         println!("initial: {}", initial);
 
@@ -503,7 +507,7 @@ mod tests {
 
         println!("c1 {}\n c2 {}\n c3 {}", c1, c2, c3);
 
-        let trails = trailing_commits(&repo, initial).unwrap();
+        let trails = trailing_commits(&repo, &initial).unwrap();
 
         println!("from initial:");
         for t in &trails {
@@ -511,11 +515,12 @@ mod tests {
         }
 
         assert_eq!(trails.len(), 3);
-        assert_eq!(trails[0], c3);
+        assert_eq!(trails[2], c3);
         assert_eq!(trails[1], c2);
-        assert_eq!(trails[2], c1);
+        assert_eq!(trails[0], c1);
 
-        let trails = trailing_commits(&repo, c3).unwrap();
+        let trails =
+            trailing_commits(&repo, &c3.to_string()).unwrap();
 
         assert!(trails.is_empty());
     }
