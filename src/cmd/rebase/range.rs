@@ -6,6 +6,8 @@ use crate::{
         GitRepo,
         commit::find_parent_commit,
         log::{get_logs, get_short_hash},
+        rebase::trailing_commits,
+        utils::get_head_repo,
     },
     print::log::print_logs,
 };
@@ -17,7 +19,7 @@ use crate::{
 pub(super) struct RebaseRange {
     pub from: Oid,
     pub to: Option<Oid>,
-    pub trailing: Vec<Oid>,
+    pub trailing: Option<Vec<Oid>>,
 }
 
 pub(super) fn rebase_range(
@@ -56,10 +58,22 @@ pub(super) fn rebase_range(
         style(&from[..from.len().min(7)]).dim()
     );
 
+    if let Some(to) = to_hash {
+        let trailing = trailing_commits(&repo.repo, to)?;
+
+        return Ok(Some(RebaseRange {
+            from: oid,
+            to: Some(Oid::from_str(to)?),
+            trailing: Some(trailing),
+        }));
+    }
+
+    let to = get_head_repo(&repo.repo)?;
+
     Ok(Some(RebaseRange {
         from: oid,
-        to: todo!(),
-        trailing: todo!(),
+        to: Some(to),
+        trailing: None,
     }))
 }
 
