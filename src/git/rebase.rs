@@ -78,6 +78,11 @@ pub fn cherry_pick_commits(
         )?;
     }
 
+    // should force sync curr tree to match new HEAD
+    repo.checkout_head(Some(
+        git2::build::CheckoutBuilder::new().force(),
+    ))?;
+
     Ok(())
 }
 
