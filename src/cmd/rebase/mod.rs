@@ -16,6 +16,7 @@ use crate::{
         log::get_logs,
         rebase::cherry_pick_commits,
         reset::{reset_repo_hard, reset_repo_mixed},
+        status::is_workdir_clean,
         utils::get_head_repo,
     },
     print::{
@@ -72,6 +73,12 @@ pub fn run(
             .as_deref(),
         global,
     )?;
+
+    if !is_workdir_clean(&state.git.repo)? {
+        return Err(anyhow::anyhow!(
+            "Workdir is NOT clean, please save your changes"
+        ));
+    }
 
     //println!("{:#?}", state.settings);
 
