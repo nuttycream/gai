@@ -18,10 +18,26 @@ use crate::{
 /// workflows?
 pub(super) struct RebaseRange {
     pub from: Oid,
-    pub to: Option<Oid>,
-    pub trailing: Option<Vec<Oid>>,
+    pub to: Option<String>,
+    pub trailing: Option<Vec<String>>,
 }
 
+/// rebase_range will act differently from the other
+/// types of gai rebases. it'll "optionally" return an
+/// accompanying to commit and trailing_commits.
+/// trailing_commits are commits that come after the TO commit
+/// this is so that when we apply the generated diffs, we can
+/// cherry-pick the trailing_commits back in.
+/// to do this effectively we first have to get the
+/// proper diff range
+/// and set the repo up to allow us to
+/// cherry pick back those commits in,
+/// this is not done in this function
+/// but by the main rebase_run caller
+/// ideally, we reset hard to the TO commit (this will get rid of
+/// the changes), then from the TO commit, we do a MIXED reset
+/// to the FROM commit, effectively gathering the
+/// necessary diff for the LLM
 pub(super) fn rebase_range(
     repo: &GitRepo,
     from_hash: Option<&str>,
@@ -63,7 +79,7 @@ pub(super) fn rebase_range(
 
         return Ok(Some(RebaseRange {
             from: oid,
-            to: Some(Oid::from_str(to)?),
+            to: Some(to.to_string()),
             trailing: Some(trailing),
         }));
     }
@@ -72,7 +88,7 @@ pub(super) fn rebase_range(
 
     Ok(Some(RebaseRange {
         from: oid,
-        to: Some(to),
+        to: Some(to.to_string()),
         trailing: None,
     }))
 }
@@ -107,7 +123,27 @@ fn specify_range_flow(
             }
         };
 
-        let commit = &logs.git_logs[first];
+        let second = match print_logs(
+            &logs.git_logs,
+            Some("Select the ending range"),
+            Some(10),
+        )? {
+            Some(s) => s,
+            None => {
+                println!("Exiting...");
+                return Ok(None);
+            }
+        };
+
+        // auto sort
+        let (from_idx, to_idx) = if first > second {
+            (first, second)
+        } else {
+            (second, first)
+        };
+
+        let commit = &logs.git_logs[from_idx];
+        let second_commit = &logs.git_logs[to_idx];
 
         let logs = get_logs(
             repo,
@@ -116,7 +152,7 @@ fn specify_range_flow(
             0,
             false,
             Some(&commit.commit_hash),
-            None,
+            Some(&second_commit.commit_hash),
             None,
         )?;
 
@@ -130,11 +166,10 @@ fn specify_range_flow(
         }
 
         println!(
-            "{} Rebasing {} commit{} since {}:",
+            "{} Rebasing {} commit{} in range:",
             style("→").green(),
             style(count).cyan(),
             if count == 1 { "" } else { "s" },
-            style("HEAD").red(),
         );
 
         println!(
@@ -143,13 +178,32 @@ fn specify_range_flow(
             String::from(commit.to_owned())
         );
 
+        println!(
+            " To: {} {}",
+            style(&get_short_hash(second_commit)).dim(),
+            String::from(second_commit.to_owned())
+        );
+
         let diverge_from =
             find_parent_commit(&repo.repo, &commit.commit_hash)?;
 
+        let trailing =
+            trailing_commits(&repo.repo, &second_commit.commit_hash)?;
+
+        let trailing = if trailing.is_empty() {
+            None
+        } else {
+            Some(trailing)
+        };
+
         return Ok(Some(RebaseRange {
             from: diverge_from,
-            to: todo!(),
-            trailing: todo!(),
+            to: Some(
+                second_commit
+                    .commit_hash
+                    .to_owned(),
+            ),
+            trailing,
         }));
     }
 }

@@ -31,7 +31,7 @@ pub(super) fn rebase_branch(
         Ok(Some(oid))
     } else {
         println!("No arg");
-        return Ok(None);
+        Ok(None)
     }
 }
 

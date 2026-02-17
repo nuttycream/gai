@@ -11,10 +11,12 @@ use crate::{
     args::{GlobalArgs, RebaseArgs},
     git::{
         GitRepo, StagingStrategy,
-        commit::GitCommit,
+        commit::{GitCommit, apply_commits},
         diffs::{FileDiff, get_diffs_from_commits},
         log::get_logs,
-        rebase::rebase_commits,
+        rebase::cherry_pick_commits,
+        reset::{reset_repo_hard, reset_repo_mixed},
+        utils::get_head_repo,
     },
     print::{
         commits::print_response_commits, loading,
@@ -73,6 +75,14 @@ pub fn run(
 
     //println!("{:#?}", state.settings);
 
+    // save the original point, in case
+    // we need to revert back hard
+    // used for reset_repo_hard
+    let original_head = get_head_repo(&state.git.repo)?.to_string();
+
+    let mut to_oid: Option<String> = None;
+    let mut trailing_commits: Option<Vec<String>> = None;
+
     let diverge_from = if let Some(ref div_branch_arg) = args.branch {
         if let Some(oid) = rebase_branch(
             &state.git,
@@ -99,7 +109,12 @@ pub fn run(
             args.to.as_deref(),
             false,
         )? {
-            Some(rebase_range) => rebase_range.from,
+            Some(rebase_range) => {
+                to_oid = rebase_range.to;
+                trailing_commits = rebase_range.trailing;
+
+                rebase_range.from
+            }
             None => return Ok(()),
         }
     } else {
@@ -152,7 +167,12 @@ pub fn run(
                 // to fuzzy find a commit from_hash
                 // then use it again for to_hash
                 match rebase_range(&state.git, None, None, true)? {
-                    Some(rebase_range) => rebase_range.from,
+                    Some(rebase_range) => {
+                        to_oid = rebase_range.to;
+                        trailing_commits = rebase_range.trailing;
+
+                        rebase_range.from
+                    }
                     None => return Ok(()),
                 }
             }
@@ -173,19 +193,11 @@ pub fn run(
         0,
         false,
         Some(&diverge_from.to_string()),
-        None,
+        to_oid.as_deref(),
         None,
     )?;
 
     //println!("{:#?}", logs);
-
-    // collect diffs from the diverging_commit
-    state.diffs = get_diffs_from_commits(
-        &state.git.repo,
-        &state.git.workdir,
-        diverge_from,
-        None,
-    )?;
 
     let mut log_strs = Vec::new();
 
@@ -203,6 +215,22 @@ pub fn run(
 
         log_strs.push(item);
     }
+
+    if let Some(ref to) = to_oid {
+        // reset hard to the TO commit
+        reset_repo_hard(&state.git.repo, to)?;
+    }
+
+    // do a mixed reset to the FROM commit
+    reset_repo_mixed(&state.git.repo, &diverge_from.to_string())?;
+
+    // collect diffs from the diverging_commit
+    state.diffs = get_diffs_from_commits(
+        &state.git.repo,
+        &state.git.workdir,
+        diverge_from,
+        None,
+    )?;
 
     let schema_settings = if matches!(
         state
@@ -317,18 +345,39 @@ pub fn run(
             .collect();
 
         if selected == 0 {
-            if apply(
+            match apply(
                 &state.git,
-                diverge_from,
                 &git_commits,
                 &mut state.diffs.files,
                 &state
                     .settings
                     .staging_type,
-            )? {
-                continue;
+                to_oid.as_deref(),
+                trailing_commits.as_deref(),
+            ) {
+                // done
+                Ok(false) => break,
+                Ok(true) => {
+                    // wants to retry
+                    reset_repo_hard(&state.git.repo, &original_head)?;
+
+                    // redo the scoped reset sequence
+                    if let Some(ref to) = to_oid {
+                        reset_repo_hard(&state.git.repo, to)?;
+                    }
+                    reset_repo_mixed(
+                        &state.git.repo,
+                        &diverge_from.to_string(),
+                    )?;
+
+                    continue;
+                }
+                Err(e) => {
+                    // ideally restore on errors
+                    reset_repo_hard(&state.git.repo, &original_head)?;
+                    return Err(e);
+                }
             }
-            break;
         } else if selected == 1 {
             println!("Regenerating");
             continue;
@@ -343,20 +392,52 @@ pub fn run(
 
 fn apply(
     repo: &GitRepo,
-    diverged_from: Oid,
     git_commits: &[GitCommit],
     og_file_diffs: &mut Vec<FileDiff>,
     staging_stragey: &StagingStrategy,
+    to_oid: Option<&str>,
+    trailing: Option<&[String]>,
 ) -> anyhow::Result<bool> {
     println!("Applying Commits...");
-    match rebase_commits(
+    match apply_commits(
         &repo.repo,
-        diverged_from,
         git_commits,
         og_file_diffs,
         staging_stragey,
     ) {
-        Ok(_) => Ok(false),
+        Ok(_) => {
+            // after applying check if we have to_oid and trailing
+            // then re-apply them
+            if let Some(to) = to_oid {
+                // get the tree from when it was
+                // still correct
+                let original_tree = repo
+                    .repo
+                    .find_commit(Oid::from_str(to)?)?
+                    .tree()?
+                    .id();
+
+                let new_tree = repo
+                    .repo
+                    .head()?
+                    .peel_to_tree()?
+                    .id();
+
+                //temp
+                if original_tree != new_tree {
+                    return Err(anyhow::anyhow!(
+                        "bad trees, failed to apply correct changes"
+                    ));
+                }
+
+                // reapply commits
+                if let Some(trails) = trailing {
+                    cherry_pick_commits(&repo.repo, trails)?;
+                }
+            }
+
+            Ok(false)
+        }
         Err(e) => {
             let msg = format!("Failed to Apply Commits: {}", e);
 

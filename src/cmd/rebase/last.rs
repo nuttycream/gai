@@ -53,7 +53,7 @@ pub(super) fn rebase_last(
 
         Ok(Some(oid))
     } else {
-        return Ok(None);
+        Ok(None)
     }
 }
 
