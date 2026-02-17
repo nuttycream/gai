@@ -25,41 +25,7 @@
 
 use git2::{Oid, Repository, Sort};
 
-use crate::git::errors::GitError;
-
-use super::{
-    StagingStrategy,
-    commit::{GitCommit, apply_commits},
-    diffs::FileDiff,
-};
-
-/// recreate commits from diverged_from commit
-/// to head. Pass in an optional commit to rebase from
-/// essentially recreates/"rebases" commits
-/// from commit -> to commit, erasing all commits
-/// in between, for the new commits
-pub fn rebase_commits(
-    repo: &Repository,
-    diverged_from: Oid,
-    commits: &[GitCommit],
-    og_file_diffs: &mut Vec<FileDiff>,
-    staging_strategy: &StagingStrategy,
-) -> anyhow::Result<()> {
-    let commit_diverged = repo.find_commit(diverged_from)?;
-
-    // reset to the diverged commit
-    // mixed, to keep changes "unstaged"
-    repo.reset(
-        commit_diverged.as_object(),
-        git2::ResetType::Mixed,
-        None,
-    )?;
-
-    // call apply commits
-    apply_commits(repo, commits, og_file_diffs, staging_strategy)?;
-
-    Ok(())
-}
+use super::errors::GitError;
 
 /// cherry pick commits, this would take in a list
 /// of commits OID that should've been captured
@@ -71,9 +37,11 @@ pub fn rebase_commits(
 /// ideally before this
 pub fn cherry_pick_commits(
     repo: &Repository,
-    commits: &[Oid],
+    commits: &[String],
 ) -> anyhow::Result<()> {
-    for &oid in commits {
+    for oid in commits {
+        let oid = Oid::from_str(oid)?;
+
         let commit = repo.find_commit(oid)?;
 
         let head = repo
@@ -119,7 +87,7 @@ pub fn cherry_pick_commits(
 pub fn trailing_commits(
     repo: &Repository,
     from: &str,
-) -> anyhow::Result<Vec<Oid>> {
+) -> anyhow::Result<Vec<String>> {
     let mut trails = Vec::new();
 
     let mut revwalk = repo.revwalk()?;
@@ -135,118 +103,19 @@ pub fn trailing_commits(
             break;
         }
 
-        trails.push(oid);
+        trails.push(oid.to_string());
     }
 
     trails.reverse();
+
     Ok(trails)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use git2::Repository;
-    use tempfile::TempDir;
-
-    fn repo_init() -> (TempDir, Repository) {
-        let td = TempDir::new().unwrap();
-        let repo = Repository::init(td.path()).unwrap();
-        {
-            let mut config = repo
-                .config()
-                .unwrap();
-
-            config
-                .set_str("user.name", "name")
-                .unwrap();
-            config
-                .set_str("user.email", "email")
-                .unwrap();
-
-            let mut index = repo
-                .index()
-                .unwrap();
-
-            let id = index
-                .write_tree()
-                .unwrap();
-
-            let tree = repo
-                .find_tree(id)
-                .unwrap();
-
-            let sig = repo
-                .signature()
-                .unwrap();
-
-            repo.commit(
-                Some("HEAD"),
-                &sig,
-                &sig,
-                "initial",
-                &tree,
-                &[],
-            )
-            .unwrap();
-        }
-
-        (td, repo)
-    }
-
-    /// modified from asyncgit
-    fn write_commit_file(
-        repo: &Repository,
-        filename: &str,
-        content: &str,
-        message: &str,
-    ) -> git2::Oid {
-        let path = repo
-            .workdir()
-            .unwrap()
-            .join(filename);
-
-        std::fs::write(&path, content).unwrap();
-
-        let mut index = repo
-            .index()
-            .unwrap();
-
-        index
-            .add_path(std::path::Path::new(filename))
-            .unwrap();
-
-        index
-            .write()
-            .unwrap();
-
-        let tree_oid = index
-            .write_tree()
-            .unwrap();
-
-        let tree = repo
-            .find_tree(tree_oid)
-            .unwrap();
-
-        let sig = repo
-            .signature()
-            .unwrap();
-
-        let parent = repo
-            .head()
-            .unwrap()
-            .peel_to_commit()
-            .unwrap();
-
-        repo.commit(
-            Some("HEAD"),
-            &sig,
-            &sig,
-            message,
-            &tree,
-            &[&parent],
-        )
-        .unwrap()
-    }
+    use crate::git::tests::repo_init;
+    use crate::git::tests::write_commit_file;
 
     #[test]
     fn test_cherry_pick_single_commit() {
@@ -299,7 +168,7 @@ mod tests {
                 .trim()
         );
 
-        cherry_pick_commits(&repo, &[pick_oid]).unwrap();
+        cherry_pick_commits(&repo, &[pick_oid.to_string()]).unwrap();
 
         // verify HEAD
         let new_head = repo
@@ -434,7 +303,8 @@ mod tests {
         }
 
         // cherry pick c1 and c2
-        cherry_pick_commits(&repo, &[c1, c2]).unwrap();
+        cherry_pick_commits(&repo, &[c1.to_string(), c2.to_string()])
+            .unwrap();
 
         println!("log after cherrypick");
 
@@ -515,9 +385,9 @@ mod tests {
         }
 
         assert_eq!(trails.len(), 3);
-        assert_eq!(trails[2], c3);
-        assert_eq!(trails[1], c2);
-        assert_eq!(trails[0], c1);
+        assert_eq!(trails[2], c3.to_string());
+        assert_eq!(trails[1], c2.to_string());
+        assert_eq!(trails[0], c1.to_string());
 
         let trails =
             trailing_commits(&repo, &c3.to_string()).unwrap();
