@@ -194,4 +194,10 @@ pub struct RebaseArgs {
     /// Specify ending range of the commits to regenerate to.
     #[arg(long)]
     pub to: Option<String>,
+
+    #[arg(
+        long,
+        help = "Generate a Rebase plan using RebaseOperations, in place of entire commits.\nThis is synonymous with `git rebase --edit-todo` during an interactive rebase."
+    )]
+    pub plan: bool,
 }

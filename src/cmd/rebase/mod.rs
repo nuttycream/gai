@@ -9,6 +9,7 @@ use serde_json::Value;
 
 use crate::{
     args::{GlobalArgs, RebaseArgs},
+    cmd::rebase::plan::gen_plan,
     git::{
         GitRepo, StagingStrategy,
         commit::{GitCommit, apply_commits},
@@ -78,6 +79,10 @@ pub fn run(
         return Err(anyhow::anyhow!(
             "Workdir is NOT clean, please save your changes"
         ));
+    }
+
+    if args.plan {
+        return gen_plan();
     }
 
     //println!("{:#?}", state.settings);
