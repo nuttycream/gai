@@ -81,10 +81,6 @@ pub fn run(
         ));
     }
 
-    if args.plan {
-        return gen_plan();
-    }
-
     //println!("{:#?}", state.settings);
 
     // save the original point, in case
@@ -256,6 +252,16 @@ pub fn run(
     } else {
         SchemaSettings::default().allow_min_max_ints(true)
     };
+
+    // plan requires different schemas, and looping workflow
+    if args.plan {
+        return gen_plan(
+            &state.settings,
+            &state.diffs,
+            &log_strs,
+            &schema_settings,
+        );
+    }
 
     let request = create_rebase_request(
         &state.settings,
