@@ -16,5 +16,6 @@ pub fn create_rebase_plan_request(
 
 fn build_prompt(_cfg: &Settings) -> &str {
     "You are a Git master.\
-    You are currently tasked with creating a Rebase Plan in the style of an --edit-todo"
+        You are currently tasked with creating a Rebase Plan in the style of an --edit-todo \
+        Here is a list of logs, and diffs. Ensure you use the proper RebaseOperationTypes"
 }
