@@ -1,50 +1,107 @@
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::settings::Settings;
+use crate::schema::{SchemaBuilder, SchemaSettings};
 
-use super::{
-    SchemaSettings, commit::CommitSchema,
-    commit::create_commit_response_schema,
-};
-
-/// wrapper struct to house
-/// rebase response
-///
-/// FOR now, expect a response that
-/// resembles commits
-/// considering, a rebase
-/// "regenerates" a set of commits
-/// from a diff
+/// wrapper for rebaseplan responses
+/// that will be deserialized into
 #[derive(Debug, Deserialize)]
-pub struct RebaseResponse {
-    #[serde(default)]
-    pub commits: Vec<CommitSchema>,
-
-    /// optional single commit
-    /// for AllFilesOneCommit
-    #[serde(default)]
-    pub commit: Option<CommitSchema>,
+pub struct RebasePlanResponse {
+    pub operations: Vec<PlanOperationSchema>,
 }
 
-/// create a rebase schema
-/// for now, it'll be based on the
-/// commit schema builder
-/// due to the rebasing essentially
-/// recreates/regenerates commits
-/// from a diff
+/// rebaseplan schema components
+#[derive(Clone, Debug, Deserialize)]
+pub struct PlanOperationSchema {
+    pub reasoning: String,
+    pub commit_id: u32,
+    pub operation: PlanOperationKind,
+    // optional, but required for reword and squash
+    pub new_message: Option<String>,
+    // optional, but required for squash
+    pub squash_with: Option<u32>,
+}
+
+/// rebase operation types
+#[derive(
+    Clone, Debug, Deserialize, strum::Display, strum::VariantNames,
+)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum PlanOperationKind {
+    /// simple pick, leave as is
+    Pick,
+    /// combine commits,
+    /// must gen a commit message
+    Squash,
+    /// reword a commit
+    Reword,
+    /// drop a commit,
+    /// this is dangerous
+    /// and will be left off by default
+    Drop,
+}
+
+/// create a rebsase plan schema,
+/// FIXME: allow_drop should be a configurable
+/// option in settings.
 pub fn create_rebase_plan_schema(
     schema_settings: SchemaSettings,
-    settings: &Settings,
-    files: &[String],
-    hunk_ids: &[String],
+    max_commit_id: usize,
+    allow_drop: bool,
 ) -> anyhow::Result<Value> {
-    let schema = create_commit_response_schema(
-        schema_settings,
-        settings,
-        files,
-        hunk_ids,
-    )?;
+    let max_commit_id = max_commit_id as u32;
+
+    let builder = SchemaBuilder::new()
+        .settings(schema_settings.clone())
+        .insert_str(
+            "reasoning",
+            Some("explain why this operation was chosen for this commit"),
+            true,
+        )
+        .insert_int(
+            "commit_id",
+            Some("the commit index this operation applies to"),
+            true,
+            Some(0),
+            Some(max_commit_id),
+        )
+        .insert_enum(
+            "operation",
+            Some("the rebase operation to perform"),
+            true,
+            {
+                if allow_drop {
+                    &["pick", "squash", "reword", "drop"]
+                } else {
+                    &["pick", "squash", "reword"]
+                }
+            },
+        )
+        .insert_str(
+            "new_message",
+            Some("new commit message, THIS IS REQUIRED for reword and squash ops"),
+            false,
+        )
+        .insert_int(
+            "squash_with",
+            Some("commit index to squash into, THIS IS REQUIRED for squash ops"),
+            false,
+            Some(0),
+            Some(max_commit_id),
+        );
+
+    let operation_schema = builder.build_inner();
+
+    let schema = SchemaBuilder::new()
+        .settings(schema_settings)
+        .insert_object_array(
+            "operations",
+            Some("list of rebase operations, one per commit"),
+            true,
+            operation_schema,
+        )
+        .build();
 
     Ok(schema)
 }
