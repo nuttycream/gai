@@ -5,6 +5,7 @@ pub mod loading;
 pub mod log;
 pub mod query;
 pub mod rebase;
+pub mod rebase_plan;
 pub mod status;
 pub mod tree;
 
