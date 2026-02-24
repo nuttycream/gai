@@ -33,6 +33,13 @@ pub enum PlanOperationKind {
     Pick,
     /// combine commits,
     /// must gen a commit message
+    /// squashes_with, is other commit
+    /// it will combine with
+    /// for LLM sake and my own sanity
+    /// we will only handle PAIRS
+    /// and FIXME: add validation,
+    /// so that other squashes_with
+    /// does not point to the same commit
     Squash,
     /// reword a commit
     Reword,
