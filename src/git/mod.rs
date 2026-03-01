@@ -7,7 +7,6 @@ pub mod lines;
 pub mod log;
 pub mod patches;
 pub mod rebase;
-pub mod rebase_plan;
 pub mod repo;
 pub mod reset;
 pub mod staging;

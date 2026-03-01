@@ -116,6 +116,15 @@ pub fn trailing_commits(
     Ok(trails)
 }
 
+///
+pub fn squash_to_head(
+    repo: &Repository,
+    commit: &str,
+    message: &str,
+) -> anyhow::Result<()> {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
