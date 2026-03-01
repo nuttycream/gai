@@ -390,7 +390,7 @@ pub fn get_diffs_from_commits(
     let head = if let Some(to) = to {
         to
     } else {
-        get_head_oid(repo, None)?
+        get_head_oid(repo)?
     };
 
     let raw_diff = get_compare_commits_diff(
