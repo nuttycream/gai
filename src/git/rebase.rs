@@ -25,7 +25,7 @@
 
 use git2::{Oid, Repository, Sort};
 
-use super::errors::GitError;
+use super::{checkout::force_checkout_head, errors::GitError};
 
 /// cherry pick commits, this would take in a list
 /// of commits OID that should've been captured
@@ -35,53 +35,88 @@ use super::errors::GitError;
 /// commit if this happens, oh lord,
 /// validation (check if the two trees match) would happen elsewhere
 /// ideally before this
+/// calls force_checkout_head()
 pub fn cherry_pick_commits(
     repo: &Repository,
     commits: &[String],
 ) -> anyhow::Result<()> {
-    for oid in commits {
-        let oid = Oid::from_str(oid)?;
-
-        let commit = repo.find_commit(oid)?;
-
-        let head = repo
-            .head()?
-            .peel_to_commit()?;
-
-        let mut index =
-            repo.cherrypick_commit(&commit, &head, 0, None)?;
-
-        // should validate elsewhere
-        // exit early regardless
-        if index.has_conflicts() {
-            return Err(GitError::Generic(
-                "Cannot cherry pick, repo has conflicts".to_string(),
-            )
-            .into());
-        }
-
-        let tree_oid = index.write_tree_to(repo)?;
-        let tree = repo.find_tree(tree_oid)?;
-
-        let sig = repo.signature()?;
-
-        repo.commit(
-            Some("HEAD"),
-            &sig,
-            &sig,
-            //
-            commit
-                .message()
-                .unwrap_or(""),
-            &tree,
-            &[&head],
-        )?;
+    for oid_str in commits {
+        cherry_pick_single(repo, oid_str)?;
     }
 
-    // should force sync curr tree to match new HEAD
-    repo.checkout_head(Some(
-        git2::build::CheckoutBuilder::new().force(),
-    ))?;
+    return force_checkout_head(repo);
+}
+
+/// cherry pick single commit
+/// DEOS NOT sync head
+pub fn cherry_pick_single(
+    repo: &Repository,
+    commit: &str,
+) -> anyhow::Result<()> {
+    let oid = Oid::from_str(commit)?;
+
+    let commit = repo.find_commit(oid)?;
+
+    let head = repo
+        .head()?
+        .peel_to_commit()?;
+
+    let mut index =
+        repo.cherrypick_commit(&commit, &head, 0, None)?;
+
+    if index.has_conflicts() {
+        return Err(GitError::Generic(
+            "cannot cherrypick, repo has conflicts".into(),
+        )
+        .into());
+    }
+
+    let tree_oid = index.write_tree_to(repo)?;
+    let tree = repo.find_tree(tree_oid)?;
+    let sig = repo.signature()?;
+
+    let message = commit
+        .message()
+        .unwrap_or_default();
+
+    repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&head])?;
+
+    Ok(())
+}
+
+/// cherrypick a commit
+/// but replace its commit message
+/// different from a regular reword
+/// as this should handle "readding" with
+/// a new message
+pub fn cherry_pick_reword(
+    repo: &Repository,
+    commit: &str,
+    message: &str,
+) -> anyhow::Result<()> {
+    let oid = Oid::from_str(commit)?;
+
+    let commit = repo.find_commit(oid)?;
+
+    let head = repo
+        .head()?
+        .peel_to_commit()?;
+
+    let mut index =
+        repo.cherrypick_commit(&commit, &head, 0, None)?;
+
+    if index.has_conflicts() {
+        return Err(GitError::Generic(
+            "cannot cherrypick, repo has conflicts".into(),
+        )
+        .into());
+    }
+
+    let tree_oid = index.write_tree_to(repo)?;
+    let tree = repo.find_tree(tree_oid)?;
+    let sig = repo.signature()?;
+
+    repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&head])?;
 
     Ok(())
 }
@@ -116,13 +151,50 @@ pub fn trailing_commits(
     Ok(trails)
 }
 
-///
+/// squashes commit to previous commit
+/// new message required
 pub fn squash_to_head(
     repo: &Repository,
     commit: &str,
     message: &str,
 ) -> anyhow::Result<()> {
-    todo!()
+    let oid = Oid::from_str(commit)?;
+    let commit = repo.find_commit(oid)?;
+
+    let head = repo
+        .head()?
+        .peel_to_commit()?;
+
+    let mut index =
+        repo.cherrypick_commit(&commit, &head, 0, None)?;
+
+    if index.has_conflicts() {
+        return Err(GitError::Generic(
+            "cannot squash, repo has conflicts".into(),
+        )
+        .into());
+    }
+
+    let tree_oid = index.write_tree_to(repo)?;
+    let tree = repo.find_tree(tree_oid)?;
+
+    // amend new head commit,
+    // None will keep as is
+    // ? should this be configurable?
+    // or should we preserve the original
+    // signature?
+    let sig = repo.signature()?;
+
+    head.amend(
+        Some("HEAD"),
+        Some(&sig),
+        Some(&sig),
+        None,
+        Some(message),
+        Some(&tree),
+    )?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -182,7 +254,7 @@ mod tests {
                 .trim()
         );
 
-        cherry_pick_commits(&repo, &[pick_oid.to_string()]).unwrap();
+        cherry_pick_single(&repo, &pick_oid.to_string()).unwrap();
 
         // verify HEAD
         let new_head = repo
@@ -407,5 +479,338 @@ mod tests {
             trailing_commits(&repo, &c3.to_string()).unwrap();
 
         assert!(trails.is_empty());
+    }
+
+    #[test]
+    fn test_cherry_pick_reword() {
+        let (_dir, repo) = repo_init();
+
+        let head_commit = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
+
+        println!(
+            "initial HEAD: {} {}",
+            head_commit.id(),
+            head_commit
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        let pick_oid = write_commit_file(
+            &repo,
+            "reword.txt",
+            "some content",
+            "original message",
+        );
+
+        println!("pick: {}", pick_oid);
+
+        // reset back to before the commit
+        repo.reset(
+            head_commit.as_object(),
+            git2::ResetType::Hard,
+            None,
+        )
+        .unwrap();
+
+        println!(
+            "HEAD after reset: {} {}",
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .id(),
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        cherry_pick_reword(
+            &repo,
+            &pick_oid.to_string(),
+            "reworded message",
+        )
+        .unwrap();
+
+        let new_head = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
+
+        println!(
+            "HEAD after reword: {} {}",
+            new_head.id(),
+            new_head
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        println!(
+            "parent of HEAD: {}",
+            new_head
+                .parent_id(0)
+                .unwrap()
+        );
+
+        // message should be the reworded one, not the original
+        assert_eq!(
+            new_head
+                .message()
+                .unwrap(),
+            "reworded message"
+        );
+
+        // parent should be the original head
+        assert_eq!(
+            new_head
+                .parent_id(0)
+                .unwrap(),
+            head_commit.id()
+        );
+
+        // file should still exist in the tree
+        let tree = new_head
+            .tree()
+            .unwrap();
+
+        assert!(
+            tree.get_name("reword.txt")
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn test_squash_to_head() {
+        let (_dir, repo) = repo_init();
+
+        let head_commit = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
+
+        println!(
+            "initial HEAD: {} {}",
+            head_commit.id(),
+            head_commit
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        // create two commits
+        let c1 = write_commit_file(
+            &repo,
+            "1.txt",
+            "first content",
+            "add first",
+        );
+        let c2 = write_commit_file(
+            &repo,
+            "2.txt",
+            "second content",
+            "add second",
+        );
+
+        println!("c1: {}", c1);
+        println!("c2: {}", c2);
+
+        // reset to just after c1
+        let c1_commit = repo
+            .find_commit(c1)
+            .unwrap();
+
+        repo.reset(
+            c1_commit.as_object(),
+            git2::ResetType::Hard,
+            None,
+        )
+        .unwrap();
+
+        println!(
+            "HEAD after reset to c1: {} {}",
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .id(),
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        // squash c2 into the current head c1
+        squash_to_head(
+            &repo,
+            &c2.to_string(),
+            "squashed first and second",
+        )
+        .unwrap();
+
+        let new_head = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
+
+        println!(
+            "HEAD after squash: {} {}",
+            new_head.id(),
+            new_head
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        println!(
+            "parent of HEAD: {}",
+            new_head
+                .parent_id(0)
+                .unwrap()
+        );
+
+        // message should be the squash message
+        assert_eq!(
+            new_head
+                .message()
+                .unwrap(),
+            "squashed first and second"
+        );
+
+        // parent should be the initial commit,
+        // since it amended c1
+        assert_eq!(
+            new_head
+                .parent_id(0)
+                .unwrap(),
+            head_commit.id()
+        );
+
+        // both files
+        // would be present in the tree
+        let tree = new_head
+            .tree()
+            .unwrap();
+
+        assert!(
+            tree.get_name("1.txt")
+                .is_some()
+        );
+
+        assert!(
+            tree.get_name("2.txt")
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn test_squash_to_head_single_file_update() {
+        let (_dir, repo) = repo_init();
+
+        let initial = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
+
+        println!(
+            "initial HEAD: {} {}",
+            initial.id(),
+            initial
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        // create a commit
+        // then another that modifies the same file
+        let c1 = write_commit_file(&repo, "1.txt", "1", "cuh");
+        let c2 = write_commit_file(&repo, "2.txt", "2", "buh");
+
+        println!("c1: {}", c1);
+        println!("c2: {}", c2);
+
+        // reset back to c1
+        let c1_commit = repo
+            .find_commit(c1)
+            .unwrap();
+
+        repo.reset(
+            c1_commit.as_object(),
+            git2::ResetType::Hard,
+            None,
+        )
+        .unwrap();
+
+        println!(
+            "HEAD after reset to c1: {} {}",
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .id(),
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        squash_to_head(&repo, &c2.to_string(), "squashed").unwrap();
+
+        let new_head = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
+
+        println!(
+            "HEAD after squash: {} {}",
+            new_head.id(),
+            new_head
+                .message()
+                .unwrap()
+                .trim()
+        );
+
+        assert_eq!(
+            new_head
+                .message()
+                .unwrap(),
+            "squashed"
+        );
+
+        // the amend replaces c1 but
+        // doesn't add a new commit
+        let mut walk = repo
+            .revwalk()
+            .unwrap();
+        walk.push_head()
+            .unwrap();
+
+        let commit_count = walk.count();
+
+        println!("total commit count: {}", commit_count);
+
+        // init creates 1 commit
+        // then we amended c1 on top
+        // which should be 2 total
+        assert_eq!(commit_count, 2);
     }
 }
