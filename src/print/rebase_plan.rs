@@ -1,7 +1,8 @@
 use console::{Style, style};
 
-use crate::schema::rebase_plan::{
-    PlanOperationKind, PlanOperationSchema,
+use crate::{
+    print::print_choice_prompt,
+    schema::rebase_plan::{PlanOperationKind, PlanOperationSchema},
 };
 
 use super::tree::TreeItem;
@@ -11,7 +12,7 @@ use super::tree::TreeItem;
 pub fn print_rebase_plan(
     ops: &[PlanOperationSchema],
     compact: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<usize>> {
     println!(
         "Generated Rebase Plan with {} Operation{}",
         style(ops.len()).bold(),
@@ -56,21 +57,6 @@ pub fn print_rebase_plan(
             children.push(msg_item);
         }
 
-        if let Some(squash_target) = op.squash_with {
-            let squash_item = TreeItem::new_leaf(
-                format!("squash_{}", i),
-                format!(
-                    "{} {}",
-                    style("Squash With:").dim(),
-                    style(format!("Commit [{}]", squash_target))
-                        .cyan()
-                        .bold()
-                ),
-            )
-            .style(Style::new().dim());
-            children.push(squash_item);
-        }
-
         let op_style = match op.operation {
             PlanOperationKind::Pick => Style::new().green(),
             PlanOperationKind::Reword => Style::new().yellow(),
@@ -86,10 +72,9 @@ pub fn print_rebase_plan(
 
         let display = if !compact {
             let preview = match (&op.operation, &op.new_message) {
-                (PlanOperationKind::Squash, _) => op
-                    .squash_with
-                    .map(|s| format!("→ commit [{}]", s))
-                    .unwrap_or_default(),
+                (PlanOperationKind::Squash, _) => {
+                    format!("squashing commit with previous")
+                }
                 (_, Some(msg)) => {
                     if msg.len() > 50 {
                         format!("{}...", &msg[..50])
@@ -117,5 +102,7 @@ pub fn print_rebase_plan(
         items.push(item);
     }
 
-    Ok(())
+    let opts = ["Apply", "Regenerate"];
+
+    print_choice_prompt(&opts, None, Some("What do you want to do?"))
 }
