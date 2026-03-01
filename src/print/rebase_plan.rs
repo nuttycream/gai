@@ -75,7 +75,7 @@ pub fn print_rebase_plan(
         let display = if !compact {
             let preview = match (&op.operation, &op.new_message) {
                 (PlanOperationKind::Squash, _) => {
-                    format!("squashing commit with previous")
+                    "squashing commit with previous".to_string()
                 }
                 (_, Some(msg)) => {
                     if msg.len() > 50 {

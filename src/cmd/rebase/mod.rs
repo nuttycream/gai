@@ -485,7 +485,7 @@ fn apply_plan(
 
         match op.operation {
             PlanOperationKind::Pick => {
-                cherry_pick_single(&git.repo, &commit)?;
+                cherry_pick_single(&git.repo, commit)?;
             }
             PlanOperationKind::Squash => {
                 let message = if let Some(ref msg) = op.new_message {
@@ -496,7 +496,7 @@ fn apply_plan(
                     ));
                 };
 
-                squash_to_head(&git.repo, commit, &message)?;
+                squash_to_head(&git.repo, commit, message)?;
             }
             PlanOperationKind::Reword => {
                 let message = if let Some(ref msg) = op.new_message {
@@ -506,7 +506,8 @@ fn apply_plan(
                         "no message in schema for a reword, not good, bailing"
                     ));
                 };
-                cherry_pick_reword(&git.repo, &commit, &message)?;
+
+                cherry_pick_reword(&git.repo, commit, message)?;
             }
             PlanOperationKind::Drop => {
                 // do nothing

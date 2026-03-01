@@ -44,7 +44,7 @@ pub fn cherry_pick_commits(
         cherry_pick_single(repo, oid_str)?;
     }
 
-    return force_checkout_head(repo);
+    force_checkout_head(repo)
 }
 
 /// cherry pick single commit

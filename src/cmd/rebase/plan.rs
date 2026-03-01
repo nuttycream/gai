@@ -89,5 +89,5 @@ pub(super) fn gen_plan(
         }
     }
 
-    return Ok(None);
+    Ok(None)
 }
