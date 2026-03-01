@@ -14,7 +14,7 @@ pub struct RebasePlanResponse {
 #[derive(Clone, Debug, Deserialize)]
 pub struct PlanOperationSchema {
     pub reasoning: String,
-    pub commit_id: u32,
+    pub commit_index: u32,
     pub operation: PlanOperationKind,
     // optional, but required for reword and squash
     pub new_message: Option<String>,
@@ -57,10 +57,10 @@ pub enum PlanOperationKind {
 /// option in settings.
 pub fn create_rebase_plan_schema(
     schema_settings: SchemaSettings,
-    max_commit_id: usize,
+    max_commit_index: usize,
     allow_drop: bool,
 ) -> anyhow::Result<Value> {
-    let max_commit_id = max_commit_id as u32;
+    let max_commit_id = max_commit_index as u32;
 
     let builder = SchemaBuilder::new()
         .settings(schema_settings.clone())
@@ -70,7 +70,7 @@ pub fn create_rebase_plan_schema(
             true,
         )
         .insert_int(
-            "commit_id",
+            "commit_index",
             Some("the commit index this operation applies to"),
             true,
             Some(0),

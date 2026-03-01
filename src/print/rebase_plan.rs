@@ -64,7 +64,7 @@ pub fn print_rebase_plan(
             PlanOperationKind::Drop => Style::new().red(),
         };
 
-        let op_idx = style(format!("[{}]", op.commit_id)).dim();
+        let op_idx = style(format!("[{}]", op.commit_index)).dim();
         let op_label = op_style.apply_to(
             op.operation
                 .to_owned(),
