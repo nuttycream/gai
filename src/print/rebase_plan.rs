@@ -1,11 +1,13 @@
 use console::{Style, style};
 
-use crate::{
-    print::print_choice_prompt,
-    schema::rebase_plan::{PlanOperationKind, PlanOperationSchema},
+use crate::schema::rebase_plan::{
+    PlanOperationKind, PlanOperationSchema,
 };
 
-use super::tree::TreeItem;
+use super::{
+    print_choice_prompt,
+    tree::{Tree, TreeItem},
+};
 
 /// display rebase_plan
 /// in a tree format
@@ -101,6 +103,11 @@ pub fn print_rebase_plan(
 
         items.push(item);
     }
+
+    Tree::new(&items)?
+        .collapsed(compact)
+        .style(Style::new().dim())
+        .render();
 
     let opts = ["Apply", "Regenerate"];
 
