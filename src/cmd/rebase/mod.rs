@@ -470,6 +470,15 @@ fn apply_plan(
     logs: &Logs,
     trailing: Option<&[String]>,
 ) -> anyhow::Result<()> {
+    // reordering commits by index
+    // in case the LLM decides to do so
+    // im keeping this off limits for now
+    // since, idk how im gonna handle the conflicts
+    // ideally, with drop as well
+    // or should it be an option along with Drop?
+    let mut ops = ops.to_vec();
+    ops.sort_by_key(|op| op.commit_index);
+
     for op in ops {
         let commit =
             &logs.git_logs[op.commit_index as usize].commit_hash;
