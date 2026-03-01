@@ -69,22 +69,20 @@ pub enum Commands {
     /// Authenticate with GitHub OAuth to use the Gai provider
     Auth(AuthArgs),
 
-    /// Prints gai repository status
+    /// Print the current repository status
     Status(StatusArgs),
 
-    /// Fuzzy find a commit to do Gai related operations
+    /// Print the commit logs to do Gai related operations
     Log(LogArgs),
 
-    /// Create commits from the diffs in the working tree
+    /// Generate commits from the diffs in the working tree
     Commit(CommitArgs),
 
-    /// Find a specific commit
+    /// Query a specific commit from git logs
     Find(FindArgs),
-    /* /// Create a rebase plan for commits
-    Rebase,
 
-    /// Initiate interactive bisect
-    Bisect, */
+    /// Generate a rebase plan for a branch
+    Rebase(RebaseArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -177,4 +175,29 @@ pub struct FindArgs {
     /// Only search commits from this ago. ex. "1year", "1month", etc
     #[arg(long, value_parser = humantime::parse_duration)]
     pub since: Option<std::time::Duration>,
+}
+
+#[derive(Debug, Args)]
+pub struct RebaseArgs {
+    /// Specify the branch from which current branch diverged from
+    #[arg(short = 'b', long)]
+    pub branch: Option<String>,
+
+    /// Specify the amount of last commits to rebase from
+    #[arg(short = 'l', long)]
+    pub last: Option<usize>,
+
+    /// Specify the commit hash to regenerate and rebase from.
+    #[arg(long)]
+    pub from: Option<String>,
+
+    /// Specify ending range of the commits to regenerate to.
+    #[arg(long)]
+    pub to: Option<String>,
+
+    #[arg(
+        long,
+        help = "Generate a Rebase plan using RebaseOperations, in place of entire commits.\nThis is synonymous with `git rebase --edit-todo` during an interactive rebase."
+    )]
+    pub plan: bool,
 }

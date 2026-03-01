@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use console::style;
 use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use serde_json::Value;
@@ -9,17 +7,13 @@ use crate::{
     git::{
         DiffStrategy, Diffs, GitRepo, StagingStrategy,
         StatusStrategy,
-        commit::{GitCommit, commit},
-        diffs::{
-            FileDiff, HunkId, find_file_hunks, get_diffs,
-            remove_hunks,
-        },
-        staging::{stage_all, stage_file, stage_hunks},
+        commit::{GitCommit, apply_commits},
+        diffs::{FileDiff, get_diffs_from_statuses},
     },
     print::{commits, loading::Loading},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
-    responses::commit::{parse_from_schema, process_commit},
+    responses::commit::{parse_to_commit_schema, process_commit},
     schema::{SchemaSettings, commit::create_commit_response_schema},
     settings::Settings,
     state::State,
@@ -48,12 +42,6 @@ pub fn run(
             .settings
             .commit
             .only_staged = true;
-    }
-
-    if let Some(provider) = global.provider {
-        state
-            .settings
-            .provider = provider;
     }
 
     let status_strategy = if state
@@ -87,7 +75,11 @@ pub fn run(
         diff_strategy.ignored_files = files_to_ignore.to_owned();
     }
 
-    state.diffs = get_diffs(&state.git, &diff_strategy)?;
+    state.diffs = get_diffs_from_statuses(
+        &state.git.repo,
+        &state.git.workdir,
+        &diff_strategy,
+    )?;
 
     if state
         .diffs
@@ -199,7 +191,7 @@ fn run_commit(
         };
 
         let raw_commits =
-            parse_from_schema(result, &cfg.staging_type)?;
+            parse_to_commit_schema(result, &cfg.staging_type)?;
 
         loading.stop();
 
@@ -224,7 +216,7 @@ fn run_commit(
         let selected = match selected {
             Some(s) => s,
             None => {
-                if apply_commits(
+                if apply(
                     &git,
                     &git_commits,
                     &mut diffs.files,
@@ -237,7 +229,7 @@ fn run_commit(
         };
 
         if selected == 0 {
-            if apply_commits(
+            if apply(
                 &git,
                 &git_commits,
                 &mut diffs.files,
@@ -258,14 +250,19 @@ fn run_commit(
     Ok(())
 }
 
-fn apply_commits(
+fn apply(
     repo: &GitRepo,
     git_commits: &[GitCommit],
     og_file_diffs: &mut Vec<FileDiff>,
     staging_stragey: &StagingStrategy,
 ) -> bool {
     println!("Applying Commits...");
-    match apply(repo, git_commits, og_file_diffs, staging_stragey) {
+    match apply_commits(
+        &repo.repo,
+        git_commits,
+        og_file_diffs,
+        staging_stragey,
+    ) {
         Ok(_) => false,
         Err(e) => {
             println!("Failed to Apply Commits: {}", e);
@@ -288,102 +285,4 @@ fn apply_commits(
             }
         }
     }
-}
-
-fn apply(
-    git: &GitRepo,
-    git_commits: &[GitCommit],
-    og_file_diffs: &mut Vec<FileDiff>,
-    staging_stragey: &StagingStrategy,
-) -> anyhow::Result<()> {
-    //todo when we implement verbose logging
-    // make sure we log the files, hunks etc
-    // before we apply commits
-
-    for git_commit in git_commits {
-        match staging_stragey {
-            StagingStrategy::AllFilesOneCommit => {
-                stage_all(&git.repo, ".")?;
-                og_file_diffs.clear();
-                commit(&git.repo, git_commit)?;
-
-                // return early
-                return Ok(());
-            }
-            StagingStrategy::AtomicCommits
-            | StagingStrategy::OneFilePerCommit => {
-                for file in &git_commit.files {
-                    stage_file(&git.repo, file)?;
-                    // remove if status matches
-                    //remove_file(&git.repo, file)?;
-                    og_file_diffs.retain(|f| f.path != file.as_str());
-                }
-            }
-            StagingStrategy::Hunks => {
-                // this commit should define its hunkids
-                // to stage like:
-                // commit 1: src/main.rs:0, src/main.rs:1 etc
-                // group hunks based on the file paths
-                // iterate over each file
-                // find what hunks to stage
-                // pass it into stage_hunks
-                // stage_hunks should be able to apply
-                // only the hunks it gets from here
-
-                // file_path and a list of hunk indecises
-                let mut files: HashMap<String, Vec<usize>> =
-                    HashMap::new();
-
-                // group hunks to their file_paths
-                for hunk in &git_commit.hunk_ids {
-                    let hunk_id = HunkId::try_from(hunk.as_str())?;
-                    files
-                        .entry(hunk_id.path.clone())
-                        .or_default()
-                        .push(hunk_id.index);
-                }
-
-                // now process each file
-                for (file_path, hunk_ids) in files {
-                    // find the original file associated
-                    // with this from the og database
-                    let og_file_diff = og_file_diffs
-                        .iter()
-                        .find(|f| f.path == file_path)
-                        .ok_or({
-                            anyhow::anyhow!(
-                                "{} is not in the og_file_diffs",
-                                file_path
-                            )
-                        })?;
-
-                    if og_file_diff.untracked {
-                        stage_file(&git.repo, &file_path)?;
-                        og_file_diffs.retain(|f| f.path != file_path);
-                        continue;
-                    }
-
-                    // get relevant hunk ids
-                    let hunks =
-                        find_file_hunks(og_file_diff, hunk_ids)?;
-
-                    // stage hunks relevant to this file ONLY
-                    let used =
-                        stage_hunks(&git.repo, &file_path, &hunks)?;
-
-                    remove_hunks(og_file_diffs, &file_path, &used);
-                }
-            }
-        }
-
-        commit(&git.repo, git_commit)?;
-    }
-
-    for file in og_file_diffs {
-        for hunk in &file.hunks {
-            println!("hunk [{}:{}] not applied", file.path, hunk.id);
-        }
-    }
-
-    Ok(())
 }

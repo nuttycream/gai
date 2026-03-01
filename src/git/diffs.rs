@@ -1,12 +1,17 @@
 use std::{cell::RefCell, fmt, path::Path, rc::Rc};
 
 use git2::{
-    Delta, Diff, DiffDelta, DiffFormat, DiffHunk, Patch, Repository,
+    Delta, Diff, DiffDelta, DiffFormat, DiffHunk, Oid, Patch,
+    Repository,
+};
+
+use crate::git::{
+    branch::get_head_oid,
+    commit::{OldNew, get_compare_commits_diff},
 };
 
 use super::{
     errors::GitError,
-    repo::GitRepo,
     status::StatusStrategy,
     status::get_status,
     utils::{get_head_repo, is_newline, new_file_content},
@@ -345,25 +350,75 @@ pub fn find_file_hunks(
 }
 
 /// build a list of FileDiff's
+/// using DiffStrategy
 /// calls get_status() first
-pub fn get_diffs(
-    git_repo: &GitRepo,
+pub fn get_diffs_from_statuses(
+    repo: &Repository,
+    work_dir: &Path,
     strategy: &DiffStrategy,
 ) -> anyhow::Result<Diffs> {
     let mut files = Vec::new();
 
-    let status =
-        get_status(&git_repo.repo, &strategy.status_strategy)?;
+    let status = get_status(repo, &strategy.status_strategy)?;
 
     for file in status.statuses {
         let raw_diff =
-            get_diff_raw(&git_repo.repo, &file.path, strategy)?;
+            get_diff_raw_from_statuses(repo, &file.path, strategy)?;
 
-        let file_diff = raw_diff_to_file_diff(
-            &raw_diff,
-            &file.path,
-            &git_repo.workdir,
-        )?;
+        let file_diff =
+            raw_diff_to_file_diff(&raw_diff, &file.path, work_dir)?;
+
+        files.push(file_diff);
+    }
+
+    Ok(Diffs { files })
+}
+
+/// builds a list of FileDiffs
+/// from specified Oid, can use
+/// an optional to Oid, if None
+/// is supplied, will use the head
+/// of current branch
+pub fn get_diffs_from_commits(
+    repo: &Repository,
+    work_dir: &Path,
+    from: Oid,
+    to: Option<Oid>,
+) -> anyhow::Result<Diffs> {
+    let mut files = Vec::new();
+
+    let head = if let Some(to) = to {
+        to
+    } else {
+        get_head_oid(repo)?
+    };
+
+    let raw_diff = get_compare_commits_diff(
+        repo,
+        OldNew {
+            old: from,
+            new: head,
+        },
+    )?;
+
+    // collect diffs from each file
+    for delta in raw_diff.deltas() {
+        let path = delta
+            .new_file()
+            .path()
+            .or_else(|| {
+                delta
+                    .old_file()
+                    .path()
+            })
+            .map(|p| {
+                p.to_string_lossy()
+                    .to_string()
+            })
+            .unwrap_or_default();
+
+        let file_diff =
+            raw_diff_to_file_diff(&raw_diff, &path, work_dir)?;
 
         files.push(file_diff);
     }
@@ -394,7 +449,7 @@ pub fn get_hunk_ids(file_diffs: &[FileDiff]) -> Vec<HunkId> {
     hunk_ids
 }
 
-fn get_diff_raw<'a>(
+fn get_diff_raw_from_statuses<'a>(
     repo: &'a Repository,
     path: &str,
     strategy: &DiffStrategy,

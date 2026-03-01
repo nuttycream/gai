@@ -11,7 +11,7 @@ chrono = { version = "0.4.42", default-features = false, features = ["alloc", "n
 clap = { version = "4.5.48", default-features = false, features = ["derive", "std", "help", "color", "usage", "suggestions", "error-context"] }
 config = { version = "0.15.19", default-features = false, features = ["toml"] }
 console = { version = "0.16.2", default-features = false }
-dialoguer = { version = "0.12.0", default-features = false, features = ["fuzzy-matcher", "fuzzy-select", "history", "password"] }
+dialoguer = { git = "https://github.com/nuttycream/dialoguer", version = "0.12.0", default-features = false, features = ["fuzzy-matcher", "fuzzy-select", "history", "password"] }
 directories = { version = "6.0.0", default-features = false }
 dotenv = "0.15.0"
 fuzzy-matcher = { version = "0.3.7", default-features = false }
@@ -34,3 +34,6 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[dev-dependencies]
+tempfile = "3.24.0"

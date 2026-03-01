@@ -40,6 +40,6 @@ pub fn new_file_content(path: &Path) -> Option<Vec<u8>> {
     None
 }
 
-pub fn bytes2string(bytes: &[u8]) -> anyhow::Result<String> {
+pub(super) fn bytes2string(bytes: &[u8]) -> anyhow::Result<String> {
     Ok(String::from_utf8(bytes.to_vec())?)
 }

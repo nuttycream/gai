@@ -1,6 +1,8 @@
 use git2::Repository;
 
-use super::{errors::GitError, utils::bytes2string};
+use super::{
+    errors::GitError, status::is_workdir_clean, utils::bytes2string,
+};
 
 /// Detach HEAD to point to a commit then checkout HEAD,
 /// does not work if there are uncommitted changes
@@ -33,4 +35,20 @@ pub fn checkout_commit(
         Err(GitError::Generic("Uncommited Changes".to_string())
             .into())
     }
+}
+
+/// sync the curr working tree and index,
+/// with additional safety
+/// so that we don't lose commits
+/// errors on an unclean workdir
+pub fn force_checkout_head(repo: &Repository) -> anyhow::Result<()> {
+    if !is_workdir_clean(repo)? {
+        return Err(anyhow::anyhow!("working tree is not clean",));
+    }
+
+    repo.checkout_head(Some(
+        git2::build::CheckoutBuilder::new().force(),
+    ))?;
+
+    Ok(())
 }

@@ -34,6 +34,12 @@ pub struct TreeItem<Identifier> {
 pub struct Tree<'a, Identifier> {
     items: &'a [TreeItem<Identifier>],
 
+    /// left padding is applied
+    /// during prefix building
+    padding_left: usize,
+    padding_top: usize,
+    padding_bottom: usize,
+
     style: Style,
 
     collapsed: bool,
@@ -176,6 +182,9 @@ where
 
         Ok(Self {
             items,
+            padding_left: 0,
+            padding_top: 0,
+            padding_bottom: 0,
             style: Style::default(),
             collapsed: false,
             other_child,
@@ -195,6 +204,11 @@ where
             return;
         }
 
+        // top
+        for _ in 0..self.padding_top {
+            println!();
+        }
+
         let flattened = flatten(self.items, &[], self.collapsed, 0);
 
         for flat in flattened.iter() {
@@ -208,6 +222,11 @@ where
                 .apply_to(&flat.item.text);
 
             println!("{prefix}{text}");
+        }
+
+        // bottom
+        for _ in 0..self.padding_bottom {
+            println!();
         }
     }
 
@@ -261,6 +280,33 @@ where
         self
     }
 
+    /// set left space padding
+    pub fn padding_left(
+        mut self,
+        padding: usize,
+    ) -> Self {
+        self.padding_left = padding;
+        self
+    }
+
+    /// set bottom space padding
+    pub fn padding_bottom(
+        mut self,
+        padding: usize,
+    ) -> Self {
+        self.padding_bottom = padding;
+        self
+    }
+
+    /// set top space padding
+    pub fn padding_top(
+        mut self,
+        padding: usize,
+    ) -> Self {
+        self.padding_top = padding;
+        self
+    }
+
     pub fn other_child(
         mut self,
         other_child: &'a str,
@@ -301,11 +347,11 @@ where
     ) -> String {
         let depth = is_last_at_depth.len();
 
-        if depth == 0 {
-            return String::new();
-        }
+        let mut prefix = " ".repeat(self.padding_left);
 
-        let mut prefix = String::new();
+        if depth == 0 {
+            return prefix;
+        }
 
         // add continuation characters
         for &is_last in &is_last_at_depth[..depth - 1] {

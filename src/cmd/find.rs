@@ -5,10 +5,10 @@ use serde_json::Value;
 use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
-    print::{InputHistory, find::print, loading, print_query_prompt},
+    print::{InputHistory, find::print, loading, print_input_prompt},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
-    responses::find::parse_from_schema,
+    responses::find::parse_to_find_schema,
     schema::{SchemaSettings, find::create_find_schema},
     state::State,
 };
@@ -17,16 +17,9 @@ pub fn run(
     args: &FindArgs,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let mut state = State::new(None, global)?;
+    let state = State::new(None, global)?;
 
     let count = args.number;
-
-    // todo add global args overrider
-    if let Some(provider) = global.provider {
-        state
-            .settings
-            .provider = provider;
-    }
 
     let logs = get_logs(
         &state.git,
@@ -105,9 +98,9 @@ pub fn run(
         let q = if should_retry {
             query.to_owned()
         } else {
-            match print_query_prompt(
+            match print_input_prompt(
                 "What is your query?",
-                &mut history,
+                Some(&mut history),
             )? {
                 Some(q) => {
                     query = q.to_owned();
@@ -162,7 +155,7 @@ pub fn run(
             }
         };
 
-        let result = parse_from_schema(response)?;
+        let result = parse_to_find_schema(response)?;
 
         loading.stop();
 
