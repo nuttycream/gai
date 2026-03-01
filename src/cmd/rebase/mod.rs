@@ -207,7 +207,8 @@ pub fn run(
         // count limits specified
         // from hash ranges
         0,
-        false,
+        // should be oldest first
+        true,
         Some(&diverge_from.to_string()),
         to_oid.as_deref(),
         None,

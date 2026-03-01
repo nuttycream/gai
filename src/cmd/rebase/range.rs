@@ -168,7 +168,7 @@ fn specify_range_flow(
         println!(
             "{} Rebasing {} commit{} in range:",
             style("→").green(),
-            style(count).cyan(),
+            style(count + 1).cyan(),
             if count == 1 { "" } else { "s" },
         );
 
