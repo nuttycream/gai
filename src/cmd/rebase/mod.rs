@@ -12,10 +12,14 @@ use crate::{
     cmd::rebase::plan::gen_plan,
     git::{
         GitRepo, StagingStrategy,
+        checkout::force_checkout_head,
         commit::{GitCommit, apply_commits},
         diffs::{FileDiff, get_diffs_from_commits},
-        log::get_logs,
-        rebase::cherry_pick_commits,
+        log::{Logs, get_logs},
+        rebase::{
+            cherry_pick_commits, cherry_pick_reword,
+            cherry_pick_single, squash_to_head,
+        },
         reset::{reset_repo_hard, reset_repo_mixed},
         status::is_workdir_clean,
         utils::get_head_repo,
@@ -29,7 +33,11 @@ use crate::{
     responses::{
         commit::process_commit, rebase::parse_from_rebase_schema,
     },
-    schema::{SchemaSettings, rebase::create_rebase_schema},
+    schema::{
+        SchemaSettings,
+        rebase::create_rebase_schema,
+        rebase_plan::{PlanOperationKind, PlanOperationSchema},
+    },
     state::State,
 };
 
@@ -224,20 +232,18 @@ pub fn run(
         log_strs.push(item);
     }
 
-    if let Some(ref to) = to_oid {
-        // reset hard to the TO commit
-        reset_repo_hard(&state.git.repo, to)?;
-    }
-
-    // do a mixed reset to the FROM commit
-    reset_repo_mixed(&state.git.repo, &diverge_from.to_string())?;
+    let to = to_oid
+        .as_deref()
+        .map(Oid::from_str)
+        .transpose()?
+        .unwrap_or(get_head_repo(&state.git.repo)?);
 
     // collect diffs from the diverging_commit
     state.diffs = get_diffs_from_commits(
         &state.git.repo,
         &state.git.workdir,
         diverge_from,
-        None,
+        Some(to),
     )?;
 
     let schema_settings = if matches!(
@@ -260,10 +266,40 @@ pub fn run(
             &state.diffs,
             &log_strs,
             &schema_settings,
-        )
-        .unwrap()
-        {
-            Some(_) => {}
+        )? {
+            Some(ops) => {
+                // reset to the from commit
+                // since, compared to the
+                // commit generation apply()
+                // im not using the diffs/changes
+                // but instead the existing commits
+                reset_repo_hard(
+                    &state.git.repo,
+                    &diverge_from.to_string(),
+                )?;
+
+                match apply_plan(
+                    &state.git,
+                    &ops,
+                    &logs,
+                    trailing_commits.as_deref(),
+                ) {
+                    Ok(_) => return Ok(()),
+                    Err(e) => {
+                        println!(
+                            "couldnt apply plan: {}\nresetting",
+                            e
+                        );
+
+                        reset_repo_hard(
+                            &state.git.repo,
+                            &original_head,
+                        )?;
+                    }
+                }
+
+                return Ok(());
+            }
             None => {
                 reset_repo_hard(&state.git.repo, &original_head)?;
                 return Ok(());
@@ -371,6 +407,17 @@ pub fn run(
             .collect();
 
         if selected == 0 {
+            if let Some(ref to) = to_oid {
+                // reset hard to the TO commit
+                reset_repo_hard(&state.git.repo, to)?;
+            }
+
+            // do a mixed reset to the FROM commit
+            reset_repo_mixed(
+                &state.git.repo,
+                &diverge_from.to_string(),
+            )?;
+
             match apply(
                 &state.git,
                 &git_commits,
@@ -416,8 +463,59 @@ pub fn run(
     Ok(())
 }
 
+fn apply_plan(
+    git: &GitRepo,
+    ops: &[PlanOperationSchema],
+    logs: &Logs,
+    trailing: Option<&[String]>,
+) -> anyhow::Result<()> {
+    for op in ops {
+        let commit =
+            &logs.git_logs[op.commit_index as usize].commit_hash;
+
+        match op.operation {
+            PlanOperationKind::Pick => {
+                cherry_pick_single(&git.repo, &commit)?;
+            }
+            PlanOperationKind::Squash => {
+                let message = if let Some(ref msg) = op.new_message {
+                    msg
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "no message in schema for a squash, not good, bailing"
+                    ));
+                };
+
+                squash_to_head(&git.repo, commit, &message)?;
+            }
+            PlanOperationKind::Reword => {
+                let message = if let Some(ref msg) = op.new_message {
+                    msg
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "no message in schema for a reword, not good, bailing"
+                    ));
+                };
+                cherry_pick_reword(&git.repo, &commit, &message)?;
+            }
+            PlanOperationKind::Drop => {
+                // do nothing
+            }
+        }
+    }
+
+    if let Some(trails) = trailing {
+        cherry_pick_commits(&git.repo, trails)?;
+    }
+
+    // sync it
+    force_checkout_head(&git.repo)?;
+
+    Ok(())
+}
+
 fn apply(
-    repo: &GitRepo,
+    git: &GitRepo,
     git_commits: &[GitCommit],
     og_file_diffs: &mut Vec<FileDiff>,
     staging_stragey: &StagingStrategy,
@@ -426,7 +524,7 @@ fn apply(
 ) -> anyhow::Result<bool> {
     println!("Applying Commits...");
     match apply_commits(
-        &repo.repo,
+        &git.repo,
         git_commits,
         og_file_diffs,
         staging_stragey,
@@ -437,13 +535,13 @@ fn apply(
             if let Some(to) = to_oid {
                 // get the tree from when it was
                 // still correct
-                let original_tree = repo
+                let original_tree = git
                     .repo
                     .find_commit(Oid::from_str(to)?)?
                     .tree()?
                     .id();
 
-                let new_tree = repo
+                let new_tree = git
                     .repo
                     .head()?
                     .peel_to_tree()?
@@ -458,7 +556,7 @@ fn apply(
 
                 // reapply commits
                 if let Some(trails) = trailing {
-                    cherry_pick_commits(&repo.repo, trails)?;
+                    cherry_pick_commits(&git.repo, trails)?;
                 }
             }
 

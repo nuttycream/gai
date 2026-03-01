@@ -9,7 +9,10 @@ use crate::{
     requests::rebase_plan::create_rebase_plan_request,
     responses::rebase_plan::parse_from_rebase_plan_schema,
     schema::{
-        SchemaSettings, rebase_plan::create_rebase_plan_schema,
+        SchemaSettings,
+        rebase_plan::{
+            PlanOperationSchema, create_rebase_plan_schema,
+        },
     },
     settings::Settings,
 };
@@ -26,7 +29,7 @@ pub(super) fn gen_plan(
     diffs: &Diffs,
     logs: &[String],
     schema_settings: &SchemaSettings,
-) -> anyhow::Result<Option<()>> {
+) -> anyhow::Result<Option<Vec<PlanOperationSchema>>> {
     let request = create_rebase_plan_request(
         settings,
         logs,
@@ -73,38 +76,18 @@ pub(super) fn gen_plan(
         loading.stop();
 
         if let Some(opt) = print_rebase_plan(&raw_ops, false)? {
+            if opt == 0 {
+                println!("Applying");
+                return Ok(Some(raw_ops));
+            } else if opt == 1 {
+                println!("Regenerating");
+                continue;
+            }
         } else {
             println!("Exiting");
             return Ok(None);
         }
-
-        // let selected = match print_response_commits(
-        //     &raw_ops,
-        //     global.compact,
-        //     matches!(
-        //         state
-        //             .settings
-        //             .staging_type,
-        //         StagingStrategy::Hunks
-        //     ),
-        //     false,
-        // )? {
-        //     Some(s) => s,
-        //     None => {
-        //         println!("Exiting...");
-        //         return Ok(());
-        //     }
-        // };
-        //
-        // if selected == 0 {
-        // } else if selected == 1 {
-        //     println!("Regenerating");
-        //     continue;
-        // } else if selected == 2 {
-        //     println!("Exiting");
-        //     break;
-        // }
     }
 
-    Ok(Some(()))
+    return Ok(None);
 }
