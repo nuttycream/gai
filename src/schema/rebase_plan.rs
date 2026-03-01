@@ -18,8 +18,11 @@ pub struct PlanOperationSchema {
     pub operation: PlanOperationKind,
     // optional, but required for reword and squash
     pub new_message: Option<String>,
-    // optional, but required for squash
-    pub squash_with: Option<u32>,
+    // For now, disabling this to simplify
+    // the schema, since i only want to support
+    // squashing with the immediate previous commit
+    // or at least only want the LLM to be able to do
+    //pub squash_with: Option<u32>,
 }
 
 /// rebase operation types
@@ -89,13 +92,6 @@ pub fn create_rebase_plan_schema(
             "new_message",
             Some("new commit message, THIS IS REQUIRED for reword and squash ops"),
             false,
-        )
-        .insert_int(
-            "squash_with",
-            Some("commit index to squash into, THIS IS REQUIRED for squash ops"),
-            false,
-            Some(0),
-            Some(max_commit_id),
         );
 
     let operation_schema = builder.build_inner();
