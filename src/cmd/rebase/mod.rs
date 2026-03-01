@@ -255,12 +255,20 @@ pub fn run(
 
     // plan requires different schemas, and looping workflow
     if args.plan {
-        return gen_plan(
+        match gen_plan(
             &state.settings,
             &state.diffs,
             &log_strs,
             &schema_settings,
-        );
+        )
+        .unwrap()
+        {
+            Some(_) => {}
+            None => {
+                reset_repo_hard(&state.git.repo, &original_head)?;
+                return Ok(());
+            }
+        }
     }
 
     let request = create_rebase_request(

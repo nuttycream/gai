@@ -26,7 +26,7 @@ pub(super) fn gen_plan(
     diffs: &Diffs,
     logs: &[String],
     schema_settings: &SchemaSettings,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<()>> {
     let request = create_rebase_plan_request(
         settings,
         logs,
@@ -72,16 +72,12 @@ pub(super) fn gen_plan(
 
         loading.stop();
 
-        print_rebase_plan(&raw_ops, false)?;
+        if let Some(opt) = print_rebase_plan(&raw_ops, false)? {
+        } else {
+            println!("Exiting");
+            return Ok(None);
+        }
 
-        break;
-
-        // println!(
-        //     "Done! Received {} Rebase{}",
-        //     raw_ops.len(),
-        //     if raw_ops.len() == 1 { "" } else { "s" }
-        // );
-        //
         // let selected = match print_response_commits(
         //     &raw_ops,
         //     global.compact,
@@ -110,5 +106,5 @@ pub(super) fn gen_plan(
         // }
     }
 
-    Ok(())
+    Ok(Some(()))
 }
