@@ -76,7 +76,7 @@ pub fn find_divergence_branch(
     repo: &Repository,
     spec: &str,
 ) -> anyhow::Result<Oid> {
-    let head_oid = get_head_oid(repo, None)?;
+    let head_oid = get_head_oid(repo)?;
 
     let divergent_oid = repo
         .revparse_single(spec)?
@@ -216,7 +216,7 @@ fn get_branches_info(
                 })
             };
 
-            let head_oid = get_head_oid(repo, None)?;
+            let head_oid = get_head_oid(repo)?;
 
             let divergence = {
                 let branch_oid = branch
@@ -265,10 +265,7 @@ fn get_branches_info(
 }
 
 /// returns the head of the current branch
-pub(super) fn get_head_oid(
-    repo: &Repository,
-    _branch: Option<&str>,
-) -> anyhow::Result<Oid> {
+pub(super) fn get_head_oid(repo: &Repository) -> anyhow::Result<Oid> {
     repo.head()?
         .target()
         .ok_or(GitError::NoHead)
