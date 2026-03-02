@@ -18,7 +18,7 @@ fuzzy-matcher = { version = "0.3.7", default-features = false }
 git2 = { version = "0.20.3", default-features = false}
 humantime = { version = "2.3.0", default-features = false }
 indicatif = { version = "0.18.0", default-features = false }
-llmao = { git = "https://github.com/nuttycream/llmao", branch = "main", version = "0.0.0" }
+llmao = { git = "https://github.com/nuttycream/llmao", branch = "main", version = "0.0.2" }
 open = { version = "5.3.2", default-features = false }
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
