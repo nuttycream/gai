@@ -83,6 +83,9 @@ pub enum Commands {
 
     /// Generate a rebase plan for a branch
     Rebase(RebaseArgs),
+
+    /// Reword or amend a commit message
+    Reword(RewordArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -200,4 +203,23 @@ pub struct RebaseArgs {
         help = "Generate a Rebase plan using RebaseOperations, in place of entire commits.\nThis is synonymous with `git rebase --edit-todo` during an interactive rebase."
     )]
     pub plan: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct RewordArgs {
+    /// Specify the specific commit hash to amend
+    #[arg(short = 'c', long)]
+    pub commit: Option<String>,
+
+    /// Specify the amount of last commit messages to amend
+    #[arg(short = 'l', long)]
+    pub last: Option<usize>,
+
+    /// Specify the starting range for the commits you want to amend from.
+    #[arg(long)]
+    pub from: Option<String>,
+
+    /// Specify ending range of the commits to amend.
+    #[arg(long)]
+    pub to: Option<String>,
 }
