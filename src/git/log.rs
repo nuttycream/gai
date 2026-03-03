@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use git2::Oid;
+use git2::{Oid, Repository};
 use std::fmt;
 
 use super::{
@@ -208,6 +208,62 @@ pub fn get_short_hash(git_log: &GitLog) -> String {
             .len(),
     )]
         .to_string()
+}
+
+// gets a single commit log from
+// a specified commit hash string
+// will always populate files, and
+// file diff
+pub fn get_log(
+    git_repo: &GitRepo,
+    commit: &str,
+) -> anyhow::Result<GitLog> {
+    let oid = Oid::from_str(commit)?;
+
+    let repo = &git_repo.repo;
+
+    let commit = repo.find_commit(oid)?;
+
+    let mut log: GitLog = commit
+        .message_bytes()
+        .into();
+
+    let author = commit.author();
+
+    log.author = author
+        .name()
+        .unwrap_or("unknown author")
+        .to_string();
+
+    log.commit_hash = oid.to_string();
+    log.date = DateTime::from_timestamp(
+        author
+            .when()
+            .seconds(),
+        0,
+    )
+    .map(|dt| {
+        dt.format("%m/%d/%Y %H:%M:%S")
+            .to_string()
+    })
+    .unwrap_or_default();
+
+    log.files = get_commit_files(repo, oid, None)?
+        .iter()
+        .map(|f| f.path.to_string())
+        .collect();
+
+    for file in &log.files {
+        let raw = get_commit_diff(repo, oid)?;
+        let file_diff =
+            raw_diff_to_file_diff(&raw, file, &git_repo.workdir)?;
+
+        log.diffs
+            .files
+            .push(file_diff);
+    }
+
+    Ok(log)
 }
 
 #[allow(clippy::too_many_arguments)]
