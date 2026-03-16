@@ -2,8 +2,11 @@ use crate::{
     args::{GlobalArgs, RewordArgs},
     git::{
         GitRepo,
-        log::{get_log, get_logs},
-        rebase::trailing_commits,
+        checkout::force_checkout_head,
+        log::{Logs, get_log, get_logs},
+        rebase::{
+            cherry_pick_commits, cherry_pick_reword, trailing_commits,
+        },
         status::is_workdir_clean,
         utils::get_head_repo,
     },
@@ -196,10 +199,10 @@ pub fn run(
         if selected == 0 {
             if apply(
                 &state.git,
+                &logs,
                 &commit_messages,
                 &trailing_commits,
-                &original_head,
-            ) {
+            )? {
                 continue;
             }
         } else if selected == 1 {
@@ -217,9 +220,33 @@ pub fn run(
 
 fn apply(
     git: &GitRepo,
-    commit_messages: &[String],
+    logs: &Logs,
+    new_commit_messages: &[String],
     trailing_commits: &[String],
-    original_head: &str,
-) -> bool {
-    false
+) -> anyhow::Result<bool> {
+    for (idx, log) in logs
+        .git_logs
+        .iter()
+        .enumerate()
+    {
+        let commit = log
+            .commit_hash
+            .to_owned();
+
+        if let Some(message) = new_commit_messages.get(idx) {
+            cherry_pick_reword(&git.repo, &commit, &message)?;
+        } else {
+            return Err(anyhow::anyhow!("bad index"));
+        }
+    }
+
+    if !trailing_commits.is_empty() {
+        cherry_pick_commits(&git.repo, trailing_commits)?;
+    }
+    // readd the trailing commits if any
+
+    // then sync it
+    force_checkout_head(&git.repo)?;
+
+    Ok(false)
 }
