@@ -3,10 +3,12 @@ use crate::{
     git::{
         GitRepo,
         checkout::force_checkout_head,
+        commit::find_parent_commit,
         log::{Logs, get_log, get_logs},
         rebase::{
             cherry_pick_commits, cherry_pick_reword, trailing_commits,
         },
+        reset::reset_repo_hard,
         status::is_workdir_clean,
         utils::get_head_repo,
     },
@@ -111,6 +113,8 @@ pub fn run(
         log_strs.push(item);
     }
 
+    let log_strs = log_strs.join("\n");
+
     let schema_settings = if matches!(
         state
             .settings
@@ -127,14 +131,8 @@ pub fn run(
     let schema =
         create_reword_schema(schema_settings, &state.settings)?;
 
-    // diffs here?
-    let request = create_reword_request(
-        &state.settings,
-        &state.git,
-        &state
-            .diffs
-            .to_string(),
-    );
+    let request =
+        create_reword_request(&state.settings, &state.git, &log_strs);
 
     loop {
         let loading = loading::Loading::new(
@@ -197,13 +195,26 @@ pub fn run(
             .collect();
 
         if selected == 0 {
-            if apply(
+            match apply(
                 &state.git,
                 &logs,
                 &commit_messages,
                 &trailing_commits,
-            )? {
-                continue;
+            ) {
+                // my god
+                Ok(retry) => {
+                    if retry {
+                        reset_repo_hard(
+                            &state.git.repo,
+                            &original_head,
+                        )?;
+                        continue;
+                    }
+                }
+                Err(e) => {
+                    reset_repo_hard(&state.git.repo, &original_head)?;
+                    return Err(e);
+                }
             }
         } else if selected == 1 {
             println!("Regenerating");
@@ -224,6 +235,16 @@ fn apply(
     new_commit_messages: &[String],
     trailing_commits: &[String],
 ) -> anyhow::Result<bool> {
+    // for the range and everything to work
+    // when applying, gonna need to quickly
+    // mimic the reset flow from rebase
+    // reset to -> parent of from commit
+    let oldest = &logs.git_logs[0].commit_hash;
+
+    let parent = find_parent_commit(&git.repo, &oldest)?;
+
+    reset_repo_hard(&git.repo, &parent.to_string())?;
+
     for (idx, log) in logs
         .git_logs
         .iter()
