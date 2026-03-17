@@ -15,7 +15,7 @@ use crate::{
 #[derive(Debug, Deserialize)]
 pub struct RewordResponse {
     #[serde(default)]
-    pub commit_messages: Vec<CommitSchema>,
+    pub commits: Vec<CommitSchema>,
 }
 
 /// creates a schema for new commit messages
@@ -68,7 +68,17 @@ pub fn create_reword_schema(
         builder.add_str("body", Some("extended description"), true);
     }
 
-    let schema = builder.build();
+    let schema = builder.build_inner();
+
+    let schema = SchemaBuilder::new()
+        .settings(schema_settings)
+        .insert_object_array(
+            "commits",
+            Some("list of commits"),
+            true,
+            schema,
+        )
+        .build();
 
     Ok(schema)
 }
