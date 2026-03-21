@@ -1,7 +1,6 @@
 use crate::{
     git::{
-        GitRepo, StagingStrategy, StatusStrategy, log::get_logs,
-        status::get_status,
+        GitRepo, StatusStrategy, log::get_logs, status::get_status,
     },
     settings::{PromptRules, Settings},
     utils::consts::*,
@@ -12,20 +11,25 @@ use super::Request;
 pub fn create_reword_request(
     settings: &Settings,
     repo: &GitRepo,
-    logs: &str,
+    logs: &[String],
 ) -> Request {
-    let prompt = build_prompt(repo, settings);
+    let prompt = build_prompt(repo, settings, logs.len());
 
-    Request::new(&prompt).insert_content(logs)
+    Request::new(&prompt).insert_contents(logs)
 }
 
 fn build_prompt(
     repo: &GitRepo,
     cfg: &Settings,
+    log_count: usize,
 ) -> String {
     let mut prompt = String::new();
 
     let rules = build_rules(&cfg.rules);
+
+    prompt.push_str(
+        format!("Generate {} commit messages", log_count).as_str(),
+    );
 
     if let Some(sys_prompt) = &cfg
         .prompt
@@ -120,6 +124,7 @@ fn build_prompt(
 
     prompt
 }
+
 fn build_rules(cfg: &PromptRules) -> String {
     let mut rules = String::new();
 

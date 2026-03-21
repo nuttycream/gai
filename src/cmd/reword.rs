@@ -113,8 +113,6 @@ pub fn run(
         log_strs.push(item);
     }
 
-    let log_strs = log_strs.join("\n");
-
     let schema_settings = if matches!(
         state
             .settings
