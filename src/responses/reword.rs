@@ -67,7 +67,7 @@ pub fn process_reword_commit_message(
     // check is not part of commit settings
     // EXISTENCE SHOULD be handled during
     // schema creation
-    let message = if let Some(body) = raw_commit.body {
+    if let Some(body) = raw_commit.body {
         format!(
             "{}{}{}: {}\n\n{}",
             prefix, scope, breaking, raw_commit.header, body
@@ -77,7 +77,5 @@ pub fn process_reword_commit_message(
             "{}{}{}: {}",
             prefix, scope, breaking, raw_commit.header
         )
-    };
-
-    message
+    }
 }
