@@ -1,5 +1,3 @@
-use console::style;
-use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use serde_json::Value;
 
 use crate::{
@@ -10,7 +8,7 @@ use crate::{
         commit::{GitCommit, apply_commits},
         diffs::{FileDiff, get_diffs_from_statuses},
     },
-    print::{commits, loading::Loading},
+    print::{commits, loading::Loading, option_prompt, retry_prompt},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
     responses::commit::{parse_to_commit_schema, process_commit},
@@ -86,12 +84,7 @@ pub fn run(
         .files
         .is_empty()
     {
-        println!(
-            "{}",
-            style("Repository does not have any known changes.")
-                .yellow()
-                .bold()
-        );
+        println!("Repository does not have any known changes.");
         return Ok(());
     }
 
@@ -153,12 +146,9 @@ fn run_commit(
 ) -> anyhow::Result<()> {
     let provider_display = format!(
         "Generating Commits Using {}({})",
-        style(&cfg.provider).blue(),
-        style(
-            cfg.providers
-                .get_model(&cfg.provider)
-        )
-        .dim()
+        &cfg.provider,
+        cfg.providers
+            .get_model(&cfg.provider)
     );
 
     loop {
@@ -179,10 +169,7 @@ fn run_commit(
                     e
                 );
 
-                if Confirm::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Retry?")
-                    .interact()?
-                {
+                if retry_prompt(None)? {
                     continue;
                 } else {
                     break;
@@ -267,16 +254,7 @@ fn apply(
         Err(e) => {
             println!("Failed to Apply Commits: {}", e);
 
-            let options = ["Retry", "Exit"];
-            let selection =
-                Select::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Select an option:")
-                    .items(options)
-                    .default(0)
-                    .interact()
-                    .unwrap();
-
-            if selection == 0 {
+            if retry_prompt(None).unwrap() {
                 println!("Regenerating...");
                 true
             } else {

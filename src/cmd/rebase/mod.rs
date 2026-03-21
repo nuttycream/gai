@@ -25,8 +25,8 @@ use crate::{
         utils::get_head_repo,
     },
     print::{
-        commits::print_response_commits, loading,
-        print_choice_prompt, query::print_retry_prompt,
+        commits::print_response_commits, loading, option_prompt,
+        query::retry_prompt,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
@@ -140,7 +140,7 @@ pub fn run(
             "Specify Commit Range",
         ];
 
-        let selected_flow = if let Some(s) = print_choice_prompt(
+        let selected_flow = if let Some(s) = option_prompt(
             &options,
             None,
             Some("Select a Scope for the Rebase Operation"),
@@ -361,7 +361,7 @@ pub fn run(
 
                 loading.stop();
 
-                if print_retry_prompt(Some(&msg))? {
+                if retry_prompt(Some(&msg))? {
                     continue;
                 } else {
                     break;
@@ -576,7 +576,7 @@ fn apply(
         Err(e) => {
             let msg = format!("Failed to Apply Commits: {}", e);
 
-            if print_retry_prompt(Some(&msg))? {
+            if retry_prompt(Some(&msg))? {
                 println!("Regenerating...");
                 Ok(true)
             } else {

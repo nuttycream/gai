@@ -10,6 +10,4 @@ pub mod status;
 pub mod tree;
 
 pub use history::InputHistory;
-pub use query::{
-    print_choice_prompt, print_input_prompt, print_retry_prompt,
-};
+pub use query::{input_prompt, option_prompt, retry_prompt};

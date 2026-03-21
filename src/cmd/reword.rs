@@ -12,9 +12,7 @@ use crate::{
         status::is_workdir_clean,
         utils::get_head_repo,
     },
-    print::{
-        commits::print_response_commits, loading, print_retry_prompt,
-    },
+    print::{commits::print_response_commits, loading, retry_prompt},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::reword::create_reword_request,
     responses::reword::{
@@ -164,7 +162,7 @@ pub fn run(
 
                 loading.stop();
 
-                if print_retry_prompt(Some(&msg))? {
+                if retry_prompt(Some(&msg))? {
                     continue;
                 } else {
                     break;

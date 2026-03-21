@@ -1,5 +1,4 @@
 use anyhow::Result;
-use dialoguer::{Password, theme::ColorfulTheme};
 use std::{fs, io::ErrorKind, path::PathBuf};
 
 use crate::args::Auth;
@@ -15,15 +14,6 @@ pub fn run(auth: &Auth) -> Result<()> {
 }
 
 fn auth_login() -> Result<()> {
-    println!("Opening Browser for https://cli.gai.fyi/login");
-    open::that("https://cli.gai.fyi/login")?;
-    let token = Password::with_theme(&ColorfulTheme::default())
-        .with_prompt("Paste Token: ")
-        .interact()?;
-
-    println!("Storing token of length: {}", token.len());
-
-    store_token(&token)?;
     Ok(())
 }
 

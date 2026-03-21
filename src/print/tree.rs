@@ -1,4 +1,3 @@
-use console::Style;
 use std::collections::HashSet;
 
 // this is a tree printing util that helps
@@ -26,7 +25,6 @@ pub struct TreeItem<Identifier> {
     children: Vec<Self>,
 
     text: String,
-    style: Style,
 }
 
 /// A Tree which can be rendered
@@ -39,8 +37,6 @@ pub struct Tree<'a, Identifier> {
     padding_left: usize,
     padding_top: usize,
     padding_bottom: usize,
-
-    style: Style,
 
     collapsed: bool,
 
@@ -76,7 +72,6 @@ where
             identifier,
             text,
             children: Vec::new(),
-            style: Style::default(),
         }
     }
 
@@ -110,16 +105,11 @@ where
             identifier,
             text,
             children,
-            style: Style::default(),
         })
     }
 
     /// text content styling
-    pub fn style(
-        mut self,
-        style: Style,
-    ) -> Self {
-        self.style = style;
+    pub fn style(mut self) -> Self {
         self
     }
 
@@ -185,7 +175,6 @@ where
             padding_left: 0,
             padding_top: 0,
             padding_bottom: 0,
-            style: Style::default(),
             collapsed: false,
             other_child,
             other_entry,
@@ -213,13 +202,7 @@ where
 
         for flat in flattened.iter() {
             let prefix = self.prefix(&flat.is_last_at_depth);
-            let prefix = self
-                .style
-                .apply_to(&prefix);
-            let text = flat
-                .item
-                .style
-                .apply_to(&flat.item.text);
+            let text = &flat.item.text;
 
             println!("{prefix}{text}");
         }
@@ -247,13 +230,10 @@ where
 
         for flat in flattened.iter() {
             let prefix = self.prefix(&flat.is_last_at_depth);
-            let prefix = self
-                .style
-                .apply_to(&prefix);
             let text = flat
                 .item
-                .style
-                .apply_to(&flat.item.text);
+                .text
+                .to_owned();
 
             s.push_str(&format!("{prefix}{text}\n"));
         }
@@ -262,11 +242,7 @@ where
     }
 
     /// prefix styling
-    pub fn style(
-        mut self,
-        style: Style,
-    ) -> Self {
-        self.style = style;
+    pub fn style(mut self) -> Self {
         self
     }
 

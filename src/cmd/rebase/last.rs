@@ -1,9 +1,8 @@
-use console::style;
 use git2::Oid;
 
 use crate::{
     git::{GitRepo, commit::find_parent_commit, log::get_logs},
-    print::print_input_prompt,
+    print::input_prompt,
 };
 
 pub(super) fn rebase_last(
@@ -23,9 +22,9 @@ pub(super) fn rebase_last(
         if last_n > logs.git_logs.len() {
             println!(
                 "{} Only {} commits exist in history but you requested {}",
-                style("Warning:").yellow(),
-                style(logs.git_logs.len()).red(),
-                style(last_n).red()
+                "Warning:",
+                logs.git_logs.len(),
+                last_n
             );
         }
 
@@ -46,8 +45,8 @@ pub(super) fn rebase_last(
 
         println!(
             "{} Rebasing last {} commit{}",
-            style("→").green(),
-            style(last_n).cyan(),
+            "→",
+            last_n,
             if last_n == 1 { "" } else { "s" }
         );
 
@@ -62,8 +61,7 @@ fn last_n_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
 
     loop {
         let input =
-            match print_input_prompt("Specify a valid number", None)?
-            {
+            match input_prompt("Specify a valid number", None)? {
                 Some(i) => i,
                 None => {
                     println!("Exiting...");
@@ -95,8 +93,8 @@ fn last_n_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
     if n > logs.git_logs.len() {
         println!(
             "Only {} commits exist in history but you requested {}",
-            style(logs.git_logs.len()).red(),
-            style(n).red()
+            logs.git_logs.len(),
+            n
         );
     }
 

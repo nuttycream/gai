@@ -1,4 +1,3 @@
-use console::style;
 use git2::Oid;
 
 use crate::{
@@ -6,7 +5,7 @@ use crate::{
         GitRepo,
         branch::{find_divergence_branch, get_diverged_branches},
     },
-    print::{print_choice_prompt, rebase::print_branches_info},
+    print::{option_prompt, rebase::print_branches_info},
 };
 
 pub(super) fn rebase_branch(
@@ -24,8 +23,7 @@ pub(super) fn rebase_branch(
 
         println!(
             "{} Using divergence from branch: {}",
-            style("→").green(),
-            style(div_branch_arg).cyan()
+            "→", div_branch_arg
         );
 
         Ok(Some(oid))
@@ -44,7 +42,7 @@ fn divergence_flow(
     let opts = print_branches_info(&branches, compact)?;
 
     let selected_branch = if let Some(b) =
-        print_choice_prompt(&opts, None, Some("Select a Branch"))?
+        option_prompt(&opts, None, Some("Select a Branch"))?
     {
         b
     } else {

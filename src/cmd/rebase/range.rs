@@ -1,4 +1,3 @@
-use console::style;
 use git2::Oid;
 
 use crate::{
@@ -67,11 +66,11 @@ pub(super) fn rebase_range(
 
     println!(
         "{} Rebasing {} commit{} from {}",
-        style("→").green(),
-        style(count).cyan(),
+        "→",
+        count,
         if count == 1 { "" } else { "s" },
         //get_short_hash()
-        style(&from[..from.len().min(7)]).dim()
+        &from[..from.len().min(7)]
     );
 
     if let Some(to) = to_hash {
@@ -167,20 +166,20 @@ fn specify_range_flow(
 
         println!(
             "{} Rebasing {} commit{} in range:",
-            style("→").green(),
-            style(count + 1).cyan(),
+            "→",
+            count + 1,
             if count == 1 { "" } else { "s" },
         );
 
         println!(
             " From: {} {}",
-            style(&get_short_hash(commit)).dim(),
+            &get_short_hash(commit),
             String::from(commit.to_owned())
         );
 
         println!(
             " To: {} {}",
-            style(&get_short_hash(second_commit)).dim(),
+            &get_short_hash(second_commit),
             String::from(second_commit.to_owned())
         );
 

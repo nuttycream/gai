@@ -2,9 +2,7 @@ use serde_json::Value;
 
 use crate::{
     git::Diffs,
-    print::{
-        loading, print_retry_prompt, rebase_plan::print_rebase_plan,
-    },
+    print::{loading, rebase_plan::print_rebase_plan, retry_prompt},
     providers::extract_from_provider,
     requests::rebase_plan::create_rebase_plan_request,
     responses::rebase_plan::parse_from_rebase_plan_schema,
@@ -62,7 +60,7 @@ pub(super) fn gen_plan(
 
                 loading.stop();
 
-                if print_retry_prompt(Some(&msg))? {
+                if retry_prompt(Some(&msg))? {
                     continue;
                 } else {
                     break;

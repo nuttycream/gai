@@ -1,11 +1,12 @@
-use console::style;
-use dialoguer::{Confirm, theme::ColorfulTheme};
 use serde_json::Value;
 
 use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
-    print::{InputHistory, find::print, loading, print_input_prompt},
+    print::{
+        InputHistory, find::print, input_prompt, loading,
+        retry_prompt,
+    },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
     responses::find::parse_to_find_schema,
@@ -98,7 +99,7 @@ pub fn run(
         let q = if should_retry {
             query.to_owned()
         } else {
-            match print_input_prompt(
+            match input_prompt(
                 "What is your query?",
                 Some(&mut history),
             )? {
@@ -110,12 +111,8 @@ pub fn run(
             }
         };
 
-        let text = format!(
-            "Querying through your commits for \"{}\"",
-            style(q.to_owned())
-                .cyan()
-                .bold()
-        );
+        let text =
+            format!("Querying through your commits for \"{}\"", q);
 
         let req = create_find_request(&state.settings, &log_strs, &q);
 
@@ -144,10 +141,7 @@ pub fn run(
 
                 loading.stop_with_message(&msg);
 
-                if Confirm::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Retry?")
-                    .interact()?
-                {
+                if retry_prompt(None)? {
                     continue;
                 } else {
                     break;
