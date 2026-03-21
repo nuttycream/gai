@@ -4,7 +4,7 @@ use crate::{
         GitRepo,
         checkout::force_checkout_head,
         commit::find_parent_commit,
-        log::{Logs, get_log, get_logs},
+        log::{Logs, get_logs},
         rebase::{
             cherry_pick_commits, cherry_pick_reword, trailing_commits,
         },
@@ -247,7 +247,7 @@ fn apply(
     // reset to -> parent of from commit
     let oldest = &logs.git_logs[0].commit_hash;
 
-    let parent = find_parent_commit(&git.repo, &oldest)?;
+    let parent = find_parent_commit(&git.repo, oldest)?;
 
     reset_repo_hard(&git.repo, &parent.to_string())?;
 
@@ -261,7 +261,7 @@ fn apply(
             .to_owned();
 
         if let Some(message) = new_commit_messages.get(idx) {
-            cherry_pick_reword(&git.repo, &commit, &message)?;
+            cherry_pick_reword(&git.repo, &commit, message)?;
         } else {
             return Err(anyhow::anyhow!("bad index"));
         }

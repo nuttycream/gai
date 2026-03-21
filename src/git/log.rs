@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use git2::{Oid, Repository};
+use git2::Oid;
 use std::fmt;
 
 use super::{
