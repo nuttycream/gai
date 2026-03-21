@@ -13,7 +13,7 @@ pub mod state;
 pub mod utils;
 
 use crate::args::Commands::{
-    Auth, Commit, Find, Log, Rebase, Status,
+    Auth, Commit, Find, Log, Rebase, Reword, Status,
 };
 
 fn main() -> anyhow::Result<()> {
@@ -28,6 +28,7 @@ fn main() -> anyhow::Result<()> {
         Log(a) => cmd::log::run(a, &args.global)?,
         Find(a) => cmd::find::run(a, &args.global)?,
         Rebase(a) => cmd::rebase::run(a, &args.global)?,
+        Reword(a) => cmd::reword::run(a, &args.global)?,
     };
 
     Ok(())
