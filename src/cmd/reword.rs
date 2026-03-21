@@ -47,13 +47,17 @@ pub fn run(
     // is that we dont gen a plan, but only reword selected commits
     let (logs, trailing_commits) = if let Some(ref hash) = args.commit
     {
+        // we need the parent commit, to get the root since
+        // from is exclusive
+        let parent = find_parent_commit(&state.git.repo, hash)?;
+
         let logs = get_logs(
             &state.git,
             true,
             false,
             0,
             true,
-            Some(hash),
+            Some(&parent.to_string()),
             Some(hash),
             None,
         )?;
@@ -62,9 +66,13 @@ pub fn run(
 
         (logs, trails)
     } else if let Some(last_n) = args.last {
-        let logs = get_logs(
-            &state.git, true, false, last_n, true, None, None, None,
+        let mut logs = get_logs(
+            &state.git, true, false, last_n, false, None, None, None,
         )?;
+
+        // if logs are reversed
+        logs.git_logs
+            .reverse();
 
         // return an empty vec for now
         // want to just leave trails empty
