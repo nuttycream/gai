@@ -1,6 +1,16 @@
 use crate::schema::commit::{CommitSchema, PrefixType};
 
-use super::tree::{Tree, TreeItem};
+use super::{
+    renderer::Renderer,
+    tree::{Tree, TreeItem},
+};
+
+pub(crate) fn schemas(
+    renderer: &Renderer,
+    commits: &[CommitSchema],
+) -> anyhow::Result<()> {
+    Ok(())
+}
 
 /// display the responsecommits
 /// before converting to usable
