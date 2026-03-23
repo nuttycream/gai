@@ -4,7 +4,6 @@ pub mod history;
 pub mod loading;
 pub mod log;
 pub mod menu;
-pub mod options;
 pub mod query;
 pub mod rebase;
 pub mod rebase_plan;

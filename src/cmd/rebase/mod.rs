@@ -25,7 +25,7 @@ use crate::{
         utils::get_head_repo,
     },
     print::{
-        commits::print_response_commits, loading, option_prompt,
+        commits::response_commits, loading, option_prompt,
         query::retry_prompt,
     },
     providers::{extract_from_provider, provider::ProviderKind},
@@ -384,16 +384,15 @@ pub fn run(
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let selected = match print_response_commits(
+        let selected = match response_commits(
+            renderer,
             &raw_commits,
-            global.compact,
             matches!(
                 state
                     .settings
                     .staging_type,
                 StagingStrategy::Hunks
             ),
-            false,
         )? {
             Some(s) => s,
             None => {

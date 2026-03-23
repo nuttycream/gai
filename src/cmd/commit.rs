@@ -8,7 +8,10 @@ use crate::{
         commit::{GitCommit, apply_commits},
         diffs::{FileDiff, get_diffs_from_statuses},
     },
-    print::{commits, loading::Loading, option_prompt, retry_prompt},
+    print::{
+        commits, loading::Loading, option_prompt, renderer::Renderer,
+        retry_prompt, style::StyleConfig,
+    },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
     responses::commit::{parse_to_commit_schema, process_commit},
@@ -34,6 +37,9 @@ pub fn run(
         .hint = global
         .hint
         .to_owned();
+
+    let renderer =
+        Renderer::new(StyleConfig::default(), global.compact)?;
 
     if args.staged {
         state
@@ -188,11 +194,10 @@ fn run_commit(
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let selected = commits::print_response_commits(
+        let selected = commits::response_commits(
+            renderer,
             &raw_commits,
-            compact,
             matches!(cfg.staging_type, StagingStrategy::Hunks),
-            skip_confirmation,
         )?;
 
         let git_commits: Vec<GitCommit> = raw_commits

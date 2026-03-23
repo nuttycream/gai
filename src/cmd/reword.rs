@@ -12,7 +12,7 @@ use crate::{
         status::is_workdir_clean,
         utils::get_head_repo,
     },
-    print::{commits::print_response_commits, loading, retry_prompt},
+    print::{commits::response_commits, loading, retry_prompt},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::reword::create_reword_request,
     responses::reword::{
@@ -180,10 +180,10 @@ pub fn run(
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let selected = if let Some(s) = print_response_commits(
+        let selected = if let Some(s) = response_commits(
+            renderer,
             &raw_commits,
             global.compact,
-            false,
             false,
         )? {
             s
