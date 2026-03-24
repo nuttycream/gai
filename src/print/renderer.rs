@@ -2,7 +2,7 @@ use crossterm::terminal;
 
 use super::style::StyleConfig;
 
-pub(crate) struct Renderer {
+pub struct Renderer {
     pub style: StyleConfig,
     pub compact: bool,
     pub width: u16,

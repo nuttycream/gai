@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use crossterm::style::{Attribute, Color, ContentStyle, Stylize};
 
 use crate::schema::commit::{CommitSchema, PrefixType};
 
@@ -6,13 +6,6 @@ use super::{
     renderer::Renderer,
     tree::{Tree, TreeItem},
 };
-
-pub(crate) fn schemas(
-    renderer: &Renderer,
-    commits: &[CommitSchema],
-) -> anyhow::Result<()> {
-    Ok(())
-}
 
 /// display the responsecommits
 /// before converting to usable
@@ -24,6 +17,16 @@ pub fn response_commits(
     as_hunks: bool,
 ) -> anyhow::Result<()> {
     let mut items = Vec::new();
+    let max_length = renderer
+        .width
+        .saturating_sub(3) as usize;
+
+    let dim = ContentStyle::new().attribute(Attribute::Dim);
+    let white = ContentStyle::new().with(Color::White);
+
+    let magenta_dim = ContentStyle::new()
+        .with(Color::Magenta)
+        .attribute(Attribute::Dim);
 
     for (i, commit) in commits
         .iter()
@@ -40,23 +43,19 @@ pub fn response_commits(
             let header_item = TreeItem::new_leaf(
                 format!("commit_{}_header", i),
                 &commit.header,
-            );
+            )
+            .style(white);
 
             commit_children.push(header_item);
         }
 
         // preview the body if exists
         if let Some(ref body) = commit.body {
-            let truncated_body = if body.len() > 20 {
-                format!("{}...", &body[..20])
-            } else {
-                body.to_owned()
-            };
+            let body = format!("{}...", &body[..max_length]);
 
-            let body_item = TreeItem::new_leaf(
-                "body".to_owned(),
-                &truncated_body,
-            );
+            let body_item =
+                TreeItem::new_leaf("body".to_owned(), &body)
+                    .style(dim);
 
             commit_children.push(body_item);
         }
@@ -109,7 +108,8 @@ pub fn response_commits(
                 let hunks_item = TreeItem::new_leaf(
                     format!("{}_hunks", file),
                     &hunks_display,
-                );
+                )
+                .style(dim);
 
                 file_children.push(hunks_item);
 
@@ -117,13 +117,15 @@ pub fn response_commits(
                     file.clone(),
                     file_display,
                     file_children,
-                )?;
+                )?
+                .style(magenta_dim);
 
                 //commit_children.push(file_item);
                 files.push(file_item);
             } else {
                 let file_item =
-                    TreeItem::new_leaf(file.clone(), &file_display);
+                    TreeItem::new_leaf(file.clone(), &file_display)
+                        .style(magenta_dim);
 
                 //commit_children.push(file_item);
                 files.push(file_item);
@@ -137,7 +139,8 @@ pub fn response_commits(
             format!("commit_{}_files", i),
             files_display,
             files,
-        )?;
+        )?
+        .style(dim);
 
         commit_children.push(files_item);
 
@@ -163,6 +166,17 @@ pub fn response_commits(
 
         let color = prefix_color(&commit.prefix);
 
+        let colored = if renderer
+            .style
+            .allow_bold
+        {
+            ContentStyle::new()
+                .with(color)
+                .attribute(Attribute::Bold)
+        } else {
+            ContentStyle::new().with(color)
+        };
+
         let commit_idx = format!("[{}]", i);
 
         let display = if renderer.compact {
@@ -182,7 +196,8 @@ pub fn response_commits(
         let for_fuzzy_id = format!("{}: {}", prefix, commit.header);
 
         let item =
-            TreeItem::new(for_fuzzy_id, display, commit_children)?;
+            TreeItem::new(for_fuzzy_id, display, commit_children)?
+                .style(colored);
 
         items.push(item);
     }
@@ -190,6 +205,7 @@ pub fn response_commits(
     if !items.is_empty() {
         Tree::new(&items)?
             .collapsed(renderer.compact)
+            .style(dim)
             .render();
     }
 
@@ -201,7 +217,11 @@ fn prefix_color(prefix: &PrefixType) -> Color {
         PrefixType::Feat => Color::Green,
         PrefixType::Fix => Color::Red,
         //urange
-        PrefixType::Refactor => Color::Rgb { r: 2, g: 1, b: 4 },
+        PrefixType::Refactor => Color::Rgb {
+            r: 255,
+            g: 127,
+            b: 80,
+        },
         _ => Color::White,
     }
 }

@@ -3,7 +3,7 @@ use crossterm::style::Color;
 /// configurable styling
 /// available styles
 #[derive(Debug, Clone)]
-pub(crate) struct StyleConfig {
+pub struct StyleConfig {
     pub primary: Color,
     pub secondary: Color,
     pub highlight: Color,
