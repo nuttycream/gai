@@ -1,3 +1,4 @@
+use crossterm::style::ContentStyle;
 use std::collections::HashSet;
 
 // this is a tree printing util that helps
@@ -12,7 +13,7 @@ use std::collections::HashSet;
 // have state  since i dont plan on having
 // interactivity for this.
 //
-// styling is done by console-rs
+// styling is done by crossterm
 
 /// tui-rs-tree-widget esque TreeItem
 /// while identifier is not really being used
@@ -25,6 +26,8 @@ pub struct TreeItem<Identifier> {
     children: Vec<Self>,
 
     text: String,
+
+    style: ContentStyle,
 }
 
 /// A Tree which can be rendered
@@ -37,6 +40,8 @@ pub struct Tree<'a, Identifier> {
     padding_left: usize,
     padding_top: usize,
     padding_bottom: usize,
+
+    style: ContentStyle,
 
     collapsed: bool,
 
@@ -72,6 +77,7 @@ where
             identifier,
             text,
             children: Vec::new(),
+            style: ContentStyle::default(),
         }
     }
 
@@ -105,11 +111,16 @@ where
             identifier,
             text,
             children,
+            style: ContentStyle::default(),
         })
     }
 
     /// text content styling
-    pub fn style(mut self) -> Self {
+    pub fn style(
+        mut self,
+        style: ContentStyle,
+    ) -> Self {
+        self.style = style;
         self
     }
 
@@ -175,6 +186,7 @@ where
             padding_left: 0,
             padding_top: 0,
             padding_bottom: 0,
+            style: ContentStyle::default(),
             collapsed: false,
             other_child,
             other_entry,
@@ -201,8 +213,18 @@ where
         let flattened = flatten(self.items, &[], self.collapsed, 0);
 
         for flat in flattened.iter() {
-            let prefix = self.prefix(&flat.is_last_at_depth);
-            let text = &flat.item.text;
+            let prefix = self
+                .style
+                .apply(self.prefix(&flat.is_last_at_depth));
+
+            let text = flat
+                .item
+                .style
+                .apply(
+                    flat.item
+                        .text
+                        .to_owned(),
+                );
 
             println!("{prefix}{text}");
         }
@@ -229,11 +251,18 @@ where
         let flattened = flatten(self.items, &[], self.collapsed, 0);
 
         for flat in flattened.iter() {
-            let prefix = self.prefix(&flat.is_last_at_depth);
+            let prefix = self
+                .style
+                .apply(self.prefix(&flat.is_last_at_depth));
+
             let text = flat
                 .item
-                .text
-                .to_owned();
+                .style
+                .apply(
+                    flat.item
+                        .text
+                        .to_owned(),
+                );
 
             s.push_str(&format!("{prefix}{text}\n"));
         }
@@ -242,7 +271,11 @@ where
     }
 
     /// prefix styling
-    pub fn style(mut self) -> Self {
+    pub fn style(
+        mut self,
+        style: ContentStyle,
+    ) -> Self {
+        self.style = style;
         self
     }
 
