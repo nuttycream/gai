@@ -6,6 +6,7 @@ use crossterm::style::Color;
 pub struct StyleConfig {
     pub primary: Color,
     pub secondary: Color,
+    pub tertiary: Color,
     pub highlight: Color,
 
     pub allow_bold: bool,
@@ -19,6 +20,7 @@ impl Default for StyleConfig {
         Self {
             primary: Color::White,
             secondary: Color::DarkGrey,
+            tertiary: Color::Yellow,
             highlight: Color::Blue,
 
             allow_bold: true,

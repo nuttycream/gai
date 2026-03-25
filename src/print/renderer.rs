@@ -15,7 +15,7 @@ impl Renderer {
     ) -> anyhow::Result<Self> {
         let width = terminal::size()?.1;
 
-        println!("width: {width}");
+        //println!("width: {width}");
 
         Ok(Self {
             style,
