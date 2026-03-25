@@ -2,7 +2,10 @@ use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
-    style::{Attribute, Print, Stylize},
+    style::{
+        Attribute, Print, ResetColor, SetBackgroundColor,
+        SetForegroundColor, Stylize,
+    },
     terminal,
 };
 use std::io::{Write, stdout};
@@ -151,17 +154,13 @@ fn draw_inline(
         .style
         .primary;
 
-    let secondary = renderer
-        .style
-        .secondary;
-
     let highlight = renderer
         .style
         .highlight;
 
-    let allow_bold = renderer
+    let secondary = renderer
         .style
-        .allow_bold;
+        .secondary;
 
     // i believe we need to use queue
     // here since we're writing on the same line
@@ -181,16 +180,9 @@ fn draw_inline(
         )?;
     }
 
-    let prompt = if allow_bold {
-        prompt
-            .with(primary)
-            .attribute(Attribute::Bold)
-    } else {
-        prompt.with(primary)
-    };
-
     let newl = if renderer.compact { "  " } else { "\r\n" };
-    queue!(out, Print(prompt), Print(newl))?;
+
+    queue!(out, Print(prompt.with(primary)), Print(newl))?;
 
     for (i, item) in items
         .iter()
@@ -200,30 +192,25 @@ fn draw_inline(
         let bind = format!("{}", item.keybind as char);
 
         if is_active {
-            let label = if allow_bold {
-                item.label
-                    .to_owned()
-                    .with(primary)
-                    .attribute(Attribute::Bold)
-            } else {
-                item.label
-                    .to_owned()
-                    .with(primary)
-            };
-
             queue!(
                 out,
-                Print("[".with(secondary)),
-                Print(bind.with(highlight)),
-                Print("]".with(secondary)),
-                Print(label),
+                SetBackgroundColor(primary),
+                SetForegroundColor(secondary),
+                Print("["),
+                Print(bind),
+                Print("] "),
+                Print(
+                    item.label
+                        .to_owned()
+                ),
+                ResetColor,
             )?;
         } else {
             queue!(
                 out,
-                Print("[".with(secondary)),
-                Print(bind.with(secondary)),
-                Print("]".with(secondary)),
+                Print("[".with(primary)),
+                Print(bind.with(highlight)),
+                Print("] ".with(primary)),
                 Print(
                     item.label
                         .to_owned()
