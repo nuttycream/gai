@@ -1,4 +1,7 @@
-use crossterm::style::{Attribute, Color, ContentStyle, Stylize};
+use crossterm::{
+    style::{Attribute, Color, ContentStyle, Stylize},
+    terminal,
+};
 
 use crate::schema::commit::{CommitSchema, PrefixType};
 
@@ -17,9 +20,9 @@ pub fn response_commits(
     as_hunks: bool,
 ) -> anyhow::Result<()> {
     let mut items = Vec::new();
-    let max_length = renderer
-        .width
-        .saturating_sub(3) as usize;
+
+    let width = terminal::size()?.1;
+    let max_length = width.saturating_sub(3) as usize;
 
     let dim = ContentStyle::new().attribute(Attribute::Dim);
     let white = ContentStyle::new().with(Color::White);
