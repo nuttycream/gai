@@ -3,8 +3,8 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
     style::{
-        Attribute, Print, ResetColor, SetBackgroundColor,
-        SetForegroundColor, Stylize,
+        Print, ResetColor, SetBackgroundColor, SetForegroundColor,
+        Stylize,
     },
     terminal,
 };
