@@ -12,13 +12,25 @@ pub mod settings;
 pub mod state;
 pub mod utils;
 
-use crate::args::Commands::{
-    Auth, Commit, Find, Log, Rebase, Reword, Status,
+use crate::{
+    args::Commands::{
+        Auth, Commit, Find, Log, Rebase, Reword, Status,
+    },
+    print::progressbar::SpinnerBuilder,
 };
 
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
+    let handle = SpinnerBuilder::new()
+        .text("Generating...")
+        .start();
+
+    std::thread::sleep(std::time::Duration::from_secs(10));
+
+    handle.done();
+
+    return Ok(());
     let args = args::Cli::parse();
 
     match &args.command {

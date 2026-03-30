@@ -2,7 +2,9 @@ use serde_json::Value;
 
 use crate::{
     git::Diffs,
-    print::{loading, rebase_plan::print_rebase_plan, retry_prompt},
+    print::{
+        progressbar, rebase_plan::print_rebase_plan, retry_prompt,
+    },
     providers::extract_from_provider,
     requests::rebase_plan::create_rebase_plan_request,
     responses::rebase_plan::parse_from_rebase_plan_schema,
@@ -41,11 +43,6 @@ pub(super) fn gen_plan(
     )?;
 
     loop {
-        let loading =
-            loading::Loading::new("Generating Rebase Plan", false)?;
-
-        loading.start();
-
         let response: Value = match extract_from_provider(
             &settings.provider,
             request.to_owned(),
@@ -58,8 +55,6 @@ pub(super) fn gen_plan(
                     e
                 );
 
-                loading.stop();
-
                 if retry_prompt(Some(&msg))? {
                     continue;
                 } else {
@@ -70,8 +65,6 @@ pub(super) fn gen_plan(
 
         let raw_ops = parse_from_rebase_plan_schema(response)?;
         //println!("{:#?}", raw_ops);
-
-        loading.stop();
 
         if let Some(opt) = print_rebase_plan(&raw_ops, false)? {
             if opt == 0 {

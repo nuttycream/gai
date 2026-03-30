@@ -1,9 +1,9 @@
 pub mod commits;
 pub mod find;
 pub mod history;
-pub mod loading;
 pub mod log;
 pub mod menu;
+pub mod progressbar;
 pub mod query;
 pub mod rebase;
 pub mod rebase_plan;

@@ -4,7 +4,7 @@ use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
     print::{
-        InputHistory, find::print, input_prompt, loading,
+        InputHistory, find::print, input_prompt, progressbar,
         retry_prompt,
     },
     providers::{extract_from_provider, provider::ProviderKind},
@@ -121,10 +121,6 @@ pub fn run(
             break;
         } */
 
-        let loading = loading::Loading::new(&text, global.compact)?;
-
-        loading.start();
-
         let response: Value = match extract_from_provider(
             &state
                 .settings
@@ -139,8 +135,6 @@ pub fn run(
                     e
                 );
 
-                loading.stop_with_message(&msg);
-
                 if retry_prompt(None)? {
                     continue;
                 } else {
@@ -150,8 +144,6 @@ pub fn run(
         };
 
         let result = parse_to_find_schema(response)?;
-
-        loading.stop();
 
         let log = logs.git_logs[result.commit_id as usize].to_owned();
 

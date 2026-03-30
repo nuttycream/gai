@@ -12,7 +12,10 @@ use crate::{
         status::is_workdir_clean,
         utils::get_head_repo,
     },
-    print::{commits::response_commits, loading, retry_prompt},
+    print::{
+        commits::response_commits, progressbar, renderer::Renderer,
+        retry_prompt, style::StyleConfig,
+    },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::reword::create_reword_request,
     responses::reword::{
@@ -139,13 +142,6 @@ pub fn run(
         create_reword_request(&state.settings, &state.git, &log_strs);
 
     loop {
-        let loading = loading::Loading::new(
-            "Generating New Commit Messages",
-            global.compact,
-        )?;
-
-        loading.start();
-
         let response: serde_json::Value = match extract_from_provider(
             &state
                 .settings
@@ -160,8 +156,6 @@ pub fn run(
                     e
                 );
 
-                loading.stop();
-
                 if retry_prompt(Some(&msg))? {
                     continue;
                 } else {
@@ -172,24 +166,15 @@ pub fn run(
 
         let raw_commits = parse_to_reword_commit_schema(response)?;
 
-        loading.stop();
-
         println!(
             "Done! Received {} Commit{}",
             raw_commits.len(),
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let selected = if let Some(s) = response_commits(
-            renderer,
-            &raw_commits,
-            global.compact,
-            false,
-        )? {
-            s
-        } else {
-            return Ok(());
-        };
+        let renderer = Renderer::new(StyleConfig::default(), false)?;
+
+        response_commits(&renderer, &raw_commits, false)?;
 
         let commit_messages: Vec<String> = raw_commits
             .into_iter()
@@ -198,6 +183,7 @@ pub fn run(
             })
             .collect();
 
+        let selected = 0;
         if selected == 0 {
             match apply(
                 &state.git,

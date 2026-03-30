@@ -25,8 +25,8 @@ use crate::{
         utils::get_head_repo,
     },
     print::{
-        commits::response_commits, loading, option_prompt,
-        query::retry_prompt,
+        commits::response_commits, option_prompt, progressbar,
+        query::retry_prompt, renderer::Renderer, style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
@@ -338,13 +338,6 @@ pub fn run(
     //println!("{}", state.diffs);
 
     loop {
-        let loading = loading::Loading::new(
-            "Generating Commits",
-            global.compact,
-        )?;
-
-        loading.start();
-
         let response: Value = match extract_from_provider(
             &state
                 .settings
@@ -358,8 +351,6 @@ pub fn run(
                     "Gai received an error from the provider:\n{:#}\nRetry?",
                     e
                 );
-
-                loading.stop();
 
                 if retry_prompt(Some(&msg))? {
                     continue;
@@ -376,16 +367,16 @@ pub fn run(
                 .staging_type,
         )?;
 
-        loading.stop();
-
         println!(
             "Done! Received {} Commit{}",
             raw_commits.len(),
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let selected = match response_commits(
-            renderer,
+        let renderer = Renderer::new(StyleConfig::default(), false)?;
+
+        response_commits(
+            &renderer,
             &raw_commits,
             matches!(
                 state
@@ -393,18 +384,14 @@ pub fn run(
                     .staging_type,
                 StagingStrategy::Hunks
             ),
-        )? {
-            Some(s) => s,
-            None => {
-                println!("Exiting...");
-                return Ok(());
-            }
-        };
+        )?;
 
         let git_commits: Vec<GitCommit> = raw_commits
             .into_iter()
             .map(|c| process_commit(c, &state.settings))
             .collect();
+
+        let selected = 0;
 
         if selected == 0 {
             if let Some(ref to) = to_oid {
