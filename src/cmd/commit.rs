@@ -1,4 +1,5 @@
 use serde_json::Value;
+use strum::VariantNames;
 
 use crate::{
     args::{CommitArgs, GlobalArgs},
@@ -9,7 +10,7 @@ use crate::{
         diffs::{FileDiff, get_diffs_from_statuses},
     },
     print::{
-        commits, loading::Loading, option_prompt, renderer::Renderer,
+        self, menu::MenuChosenOption, renderer::Renderer,
         retry_prompt, style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
@@ -19,6 +20,17 @@ use crate::{
     settings::Settings,
     state::State,
 };
+
+#[derive(Debug, VariantNames, strum::FromRepr)]
+#[strum(serialize_all = "lowercase")]
+enum ResponseActions {
+    Apply,
+    Regenerate,
+    Edit,
+    #[strum(serialize = "full view")]
+    ViewResponse,
+    Exit,
+}
 
 pub fn run(
     args: &CommitArgs,
@@ -131,6 +143,7 @@ pub fn run(
     run_commit(
         req,
         schema,
+        renderer,
         state.settings,
         state.git,
         state.diffs,
@@ -144,6 +157,7 @@ pub fn run(
 fn run_commit(
     req: Request,
     schema: Value,
+    renderer: Renderer,
     cfg: Settings,
     git: GitRepo,
     mut diffs: Diffs,
@@ -158,10 +172,6 @@ fn run_commit(
     );
 
     loop {
-        let loading = Loading::new(&provider_display, compact)?;
-
-        loading.start();
-
         let result: Value = match extract_from_provider(
             &cfg.provider,
             req.to_owned(),
@@ -169,7 +179,6 @@ fn run_commit(
         ) {
             Ok(r) => r,
             Err(e) => {
-                loading.stop();
                 println!(
                     "Done but Gai received an error from the provider: {:#}",
                     e
@@ -186,28 +195,37 @@ fn run_commit(
         let raw_commits =
             parse_to_commit_schema(result, &cfg.staging_type)?;
 
-        loading.stop();
-
         println!(
             "Done! Received {} Commit{}",
             raw_commits.len(),
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let selected = commits::response_commits(
-            renderer,
+        print::commits::response_commits(
+            &renderer,
             &raw_commits,
             matches!(cfg.staging_type, StagingStrategy::Hunks),
         )?;
 
-        let git_commits: Vec<GitCommit> = raw_commits
-            .into_iter()
-            .map(|c| process_commit(c, &cfg))
-            .collect();
+        let selected = match print::menu::inline_menu(
+            &renderer,
+            "What do you want to do?",
+            ResponseActions::VARIANTS,
+        )? {
+            MenuChosenOption::Selected(i) => {
+                ResponseActions::from_repr(i)
+                    .expect("uhh, somehow didn't get the correct idx")
+            }
+            MenuChosenOption::Cancelled => break,
+        };
 
-        let selected = match selected {
-            Some(s) => s,
-            None => {
+        match selected {
+            ResponseActions::Apply => {
+                let git_commits: Vec<GitCommit> = raw_commits
+                    .into_iter()
+                    .map(|c| process_commit(c, &cfg))
+                    .collect();
+
                 if apply(
                     &git,
                     &git_commits,
@@ -216,24 +234,20 @@ fn run_commit(
                 ) {
                     continue;
                 }
-                0
             }
-        };
-
-        if selected == 0 {
-            if apply(
-                &git,
-                &git_commits,
-                &mut diffs.files,
-                &cfg.staging_type,
-            ) {
+            ResponseActions::Regenerate => {
+                println!("Regenerating");
                 continue;
             }
-        } else if selected == 1 {
-            println!("Regenerating");
-            continue;
-        } else if selected == 2 {
-            println!("Exiting");
+            ResponseActions::Edit => {
+                todo!()
+            }
+            ResponseActions::ViewResponse => {
+                todo!()
+            }
+            ResponseActions::Exit => {
+                println!("Exiting")
+            }
         }
 
         break;
