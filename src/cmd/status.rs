@@ -5,6 +5,7 @@ use crate::{
         status::get_status,
     },
     print::status,
+    requests::tokens::estimate_token_count,
     state::State,
 };
 
@@ -31,12 +32,14 @@ pub fn run(
         .settings
         .provider;
 
-    let model = state
-        .settings
-        .providers
-        .get_model(&provider);
+    status::provider_info(
+        &provider,
+        &state
+            .settings
+            .providers,
+    )?;
 
-    status::print(
+    status::repo_status(
         &staged.branch_name,
         &staged.statuses,
         &working_dir.statuses,
@@ -90,11 +93,11 @@ pub fn run(
                 }
             }
 
-            let token_estimate = (txt.len() + 3) / 4;
+            let token_estimate = estimate_token_count(&txt);
+            // temp println
+            // TODO: remove, use status::repo_status
             println!("file:{} tokens:{}", file.path, token_estimate);
         }
-
-        //println!("{}", diffs);
     }
 
     Ok(())
