@@ -1,10 +1,44 @@
-use crossterm::style::{Attribute, Color, ContentStyle, Stylize};
+use std::io::stdout;
 
-use crate::git::status::{FileStatus, StatusItemType};
+use crossterm::{
+    execute,
+    style::{
+        Attribute, Color, ContentStyle, Print, PrintStyledContent,
+        Stylize,
+    },
+};
+
+use crate::{
+    git::status::{FileStatus, StatusItemType},
+    providers::provider::{ProviderKind, ProviderSettings},
+};
 
 use super::tree::{Tree, TreeItem};
 
-pub fn print(
+pub fn provider_info(
+    provider: &ProviderKind,
+    provider_settings: &ProviderSettings,
+) -> anyhow::Result<()> {
+    let mut out = stdout();
+    let model = provider_settings.get_model(provider);
+    execute!(
+        out,
+        Print("Active Provider: "),
+        PrintStyledContent(
+            provider
+                .to_string()
+                .with(Color::Green)
+        ),
+        Print("\r\n"),
+        Print("Active Model: "),
+        PrintStyledContent(model.with(Color::Yellow)),
+        Print("\r\n")
+    )?;
+
+    Ok(())
+}
+
+pub fn repo_status(
     branch: &str,
     staged_statuses: &[FileStatus],
     working_dir_statuses: &[FileStatus],
@@ -173,7 +207,13 @@ pub fn print(
     let branch_display = ContentStyle::new()
         .with(Color::Cyan)
         .apply(branch);
-    println!("On Branch: {}", branch_display);
+
+    execute!(
+        stdout(),
+        Print("On Branch: "),
+        PrintStyledContent(branch_display),
+        Print("\r\n"),
+    )?;
 
     if !root_items.is_empty() {
         Tree::new(&root_items)?
