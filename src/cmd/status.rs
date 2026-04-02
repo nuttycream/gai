@@ -4,7 +4,7 @@ use crate::{
         DiffStrategy, StatusStrategy, diffs::get_diffs_from_statuses,
         status::get_status,
     },
-    print::status,
+    print::{renderer::Renderer, status, style::StyleConfig},
     requests::tokens::estimate_token_count,
     state::State,
 };
@@ -20,6 +20,9 @@ pub fn run(
         global,
     )?;
 
+    let renderer =
+        Renderer::new(StyleConfig::default(), global.compact)?;
+
     // todo impl something for this
     // so we dont have to pass in two vectors
     // into print
@@ -33,6 +36,7 @@ pub fn run(
         .provider;
 
     status::provider_info(
+        &renderer,
         &provider,
         &state
             .settings

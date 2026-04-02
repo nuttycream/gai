@@ -13,9 +13,13 @@ use crate::{
     providers::provider::{ProviderKind, ProviderSettings},
 };
 
-use super::tree::{Tree, TreeItem};
+use super::{
+    renderer::Renderer,
+    tree::{Tree, TreeItem},
+};
 
 pub fn provider_info(
+    renderer: &Renderer,
     provider: &ProviderKind,
     provider_settings: &ProviderSettings,
 ) -> anyhow::Result<()> {
