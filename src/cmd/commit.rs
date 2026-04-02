@@ -7,7 +7,7 @@ use crate::{
         DiffStrategy, Diffs, GitRepo, StagingStrategy,
         StatusStrategy,
         commit::{GitCommit, apply_commits},
-        diffs::{FileDiff, get_diffs_from_statuses},
+        diffs::get_diffs_from_statuses,
     },
     print::{
         self, menu::MenuChosenOption, renderer::Renderer,
@@ -164,12 +164,11 @@ fn run_commit(
     skip_confirmation: bool,
     compact: bool,
 ) -> anyhow::Result<()> {
-    let provider_display = format!(
-        "Generating Commits Using {}({})",
+    print::status::provider_info(
+        &renderer,
         &cfg.provider,
-        cfg.providers
-            .get_model(&cfg.provider)
-    );
+        &cfg.providers,
+    )?;
 
     loop {
         let result: Value = match extract_from_provider(
@@ -226,13 +225,24 @@ fn run_commit(
                     .map(|c| process_commit(c, &cfg))
                     .collect();
 
-                if apply(
-                    &git,
+                match apply_commits(
+                    &git.repo,
                     &git_commits,
                     &mut diffs.files,
                     &cfg.staging_type,
                 ) {
-                    continue;
+                    Ok(_) => break,
+                    Err(e) => {
+                        println!("Failed to Apply Commits: {}", e);
+
+                        if retry_prompt(None).unwrap() {
+                            println!("Regenerating...");
+                            continue;
+                        } else {
+                            println!("Exiting");
+                            break;
+                        }
+                    }
                 }
             }
             ResponseActions::Regenerate => {
@@ -254,32 +264,4 @@ fn run_commit(
     }
 
     Ok(())
-}
-
-fn apply(
-    repo: &GitRepo,
-    git_commits: &[GitCommit],
-    og_file_diffs: &mut Vec<FileDiff>,
-    staging_stragey: &StagingStrategy,
-) -> bool {
-    println!("Applying Commits...");
-    match apply_commits(
-        &repo.repo,
-        git_commits,
-        og_file_diffs,
-        staging_stragey,
-    ) {
-        Ok(_) => false,
-        Err(e) => {
-            println!("Failed to Apply Commits: {}", e);
-
-            if retry_prompt(None).unwrap() {
-                println!("Regenerating...");
-                true
-            } else {
-                println!("Exiting");
-                false
-            }
-        }
-    }
 }
