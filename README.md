@@ -21,6 +21,7 @@ version control with the added benefit of a clean commit history.
 - [x] Magic Find [#12](https://github.com/cube-cult/gai/issues/12)
 - [ ] Magic Undo [#72](https://github.com/cube-cult/gai/issues/72)
 - [ ] Magic Sync [#29](https://github.com/cube-cult/gai/issues/29)
+- [ ] Magic Blame [#73](https://github.com/cube-cult/gai/issues/73)
 - [x] Recreate/Amend Existing Commits
       [#7](https://github.com/cube-cult/gai/issues/7)
 
