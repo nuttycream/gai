@@ -169,16 +169,7 @@ pub fn response_commits(
 
         let color = prefix_color(&commit.prefix);
 
-        let colored = if renderer
-            .style
-            .allow_bold
-        {
-            ContentStyle::new()
-                .with(color)
-                .attribute(Attribute::Bold)
-        } else {
-            ContentStyle::new().with(color)
-        };
+        let colored = ContentStyle::new().with(color);
 
         let commit_idx = format!("[{}]", i);
 

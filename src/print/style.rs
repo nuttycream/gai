@@ -4,29 +4,23 @@ use crossterm::style::Color;
 /// available styles
 #[derive(Debug, Clone)]
 pub struct StyleConfig {
+    pub allow_colors: bool,
+
     pub primary: Color,
     pub secondary: Color,
     pub tertiary: Color,
     pub highlight: Color,
-
-    pub allow_bold: bool,
-    pub allow_italic: bool,
-    pub allow_underline: bool,
-    pub allow_strikethrough: bool,
 }
 
 impl Default for StyleConfig {
     fn default() -> Self {
         Self {
+            allow_colors: true,
+
             primary: Color::White,
             secondary: Color::DarkGrey,
             tertiary: Color::Yellow,
             highlight: Color::Blue,
-
-            allow_bold: true,
-            allow_italic: true,
-            allow_underline: true,
-            allow_strikethrough: true,
         }
     }
 }
