@@ -3,8 +3,8 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
     style::{
-        Print, ResetColor, SetBackgroundColor, SetForegroundColor,
-        Stylize,
+        Color, Print, ResetColor, SetBackgroundColor,
+        SetForegroundColor, Stylize,
     },
     terminal,
 };
@@ -53,6 +53,9 @@ pub(crate) fn inline_menu(
 
     // dont show cursor for menus
     execute!(out, cursor::Hide)?;
+    // need this to avoid consuming the last line
+    // i think we need to handle that better
+    execute!(out, Print("\r\n"))?;
 
     draw_inline(renderer, &mut out, prompt, &parsed, selected)?;
 
@@ -150,17 +153,24 @@ fn draw_inline(
     items: &[MenuItem],
     selected: usize,
 ) -> std::io::Result<()> {
-    let primary = renderer
+    let (primary, secondary, highlight) = if renderer
         .style
-        .primary;
-
-    let highlight = renderer
-        .style
-        .highlight;
-
-    let secondary = renderer
-        .style
-        .secondary;
+        .allow_colors
+    {
+        (
+            renderer
+                .style
+                .primary,
+            renderer
+                .style
+                .secondary,
+            renderer
+                .style
+                .highlight,
+        )
+    } else {
+        (Color::White, Color::DarkGrey, Color::White)
+    };
 
     // i believe we need to use queue
     // here since we're writing on the same line
