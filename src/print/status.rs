@@ -25,19 +25,35 @@ pub fn provider_info(
 ) -> anyhow::Result<()> {
     let mut out = stdout();
     let model = provider_settings.get_model(provider);
-    execute!(
-        out,
-        Print("Active Provider: "),
-        PrintStyledContent(
-            provider
-                .to_string()
-                .with(Color::Green)
-        ),
-        Print("\r\n"),
-        Print("Active Model: "),
-        PrintStyledContent(model.with(Color::Yellow)),
-        Print("\r\n")
-    )?;
+
+    if renderer
+        .style
+        .allow_colors
+    {
+        execute!(
+            out,
+            Print("Active Provider: "),
+            PrintStyledContent(
+                provider
+                    .to_string()
+                    .with(Color::Green)
+            ),
+            Print("\r\n"),
+            Print("Active Model: "),
+            PrintStyledContent(model.with(Color::Yellow)),
+            Print("\r\n")
+        )?;
+    } else {
+        execute!(
+            out,
+            Print("Active Provider: "),
+            Print(provider.to_string()),
+            Print("\r\n"),
+            Print("Active Model: "),
+            Print(model),
+            Print("\r\n")
+        )?;
+    }
 
     Ok(())
 }
