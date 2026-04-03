@@ -13,8 +13,8 @@ use crate::{
         utils::get_head_repo,
     },
     print::{
-        commits::response_commits, progressbar, renderer::Renderer,
-        retry_prompt, style::StyleConfig,
+        commits::response_commits, renderer::Renderer, retry_prompt,
+        style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::reword::create_reword_request,
