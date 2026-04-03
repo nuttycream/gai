@@ -10,8 +10,8 @@ use crate::{
         diffs::get_diffs_from_statuses,
     },
     print::{
-        self, menu::MenuChosenOption, renderer::Renderer,
-        retry_prompt, style::StyleConfig,
+        self, menu::MenuChosenOption, progressbar::SpinnerBuilder,
+        renderer::Renderer, retry_prompt, style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
@@ -147,8 +147,6 @@ pub fn run(
         state.settings,
         state.git,
         state.diffs,
-        args.skip_confirmation,
-        global.compact,
     )?;
 
     Ok(())
@@ -161,8 +159,6 @@ fn run_commit(
     cfg: Settings,
     git: GitRepo,
     mut diffs: Diffs,
-    skip_confirmation: bool,
-    compact: bool,
 ) -> anyhow::Result<()> {
     print::status::provider_info(
         &renderer,
@@ -171,6 +167,10 @@ fn run_commit(
     )?;
 
     loop {
+        let handle = SpinnerBuilder::new()
+            .text("Generating Commits")
+            .start();
+
         let result: Value = match extract_from_provider(
             &cfg.provider,
             req.to_owned(),
@@ -178,10 +178,13 @@ fn run_commit(
         ) {
             Ok(r) => r,
             Err(e) => {
-                println!(
+                let err = format!(
                     "Done but Gai received an error from the provider: {:#}",
                     e
                 );
+
+                handle.text(err);
+                handle.error();
 
                 if retry_prompt(None)? {
                     continue;
@@ -194,11 +197,14 @@ fn run_commit(
         let raw_commits =
             parse_to_commit_schema(result, &cfg.staging_type)?;
 
-        println!(
+        let msg = format!(
             "Done! Received {} Commit{}",
             raw_commits.len(),
             if raw_commits.len() == 1 { "" } else { "s" }
         );
+
+        handle.text(msg);
+        handle.stop();
 
         print::commits::response_commits(
             &renderer,
