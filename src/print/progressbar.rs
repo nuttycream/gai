@@ -259,13 +259,13 @@ impl Spinner {
         SpinnerHandle { handle, tx }
     }
 
-    /// returns the bar width as 25% of terminal columns.
+    /// returns the bar width as half of terminal columns.
     fn bar_width(&self) -> u16 {
         let cols = terminal::size()
             .map(|(w, _)| w)
             .unwrap_or(80);
 
-        (cols / 4).max(1)
+        (cols / 2).max(1)
     }
 }
 
