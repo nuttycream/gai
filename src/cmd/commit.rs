@@ -10,8 +10,12 @@ use crate::{
         diffs::get_diffs_from_statuses,
     },
     print::{
-        self, menu::MenuChosenOption, progressbar::SpinnerBuilder,
-        renderer::Renderer, retry_prompt, style::StyleConfig,
+        self,
+        menu::{MenuChosenOption, MenuOptions},
+        progressbar::SpinnerBuilder,
+        renderer::Renderer,
+        retry_prompt,
+        style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
@@ -212,58 +216,86 @@ fn run_commit(
             matches!(cfg.staging_type, StagingStrategy::Hunks),
         )?;
 
-        let selected = match print::menu::inline_menu(
-            &renderer,
-            "What do you want to do?",
-            ResponseActions::VARIANTS,
-        )? {
-            MenuChosenOption::Selected(i) => {
-                ResponseActions::from_repr(i)
-                    .expect("uhh, somehow didn't get the correct idx")
-            }
-            MenuChosenOption::Cancelled => break,
-        };
+        // catch for wanting to regen
+        // otherwise, likely need a cleaner solution
+        let mut regenerate = false;
+        let mut reuse = false;
+        loop {
+            let selected = match print::menu::inline_menu(
+                &renderer,
+                "What do you want to do?",
+                ResponseActions::VARIANTS,
+                MenuOptions {
+                    reuse,
+                    ..Default::default()
+                },
+            )? {
+                MenuChosenOption::Selected(i) => {
+                    ResponseActions::from_repr(i).expect(
+                        "uhh, somehow didn't get the correct idx",
+                    )
+                }
+                MenuChosenOption::Cancelled => break,
+            };
 
-        match selected {
-            ResponseActions::Apply => {
-                let git_commits: Vec<GitCommit> = raw_commits
-                    .into_iter()
-                    .map(|c| process_commit(c, &cfg))
-                    .collect();
+            match selected {
+                ResponseActions::Apply => {
+                    let git_commits: Vec<GitCommit> = raw_commits
+                        .to_owned()
+                        .into_iter()
+                        .map(|c| process_commit(c, &cfg))
+                        .collect();
 
-                match apply_commits(
-                    &git.repo,
-                    &git_commits,
-                    &mut diffs.files,
-                    &cfg.staging_type,
-                ) {
-                    Ok(_) => break,
-                    Err(e) => {
-                        println!("Failed to Apply Commits: {}", e);
+                    match apply_commits(
+                        &git.repo,
+                        &git_commits,
+                        &mut diffs.files,
+                        &cfg.staging_type,
+                    ) {
+                        Ok(_) => break,
+                        Err(e) => {
+                            println!(
+                                "Failed to Apply Commits: {}",
+                                e
+                            );
 
-                        if retry_prompt(None).unwrap() {
-                            println!("Regenerating...");
-                            continue;
-                        } else {
-                            println!("Exiting");
-                            break;
+                            if retry_prompt(None).unwrap() {
+                                println!("Regenerating...");
+                                continue;
+                            } else {
+                                println!("Exiting");
+                                break;
+                            }
                         }
                     }
                 }
+                ResponseActions::Regenerate => {
+                    println!("Regenerating");
+                    regenerate = true;
+                    break;
+                }
+                ResponseActions::Edit => {
+                    todo!()
+                }
+                ResponseActions::ViewResponse => {
+                    print::commits::full_response(
+                        &renderer,
+                        &raw_commits,
+                        &diffs,
+                    )?;
+
+                    reuse = true;
+                    continue;
+                }
+                ResponseActions::Exit => {
+                    println!("Exiting");
+                    break;
+                }
             }
-            ResponseActions::Regenerate => {
-                println!("Regenerating");
-                continue;
-            }
-            ResponseActions::Edit => {
-                todo!()
-            }
-            ResponseActions::ViewResponse => {
-                todo!()
-            }
-            ResponseActions::Exit => {
-                println!("Exiting")
-            }
+        }
+
+        if regenerate {
+            continue;
         }
 
         break;

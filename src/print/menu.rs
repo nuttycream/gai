@@ -1,3 +1,11 @@
+/// a util for displaying an inline menu
+/// originally a style for dialoguer-rs
+/// rewritten for crossterm
+///
+/// admittedly kinda jank. and some hacky ways
+/// were implemented for clearing lines
+/// we need to handle wrapping lines + resized
+/// terminals
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -11,6 +19,25 @@ use crossterm::{
 use std::io::{Write, stdout};
 
 use super::renderer::Renderer;
+
+#[derive(Default, Debug, Clone, Copy)]
+pub struct MenuOptions {
+    /// if a menu was printed before
+    /// reuse existing
+    /// mainly for leaving an alternate
+    /// screen where main screen wasn't
+    /// cleared
+    /// FIXME: this is slightly broken i think
+    /// and the way we handle redraws is by clearing
+    /// out the previous lines, i think im getting \
+    /// skill issued here
+    pub reuse: bool,
+
+    /// set the default highlighted/selected
+    /// defaults to 0
+    pub default_selected: usize,
+    // TODO: add multi select
+}
 
 #[derive(Debug)]
 pub enum MenuChosenOption {
@@ -34,6 +61,7 @@ pub(crate) fn inline_menu(
     renderer: &Renderer,
     prompt: &str,
     items: &[&str],
+    opts: MenuOptions,
 ) -> anyhow::Result<MenuChosenOption> {
     // lets just not handle more than 9 options
     // lol, just use an input prompt instead
@@ -52,12 +80,31 @@ pub(crate) fn inline_menu(
     terminal::enable_raw_mode()?;
 
     // dont show cursor for menus
-    execute!(out, cursor::Hide)?;
-    // need this to avoid consuming the last line
-    // i think we need to handle that better
-    execute!(out, Print("\r\n"))?;
+    execute!(out, cursor::Hide, Print("\r\n"))?;
 
-    draw_inline(renderer, &mut out, prompt, &parsed, selected)?;
+    // this will effectively clear the previous line
+    // and draw a menu, if reuse is enabled, originally
+    // used within draw_inline, this may break
+    // on wrapped lines
+    if opts.reuse {
+        execute!(
+            out,
+            // 2 for the newline printed above
+            cursor::MoveUp(2),
+            terminal::Clear(terminal::ClearType::CurrentLine),
+        )?
+    }
+
+    // still need to draw the initial menu
+    // even if we have reuse true, since the subsequent
+    // redraws will just draw it over
+    draw_inline(
+        renderer,
+        &mut out,
+        prompt,
+        &parsed,
+        opts.default_selected,
+    )?;
 
     let outcome = loop {
         if let Event::Key(KeyEvent {
@@ -182,24 +229,27 @@ fn draw_inline(
         terminal::Clear(terminal::ClearType::CurrentLine),
     )?;
 
-    if !renderer.compact {
-        queue!(
-            out,
-            cursor::MoveUp(1),
-            terminal::Clear(terminal::ClearType::CurrentLine),
-        )?;
-    }
+    // commenting this
+    // since it barely works esp when reusing menus
+    // and might interfere with wrapping
+    // if !renderer.compact {
+    //     queue!(
+    //         out,
+    //         cursor::MoveUp(1),
+    //         terminal::Clear(terminal::ClearType::CurrentLine),
+    //     )?;
+    // }
+    //let newl = if renderer.compact { "  " } else { "\r\n" };
 
-    let newl = if renderer.compact { "  " } else { "\r\n" };
-
-    queue!(out, Print(prompt.with(primary)), Print(newl))?;
+    queue!(out, Print(prompt.with(primary)), Print("  "))?;
 
     for (i, item) in items
         .iter()
         .enumerate()
     {
-        let is_active = i == selected;
         let bind = format!("{}", item.keybind as char);
+        // rm if let Some(s) = selected
+        let is_active = i == selected;
 
         if is_active {
             queue!(
@@ -208,7 +258,7 @@ fn draw_inline(
                 SetForegroundColor(secondary),
                 Print("["),
                 Print(bind),
-                Print("] "),
+                Print("]"),
                 Print(
                     item.label
                         .to_owned()
@@ -220,7 +270,7 @@ fn draw_inline(
                 out,
                 Print("[".with(primary)),
                 Print(bind.with(highlight)),
-                Print("] ".with(primary)),
+                Print("]".with(primary)),
                 Print(
                     item.label
                         .to_owned()
