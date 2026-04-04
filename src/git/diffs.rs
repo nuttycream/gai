@@ -85,15 +85,20 @@ pub struct HunkHeader {
     //raw: String,
 }
 
-impl ToString for HunkHeader {
-    fn to_string(&self) -> String {
-        format!(
+impl fmt::Display for HunkHeader {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        let h = format!(
             "@@ -{},{} +{},{} @@",
             self.old_start,
             self.old_lines,
             self.new_start,
             self.new_lines,
-        )
+        );
+
+        write!(f, "{}", h)
     }
 }
 
