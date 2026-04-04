@@ -85,6 +85,18 @@ pub struct HunkHeader {
     //raw: String,
 }
 
+impl ToString for HunkHeader {
+    fn to_string(&self) -> String {
+        format!(
+            "@@ -{},{} +{},{} @@",
+            self.old_start,
+            self.old_lines,
+            self.new_start,
+            self.new_lines,
+        )
+    }
+}
+
 /// type of diff of a single line
 #[derive(Copy, Clone, Default, PartialEq, Eq, Hash, Debug)]
 pub enum DiffLineType {
