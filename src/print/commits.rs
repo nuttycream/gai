@@ -1,9 +1,22 @@
 use crossterm::{
-    style::{Attribute, Color, ContentStyle, Stylize},
-    terminal,
+    cursor,
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    execute,
+    style::{
+        Attribute, Color, ContentStyle, Print, ResetColor, SetStyle,
+        Stylize,
+    },
+    terminal::{
+        self, EnterAlternateScreen, LeaveAlternateScreen,
+        disable_raw_mode, enable_raw_mode,
+    },
 };
+use std::io::{Write, stdout};
 
-use crate::schema::commit::{CommitSchema, PrefixType};
+use crate::{
+    git::{Diffs, diffs::DiffLineType},
+    schema::commit::{CommitSchema, PrefixType},
+};
 
 use super::{
     renderer::Renderer,
@@ -21,15 +34,36 @@ pub fn response_commits(
 ) -> anyhow::Result<()> {
     let mut items = Vec::new();
 
+    let allow_colors = renderer
+        .style
+        .allow_colors;
+
     let width = terminal::size()?.1;
     let max_length = width.saturating_sub(3) as usize;
 
-    let dim = ContentStyle::new().attribute(Attribute::Dim);
-    let white = ContentStyle::new().with(Color::White);
+    // avoiding the rewriting of treeitem, since it takes
+    // in a style
+    let no = ContentStyle::new();
 
-    let magenta_dim = ContentStyle::new()
-        .with(Color::Magenta)
-        .attribute(Attribute::Dim);
+    let dim = if allow_colors {
+        ContentStyle::new().attribute(Attribute::Dim)
+    } else {
+        no
+    };
+
+    let white = if allow_colors {
+        ContentStyle::new().with(Color::White)
+    } else {
+        no
+    };
+
+    let magenta_dim = if allow_colors {
+        ContentStyle::new()
+            .with(Color::Magenta)
+            .attribute(Attribute::Dim)
+    } else {
+        no
+    };
 
     for (i, commit) in commits
         .iter()
@@ -167,9 +201,12 @@ pub fn response_commits(
                 .to_lowercase(),
         };
 
-        let color = prefix_color(&commit.prefix);
-
-        let colored = ContentStyle::new().with(color);
+        let colored = if allow_colors {
+            let color = prefix_color(&commit.prefix);
+            ContentStyle::new().with(color)
+        } else {
+            no
+        };
 
         let commit_idx = format!("[{}]", i);
 
@@ -204,6 +241,308 @@ pub fn response_commits(
     }
 
     Ok(())
+}
+
+/// full screen scrollable view of the full response
+/// using alt screen
+/// has a builtin event handler, and can exit out
+/// ideally, u should handle this via reusable menu
+pub fn full_response(
+    renderer: &Renderer,
+    commits: &[CommitSchema],
+    diffs: &Diffs,
+) -> anyhow::Result<()> {
+    let allow_colors = renderer
+        .style
+        .allow_colors;
+
+    let (width, height) = terminal::size()?;
+
+    let lines = response_lines(commits, diffs, allow_colors, width);
+
+    event_handler(&lines, height)
+}
+
+fn event_handler(
+    lines: &[String],
+    height: u16,
+) -> anyhow::Result<()> {
+    enable_raw_mode()?;
+    let mut out = stdout();
+    execute!(out, EnterAlternateScreen, cursor::Hide)?;
+    let mut offset = 0;
+
+    loop {
+        let visible = height.saturating_sub(1) as usize;
+
+        execute!(out, terminal::Clear(terminal::ClearType::All))?;
+
+        for (i, line) in lines
+            .iter()
+            .skip(offset)
+            .take(visible)
+            .enumerate()
+        {
+            execute!(out, cursor::MoveTo(0, i as u16), Print(line),)?;
+        }
+
+        let status = format!(
+            "Lines {}-{} of {} | j/k - scroll | q - exit | g - top | G - bottom",
+            offset + 1,
+            (offset + visible).min(lines.len()),
+            lines.len()
+        );
+
+        execute!(
+            out,
+            cursor::MoveTo(0, height.saturating_sub(1)),
+            // i just found this lol
+            SetStyle(
+                ContentStyle::new().attribute(Attribute::Reverse)
+            ),
+            Print(&status),
+            ResetColor,
+        )?;
+
+        out.flush()?;
+
+        if let Event::Key(KeyEvent {
+            code, modifiers, ..
+        }) = event::read()?
+        {
+            match code {
+                KeyCode::Char('q') | KeyCode::Esc => break,
+                KeyCode::Char('c')
+                    if modifiers.contains(KeyModifiers::CONTROL) =>
+                {
+                    break;
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    offset = offset.saturating_sub(1);
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    if offset + visible < lines.len() {
+                        offset = offset.saturating_add(1);
+                    }
+                }
+                KeyCode::Char('{') => {
+                    offset = offset.saturating_sub(25);
+                }
+                KeyCode::Char('}') => {
+                    if offset + visible < lines.len() {
+                        offset = offset.saturating_add(25);
+                    }
+                }
+                KeyCode::Home | KeyCode::Char('g') => {
+                    offset = 0;
+                }
+                KeyCode::End | KeyCode::Char('G') => {
+                    offset = lines
+                        .len()
+                        .saturating_sub(visible);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    execute!(out, cursor::Show, LeaveAlternateScreen)?;
+    disable_raw_mode()?;
+
+    Ok(())
+}
+
+/// build all the lines for the full response view
+/// each string in the list should already contain crossterm
+/// colors
+fn response_lines(
+    commits: &[CommitSchema],
+    diffs: &Diffs,
+    allow_colors: bool,
+    width: u16,
+) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+
+    for (i, commit) in commits
+        .iter()
+        .enumerate()
+    {
+        let color = if allow_colors {
+            prefix_color(&commit.prefix)
+        } else {
+            Color::Reset
+        };
+
+        let prefix_str = match &commit.scope {
+            Some(s) if !s.is_empty() => format!(
+                "{}({})",
+                commit
+                    .prefix
+                    .to_string()
+                    .to_lowercase(),
+                s
+            ),
+            _ => commit
+                .prefix
+                .to_string()
+                .to_lowercase(),
+        };
+
+        // separator
+        if allow_colors {
+            lines.push(format!(
+                "{}",
+                "-".repeat(width as usize)
+                    .dim()
+            ));
+        } else {
+            lines.push("-".repeat(width as usize));
+        }
+
+        // header desc
+        if allow_colors {
+            lines.push(format!(
+                "{} {}",
+                format!("[{}] {}:", i, prefix_str)
+                    .with(color)
+                    .bold(),
+                commit
+                    .header
+                    .clone()
+                    .white(),
+            ));
+        } else {
+            lines.push(format!(
+                "[{}] {}: {}",
+                i, prefix_str, commit.header
+            ));
+        }
+
+        // body
+        if let Some(ref body) = commit.body {
+            lines.push(String::new());
+            for body_line in body.lines() {
+                lines.push(body_line.to_string());
+            }
+        }
+
+        // reasoning
+        for line in commit
+            .reasoning
+            .lines()
+        {
+            if allow_colors {
+                lines.push(format!("{}", line.dim()));
+            } else {
+                lines.push(line.to_string());
+            }
+        }
+
+        lines.push(String::new());
+        // files + diffs
+        let mut paths: Vec<&String> = Vec::new();
+        if let Some(ref p) = commit.path {
+            paths.push(p);
+        }
+        if let Some(ref ps) = commit.paths {
+            paths.extend(ps.iter());
+        }
+
+        if !paths.is_empty() {
+            lines.push(String::new());
+            if allow_colors {
+                lines.push(format!(
+                    "{}",
+                    format!("Files ({}):", paths.len()).dim()
+                ));
+            } else {
+                lines.push(format!("Files ({}):", paths.len()));
+            }
+        }
+
+        for path in &paths {
+            if allow_colors {
+                lines.push(format!(
+                    "{}",
+                    path.as_str()
+                        .magenta()
+                        .dim()
+                ));
+            } else {
+                lines.push(path.to_string());
+            }
+
+            // gotta find the matching filediff then
+            // render its hunks
+            if let Some(file_diff) = diffs
+                .files
+                .iter()
+                .find(|f| &f.path == *path)
+            {
+                let hunk_ids: Option<Vec<usize>> = commit
+                    .hunk_ids
+                    .as_ref()
+                    .and_then(|ids| {
+                        let filtered: Vec<usize> = ids
+                            .iter()
+                            .filter_map(|hid| {
+                                hid.split_once(':')
+                                    .and_then(|(p, idx)| {
+                                        if p == path.as_str() {
+                                            idx.parse().ok()
+                                        } else {
+                                            None
+                                        }
+                                    })
+                            })
+                            .collect();
+                        if filtered.is_empty() {
+                            None
+                        } else {
+                            Some(filtered)
+                        }
+                    });
+
+                for hunk in &file_diff.hunks {
+                    if let Some(ref ids) = hunk_ids {
+                        if !ids.contains(&hunk.id) {
+                            continue;
+                        }
+                    }
+
+                    for diff_line in &hunk.lines {
+                        let (prefix, line_color) = match diff_line
+                            .line_type
+                        {
+                            DiffLineType::Add => ("+", Color::Green),
+                            DiffLineType::Delete => ("-", Color::Red),
+                            DiffLineType::Header => ("", Color::Cyan),
+                            DiffLineType::None => (" ", Color::Reset),
+                        };
+
+                        let text = format!(
+                            "{}{}",
+                            prefix, diff_line.content
+                        );
+
+                        if allow_colors && line_color != Color::Reset
+                        {
+                            lines.push(format!(
+                                "{}",
+                                text.with(line_color)
+                            ));
+                        } else {
+                            lines.push(text);
+                        }
+                    }
+                }
+            }
+        }
+
+        lines.push(String::new());
+    }
+
+    lines
 }
 
 fn prefix_color(prefix: &PrefixType) -> Color {
