@@ -287,7 +287,7 @@ fn event_handler(
         }
 
         let status = format!(
-            "Lines {}-{} of {} | j/k - scroll | q - exit | g - top | G - bottom",
+            "Lines {}-{} of {} | j/k scroll | {{ jump up | }} jump down | g top | G bottom | q exit ",
             offset + 1,
             (offset + visible).min(lines.len()),
             lines.len()
@@ -296,7 +296,6 @@ fn event_handler(
         execute!(
             out,
             cursor::MoveTo(0, height.saturating_sub(1)),
-            // i just found this lol
             SetStyle(
                 ContentStyle::new().attribute(Attribute::Reverse)
             ),
