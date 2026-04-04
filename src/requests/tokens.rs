@@ -7,5 +7,5 @@
 /// estimate token counts
 /// using length of text + 3 all over 4
 pub fn estimate_token_count(text: &str) -> u32 {
-    (text.len() as u32 + 3) / 4
+    (text.len() as u32 + 3).div_ceil(4)
 }

@@ -158,7 +158,7 @@ pub(crate) fn inline_menu(
 
                 // keybind handle
                 KeyCode::Char(c) => {
-                    if c >= '1' && c <= '9' {
+                    if ('1'..='9').contains(&c) {
                         let idx = (c as u8 - b'1') as usize;
                         if idx < parsed.len() {
                             break MenuChosenOption::Selected(idx);

@@ -69,7 +69,7 @@ pub struct SpinnerBuilder {
     prefix: Option<Str>,
 }
 
-impl<'a> SpinnerBuilder {
+impl SpinnerBuilder {
     /// Creates a new builder.
     pub fn new() -> Self {
         Self::default()
@@ -232,6 +232,8 @@ impl Spinner {
                 let mut cells: Vec<u8> = vec![b'.'; width];
 
                 let pos = head % (width + wave_len);
+
+                #[allow(clippy::needless_range_loop)]
                 for i in 0..wave_len {
                     let col = pos.wrapping_sub(i);
                     if col < width {

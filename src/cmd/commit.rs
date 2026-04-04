@@ -36,6 +36,13 @@ enum ResponseActions {
     Exit,
 }
 
+#[derive(Debug, VariantNames, strum::FromRepr)]
+#[strum(serialize_all = "lowercase")]
+enum EditActions {
+    Header,
+    Body,
+}
+
 pub fn run(
     args: &CommitArgs,
     global: &GlobalArgs,
@@ -241,8 +248,8 @@ fn run_commit(
             match selected {
                 ResponseActions::Apply => {
                     let git_commits: Vec<GitCommit> = raw_commits
-                        .to_owned()
-                        .into_iter()
+                        .iter()
+                        .cloned()
                         .map(|c| process_commit(c, &cfg))
                         .collect();
 

@@ -21,8 +21,7 @@ pub(super) fn rebase_last(
 
         if last_n > logs.git_logs.len() {
             println!(
-                "{} Only {} commits exist in history but you requested {}",
-                "Warning:",
+                "Warning: Only {} commits exist in history but you requested {}",
                 logs.git_logs.len(),
                 last_n
             );

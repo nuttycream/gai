@@ -111,7 +111,7 @@ pub fn response_commits(
         }
 
         for file in paths {
-            let file_display = format!("{}", file);
+            let file_display = file.to_string();
 
             // add the hunks as one-line
             // branch
@@ -169,8 +169,7 @@ pub fn response_commits(
             }
         }
 
-        let files_display =
-            format!("{}", format!("Files ({})", files.len()));
+        let files_display = format!("Files ({})", files.len());
 
         let files_item = TreeItem::new(
             format!("commit_{}_files", i),
@@ -503,10 +502,10 @@ fn response_lines(
                     });
 
                 for hunk in &file_diff.hunks {
-                    if let Some(ref ids) = hunk_ids {
-                        if !ids.contains(&hunk.id) {
-                            continue;
-                        }
+                    if let Some(ref ids) = hunk_ids
+                        && !ids.contains(&hunk.id)
+                    {
+                        continue;
                     }
 
                     for diff_line in &hunk.lines {
