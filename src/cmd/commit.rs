@@ -38,7 +38,10 @@ enum ResponseActions {
 
 #[derive(Debug, VariantNames, strum::FromRepr)]
 #[strum(serialize_all = "lowercase")]
-enum EditActions {
+enum EditWhat {
+    Prefix,
+    Scope,
+    Breaking,
     Header,
     Body,
 }
@@ -282,7 +285,48 @@ fn run_commit(
                     break;
                 }
                 ResponseActions::Edit => {
-                    todo!()
+                    // show commits to edit first
+                    let commits: Vec<String> = raw_commits
+                        .iter()
+                        .map(|c| c.to_string())
+                        .collect();
+
+                    let commit_to_edit =
+                        match print::input::fuzzy_to_num(
+                            &renderer,
+                            "Which commit? ",
+                            &commits,
+                        )? {
+                            print::input::InputType::Text(_) => {}
+                            print::input::InputType::Number(_) => {}
+                            print::input::InputType::None => {
+                                reuse = true;
+                                continue;
+                            }
+                        };
+
+                    let selected = match print::menu::inline_menu(
+                        &renderer,
+                        "Edit what?",
+                        EditWhat::VARIANTS,
+                        MenuOptions::default(),
+                    )? {
+                        MenuChosenOption::Selected(i) => {
+                            EditWhat::from_repr(i).expect("uhh, somehow didn't get the correct idx")
+                        }
+                        MenuChosenOption::Cancelled => {
+                            reuse = true;
+                            continue;
+                        }
+                    };
+
+                    match selected {
+                        EditWhat::Prefix => todo!(),
+                        EditWhat::Scope => todo!(),
+                        EditWhat::Breaking => todo!(),
+                        EditWhat::Header => todo!(),
+                        EditWhat::Body => todo!(),
+                    }
                 }
                 ResponseActions::ViewResponse => {
                     print::commits::full_response(

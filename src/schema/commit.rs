@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use strum::{EnumIter, VariantNames};
@@ -81,6 +83,34 @@ pub struct CommitSchema {
     /// extended description
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+}
+
+impl fmt::Display for CommitSchema {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        write!(f, "{}", self.prefix)?;
+
+        if let Some(ref scope) = self.scope {
+            write!(f, "({})", scope)?;
+        }
+
+        if self
+            .breaking
+            .unwrap_or(false)
+        {
+            write!(f, "!")?;
+        }
+
+        write!(f, ": {}", self.header)?;
+
+        if let Some(ref body) = self.body {
+            write!(f, "\n\n{}", body)?;
+        }
+
+        Ok(())
+    }
 }
 
 /// conventional commit type prefix
