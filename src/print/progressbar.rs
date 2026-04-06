@@ -292,6 +292,8 @@ impl SpinnerHandle {
     }
 
     /// Stops the spinner and renders an error symbol.
+    /// FIXME: this is broken, need to handle this
+    /// properly when we implement better error handling
     pub fn error(self) {
         self.tx
             .send(SpinnerCommand::Stop(Some(StopType::Error)))
