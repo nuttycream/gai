@@ -1,10 +1,10 @@
 pub mod commits;
 pub mod find;
 pub mod history;
+pub mod input;
 pub mod log;
 pub mod menu;
 pub mod progressbar;
-pub mod query;
 pub mod rebase;
 pub mod rebase_plan;
 pub mod renderer;
@@ -13,4 +13,4 @@ pub mod style;
 pub mod tree;
 
 pub use history::InputHistory;
-pub use query::{input_prompt, option_prompt, retry_prompt};
+pub use input::{input_prompt, option_prompt, retry_prompt};

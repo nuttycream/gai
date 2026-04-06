@@ -25,8 +25,9 @@ use crate::{
         utils::get_head_repo,
     },
     print::{
-        commits::response_commits, option_prompt, progressbar,
-        query::retry_prompt, renderer::Renderer, style::StyleConfig,
+        commits::response_commits, input::retry_prompt,
+        option_prompt, progressbar, renderer::Renderer,
+        style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,

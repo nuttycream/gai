@@ -325,6 +325,7 @@ dependencies = [
  "humantime",
  "llmao",
  "open",
+ "rust-fuzzy-search",
  "serde",
  "serde_json",
  "strum",
@@ -853,6 +854,12 @@ dependencies = [
  "untrusted",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "rust-fuzzy-search"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a157657054ffe556d8858504af8a672a054a6e0bd9e8ee531059100c0fa11bb2"
 
 [[package]]
 name = "rustix"
