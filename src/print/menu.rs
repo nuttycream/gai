@@ -79,21 +79,7 @@ pub(crate) fn inline_menu(
 
     terminal::enable_raw_mode()?;
 
-    // dont show cursor for menus
-    execute!(out, cursor::Hide, Print("\r\n"))?;
-
-    // this will effectively clear the previous line
-    // and draw a menu, if reuse is enabled, originally
-    // used within draw_inline, this may break
-    // on wrapped lines
-    if opts.reuse {
-        execute!(
-            out,
-            // 2 for the newline printed above
-            cursor::MoveUp(2),
-            terminal::Clear(terminal::ClearType::CurrentLine),
-        )?
-    }
+    execute!(out, cursor::Hide)?;
 
     // still need to draw the initial menu
     // even if we have reuse true, since the subsequent
@@ -177,8 +163,6 @@ pub(crate) fn inline_menu(
 
     execute!(out, cursor::Show)?;
     terminal::disable_raw_mode()?;
-
-    execute!(out, Print("\r\n"))?;
 
     Ok(outcome)
 }

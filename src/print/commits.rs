@@ -88,7 +88,16 @@ pub fn response_commits(
 
         // preview the body if exists
         if let Some(ref body) = commit.body {
-            let body = format!("{}...", &body[..max_length]);
+            let truncated = body
+                .chars()
+                .take(max_length)
+                .collect::<String>();
+
+            let body = if truncated.len() < body.len() {
+                format!("{truncated}...")
+            } else {
+                truncated
+            };
 
             let body_item =
                 TreeItem::new_leaf("body".to_owned(), &body)
