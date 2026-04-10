@@ -15,7 +15,10 @@ pub(crate) enum InputType {
     None,
 }
 
-pub(crate) fn fuzzy_to_num(
+/// fuzzy finds from your input options and returns
+/// the index for the top most matching query
+/// shows a preview on the line above.
+pub(crate) fn fuzzy_to_idx(
     renderer: &Renderer,
     prompt: &str,
     options: &[String],
