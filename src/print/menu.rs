@@ -1,4 +1,4 @@
-/// a util for displaying an inline menu
+/// a util for displaying an columned menu
 /// originally a style for dialoguer-rs
 /// rewritten for crossterm
 ///
@@ -7,266 +7,192 @@
 /// we need to handle wrapping lines + resized
 /// terminals
 use crossterm::{
-    cursor,
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
-    execute, queue,
-    style::{
-        Color, Print, ResetColor, SetBackgroundColor,
-        SetForegroundColor, Stylize,
-    },
-    terminal,
+    queue,
+    style::{Print, ResetColor, SetAttribute, SetForegroundColor},
 };
-use std::io::{Write, stdout};
+use std::io::{Write, stdin, stdout};
 
 use super::renderer::Renderer;
 
-#[derive(Default, Debug, Clone, Copy)]
-pub struct MenuOptions {
-    /// if a menu was printed before
-    /// reuse existing
-    /// mainly for leaving an alternate
-    /// screen where main screen wasn't
-    /// cleared
-    /// FIXME: this is slightly broken i think
-    /// and the way we handle redraws is by clearing
-    /// out the previous lines, i think im getting \
-    /// skill issued here
-    pub reuse: bool,
-
-    /// set the default highlighted/selected
-    /// defaults to 0
-    pub default_selected: usize,
-    // TODO: add multi select
-}
-
 #[derive(Debug)]
-pub enum MenuChosenOption {
-    Selected(usize),
-    Cancelled,
+pub(crate) struct Menu<T> {
+    prompt: String,
+    items: Vec<MenuItem<T>>,
 }
 
 #[derive(Debug, Clone)]
-struct MenuItem {
-    label: String,
-    keybind: u8,
+struct MenuItem<T> {
+    description: String,
+    keybind: char,
+    val: Option<T>,
 }
 
-/// draws an inline menu, with crossterm
-/// event handling, this is a generic
-/// function that should and would be handled
-/// by higher level functions
-/// can take in a max of 9 options
-/// prompt/label is rendered inline if compact
-pub(crate) fn inline_menu(
-    renderer: &Renderer,
-    prompt: &str,
-    items: &[&str],
-    opts: MenuOptions,
-) -> anyhow::Result<MenuChosenOption> {
-    // lets just not handle more than 9 options
-    // lol, just use an input prompt instead
-    if items.len() > 9 {
-        anyhow::bail!(
-            "inline menus should not be able to handle more than 9 options"
-        );
+impl<T: Clone> Menu<T> {
+    /// create a new menu, takes in a slice tuple
+    /// where the first is generic enum type
+    /// the char or bind is the
+    /// second and the description is the third
+    /// note, ? are reserved for help
+    pub fn new(
+        prompt: &str,
+        opts: &[(T, char, &str)],
+    ) -> Self {
+        let mut items = Vec::new();
+        for (val, bind, desc) in opts {
+            if *bind != '?' {
+                items.push(MenuItem {
+                    val: Some(val.to_owned()),
+                    description: desc.to_string(),
+                    keybind: *bind,
+                });
+            }
+        }
+
+        items.push(MenuItem {
+            description: "print this help".to_owned(),
+            keybind: '?',
+            val: None,
+        });
+
+        Self {
+            items,
+            prompt: prompt.to_owned(),
+        }
     }
 
-    let parsed = build_items(items);
+    /// draws an columned menu, with crossterm
+    /// event handling, this is a generic
+    /// function that should and would be handled
+    /// by higher level functions
+    /// can take in a max of 9 options
+    /// prompt/label is rendered columned if compact
+    pub fn render(
+        self,
+        renderer: &Renderer,
+    ) -> anyhow::Result<T> {
+        let mut out = stdout();
 
-    let mut selected = 0;
+        let opts = self
+            .items
+            .iter()
+            .map(|i| {
+                i.keybind
+                    .to_string()
+            })
+            .collect::<Vec<String>>();
 
-    let mut out = stdout();
+        let form = format!("[{}]: ", opts.join(","));
 
-    terminal::enable_raw_mode()?;
-
-    execute!(out, cursor::Hide)?;
-
-    // still need to draw the initial menu
-    // even if we have reuse true, since the subsequent
-    // redraws will just draw it over
-    draw_inline(
-        renderer,
-        &mut out,
-        prompt,
-        &parsed,
-        opts.default_selected,
-    )?;
-
-    let outcome = loop {
-        if let Event::Key(KeyEvent {
-            code, modifiers, ..
-        }) = event::read()?
+        if renderer
+            .style
+            .allow_colors
         {
-            match code {
-                // handle cancel
-                KeyCode::Esc | KeyCode::Char('q') => {
-                    break MenuChosenOption::Cancelled;
-                }
+            queue!(
+                out,
+                SetForegroundColor(
+                    renderer
+                        .style
+                        .highlight
+                )
+            )?;
+        }
 
-                KeyCode::Char('c')
-                    if modifiers.contains(KeyModifiers::CONTROL) =>
-                {
-                    break MenuChosenOption::Cancelled;
-                }
+        queue!(
+            out,
+            Print(&self.prompt),
+            Print(" "),
+            Print(&form),
+            ResetColor
+        )?;
 
-                // enter or space key
-                // though any input from allowed keys
-                // will trigger it to continue
-                KeyCode::Enter | KeyCode::Char(' ') => {
-                    break MenuChosenOption::Selected(selected);
-                }
+        out.flush()?;
 
-                // horizon movement
-                KeyCode::Left
-                | KeyCode::Char('h')
-                | KeyCode::BackTab => {
-                    selected = selected
-                        .checked_sub(1)
-                        .unwrap_or(parsed.len() - 1);
-                }
+        let mut input = String::new();
 
-                KeyCode::Right
-                | KeyCode::Char('l')
-                | KeyCode::Tab => {
-                    selected = (selected + 1) % parsed.len();
-                }
+        stdin().read_line(&mut input)?;
 
-                // allowing vertical vim keys as well
-                KeyCode::Up | KeyCode::Char('k') => {
-                    selected = selected
-                        .checked_sub(1)
-                        .unwrap_or(parsed.len() - 1);
-                }
+        let Some(ch) = input
+            .trim()
+            .chars()
+            .next()
+        else {
+            return self.render(renderer);
+        };
 
-                KeyCode::Down | KeyCode::Char('j') => {
-                    selected = (selected + 1) % parsed.len();
+        if let Some(item) = self
+            .items
+            .iter()
+            .find(|i| i.keybind == ch)
+        {
+            match &item.val {
+                Some(v) => return Ok(v.to_owned()),
+                None if item.keybind == '?' => {
+                    self.help(renderer, &mut out)?;
+                    return self.render(renderer);
                 }
-
-                // keybind handle
-                KeyCode::Char(c) => {
-                    if ('1'..='9').contains(&c) {
-                        let idx = (c as u8 - b'1') as usize;
-                        if idx < parsed.len() {
-                            break MenuChosenOption::Selected(idx);
-                        }
-                    }
+                None => {
+                    return Err(anyhow::anyhow!("invalid val").into());
                 }
-
-                _ => {}
+            }
+        } else {
+            if renderer
+                .style
+                .allow_colors
+            {
+                queue!(
+                    out,
+                    SetForegroundColor(renderer.style.error),
+                    SetAttribute(crossterm::style::Attribute::Bold)
+                )?;
             }
 
-            draw_inline(
-                renderer, &mut out, prompt, &parsed, selected,
-            )?;
-        }
-    };
-
-    execute!(out, cursor::Show)?;
-    terminal::disable_raw_mode()?;
-
-    Ok(outcome)
-}
-
-fn build_items(raw: &[&str]) -> Vec<MenuItem> {
-    raw.iter()
-        .enumerate()
-        .map(|(i, s)| MenuItem {
-            label: s.to_string(),
-            keybind: b'1' + i as u8,
-        })
-        .collect()
-}
-
-fn draw_inline(
-    renderer: &Renderer,
-    out: &mut impl Write,
-    prompt: &str,
-    items: &[MenuItem],
-    selected: usize,
-) -> std::io::Result<()> {
-    let (primary, secondary, highlight) = if renderer
-        .style
-        .allow_colors
-    {
-        (
-            renderer
-                .style
-                .primary,
-            renderer
-                .style
-                .secondary,
-            renderer
-                .style
-                .highlight,
-        )
-    } else {
-        (Color::White, Color::DarkGrey, Color::White)
-    };
-
-    // i believe we need to use queue
-    // here since we're writing on the same line
-    // and thus avoiding continuously
-    // rewriting the same line in an execute call?
-    queue!(
-        out,
-        Print("\r"),
-        terminal::Clear(terminal::ClearType::CurrentLine),
-    )?;
-
-    // commenting this
-    // since it barely works esp when reusing menus
-    // and might interfere with wrapping
-    // if !renderer.compact {
-    //     queue!(
-    //         out,
-    //         cursor::MoveUp(1),
-    //         terminal::Clear(terminal::ClearType::CurrentLine),
-    //     )?;
-    // }
-    //let newl = if renderer.compact { "  " } else { "\r\n" };
-
-    queue!(out, Print(prompt.with(primary)), Print("  "))?;
-
-    for (i, item) in items
-        .iter()
-        .enumerate()
-    {
-        let bind = format!("{}", item.keybind as char);
-        // rm if let Some(s) = selected
-        let is_active = i == selected;
-
-        if is_active {
             queue!(
                 out,
-                SetBackgroundColor(primary),
-                SetForegroundColor(secondary),
-                Print("["),
-                Print(bind),
-                Print("]"),
-                Print(
-                    item.label
-                        .to_owned()
-                ),
+                Print(ch),
+                Print(" is not a valid option, see ?"),
+                Print("\r\n"),
                 ResetColor,
             )?;
-        } else {
-            queue!(
-                out,
-                Print("[".with(primary)),
-                Print(bind.with(highlight)),
-                Print("]".with(primary)),
-                Print(
-                    item.label
-                        .to_owned()
-                        .with(secondary)
-                ),
-            )?;
-        }
 
-        if i < items.len() - 1 {
-            queue!(out, Print("  "))?;
+            return self.render(renderer);
         }
     }
 
-    out.flush()
+    fn help(
+        &self,
+        renderer: &Renderer,
+        out: &mut impl Write,
+    ) -> anyhow::Result<()> {
+        if renderer
+            .style
+            .allow_colors
+        {
+            queue!(
+                out,
+                SetForegroundColor(
+                    renderer
+                        .style
+                        .tertiary
+                ),
+                SetAttribute(crossterm::style::Attribute::Bold)
+            )?;
+        }
+
+        for item in self.items.iter() {
+            let item = item.to_owned();
+
+            queue!(
+                out,
+                Print(" "),
+                Print(item.keybind),
+                Print(" - "),
+                Print(item.description),
+                Print("\r\n"),
+            )?;
+        }
+
+        queue!(out, ResetColor)?;
+
+        Ok(())
+    }
 }
