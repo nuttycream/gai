@@ -1,5 +1,4 @@
 use serde_json::Value;
-use strum::VariantNames;
 
 use crate::{
     args::{CommitArgs, GlobalArgs},
@@ -10,12 +9,8 @@ use crate::{
         diffs::get_diffs_from_statuses,
     },
     print::{
-        self,
-        menu::{MenuChosenOption, MenuOptions},
-        progressbar::SpinnerBuilder,
-        renderer::Renderer,
-        retry_prompt,
-        style::StyleConfig,
+        self, menu::Menu, progressbar::SpinnerBuilder,
+        renderer::Renderer, retry_prompt, style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
@@ -25,19 +20,16 @@ use crate::{
     state::State,
 };
 
-#[derive(Debug, VariantNames, strum::FromRepr)]
-#[strum(serialize_all = "lowercase")]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 enum ResponseActions {
     Apply,
     Regenerate,
     Edit,
-    #[strum(serialize = "full view")]
-    ViewResponse,
-    Exit,
+    Response,
+    Quit,
 }
 
-#[derive(Debug, VariantNames, strum::FromRepr)]
-#[strum(serialize_all = "lowercase")]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 enum EditWhat {
     Prefix,
     Scope,
@@ -45,6 +37,14 @@ enum EditWhat {
     Header,
     Body,
 }
+
+const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
+    (ResponseActions::Apply, 'y', "apply all commit/s"),
+    (ResponseActions::Regenerate, 'r', "regenerate commits"),
+    (ResponseActions::Edit, 'e', "edit a commit"),
+    (ResponseActions::Response, 'f', "view the full response"),
+    (ResponseActions::Quit, 'q', "quit"),
+];
 
 pub fn run(
     args: &CommitArgs,
@@ -226,27 +226,11 @@ fn run_commit(
             matches!(cfg.staging_type, StagingStrategy::Hunks),
         )?;
 
-        // catch for wanting to regen
-        // otherwise, likely need a cleaner solution
         let mut regenerate = false;
-        let mut reuse = false;
+
         loop {
-            let selected = match print::menu::inline_menu(
-                &renderer,
-                "What do you want to do?",
-                ResponseActions::VARIANTS,
-                MenuOptions {
-                    reuse,
-                    ..Default::default()
-                },
-            )? {
-                MenuChosenOption::Selected(i) => {
-                    ResponseActions::from_repr(i).expect(
-                        "uhh, somehow didn't get the correct idx",
-                    )
-                }
-                MenuChosenOption::Cancelled => break,
-            };
+            let selected = Menu::new("Apply all?", &RESPONSE_OPTS)
+                .render(&renderer)?;
 
             match selected {
                 ResponseActions::Apply => {
@@ -280,12 +264,10 @@ fn run_commit(
                     }
                 }
                 ResponseActions::Regenerate => {
-                    println!("Regenerating");
                     regenerate = true;
                     break;
                 }
                 ResponseActions::Edit => {
-                    // show commits to edit first
                     let commits: Vec<String> = raw_commits
                         .iter()
                         .map(|c| c.to_string())
@@ -300,46 +282,20 @@ fn run_commit(
                             print::input::InputType::Text(_) => {}
                             print::input::InputType::Number(_) => {}
                             print::input::InputType::None => {
-                                reuse = true;
                                 continue;
                             }
                         };
-
-                    let selected = match print::menu::inline_menu(
-                        &renderer,
-                        "Edit what?",
-                        EditWhat::VARIANTS,
-                        MenuOptions::default(),
-                    )? {
-                        MenuChosenOption::Selected(i) => {
-                            EditWhat::from_repr(i).expect("uhh, somehow didn't get the correct idx")
-                        }
-                        MenuChosenOption::Cancelled => {
-                            reuse = true;
-                            continue;
-                        }
-                    };
-
-                    match selected {
-                        EditWhat::Prefix => todo!(),
-                        EditWhat::Scope => todo!(),
-                        EditWhat::Breaking => todo!(),
-                        EditWhat::Header => todo!(),
-                        EditWhat::Body => todo!(),
-                    }
                 }
-                ResponseActions::ViewResponse => {
+                ResponseActions::Response => {
                     print::commits::full_response(
                         &renderer,
                         &raw_commits,
                         &diffs,
                     )?;
 
-                    reuse = true;
                     continue;
                 }
-                ResponseActions::Exit => {
-                    println!("Exiting");
+                ResponseActions::Quit => {
                     break;
                 }
             }
