@@ -10,6 +10,7 @@ pub struct StyleConfig {
     pub secondary: Color,
     pub tertiary: Color,
     pub highlight: Color,
+    pub error: Color,
 }
 
 impl Default for StyleConfig {
@@ -21,6 +22,7 @@ impl Default for StyleConfig {
             secondary: Color::DarkGrey,
             tertiary: Color::Yellow,
             highlight: Color::Blue,
+            error: Color::Red,
         }
     }
 }
