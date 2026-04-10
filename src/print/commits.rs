@@ -216,7 +216,7 @@ pub fn response_commits(
             no
         };
 
-        let commit_idx = format!("[{}]", i);
+        let commit_idx = format!("[{}]", i + 1);
 
         let display = if renderer.compact {
             let prefix = format!("{}: {}", prefix, commit.header);
