@@ -1,4 +1,4 @@
-use crossterm::style::ContentStyle;
+use crossterm::style::{ContentStyle, Print};
 use std::collections::HashSet;
 
 // this is a tree printing util that helps
@@ -207,7 +207,7 @@ where
 
         // top
         for _ in 0..self.padding_top {
-            println!();
+            crossterm::queue!(std::io::stdout(), Print("\n")).ok();
         }
 
         let flattened = flatten(self.items, &[], self.collapsed, 0);
@@ -226,12 +226,18 @@ where
                         .to_owned(),
                 );
 
-            println!("{prefix}{text}");
+            crossterm::queue!(
+                std::io::stdout(),
+                Print(prefix),
+                Print(text),
+                Print("\r\n")
+            )
+            .ok();
         }
 
         // bottom
         for _ in 0..self.padding_bottom {
-            println!();
+            crossterm::queue!(std::io::stdout(), Print("\n")).ok();
         }
     }
 
