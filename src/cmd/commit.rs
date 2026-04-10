@@ -9,8 +9,9 @@ use crate::{
         diffs::get_diffs_from_statuses,
     },
     print::{
-        self, menu::Menu, progressbar::SpinnerBuilder,
-        renderer::Renderer, retry_prompt, style::StyleConfig,
+        self, input::InputType, menu::Menu,
+        progressbar::SpinnerBuilder, renderer::Renderer,
+        retry_prompt, style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
@@ -20,7 +21,7 @@ use crate::{
     state::State,
 };
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 enum ResponseActions {
     Apply,
     Regenerate,
@@ -29,19 +30,14 @@ enum ResponseActions {
     Quit,
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-enum EditWhat {
-    Prefix,
-    Scope,
-    Breaking,
-    Header,
-    Body,
-}
-
 const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
     (ResponseActions::Apply, 'y', "apply all commit/s"),
     (ResponseActions::Regenerate, 'r', "regenerate commits"),
-    (ResponseActions::Edit, 'e', "edit a commit"),
+    (
+        ResponseActions::Edit,
+        'e',
+        "edit a commit, opens in $EDITOR",
+    ),
     (ResponseActions::Response, 'f', "view the full response"),
     (ResponseActions::Quit, 'q', "quit"),
 ];
@@ -273,18 +269,25 @@ fn run_commit(
                         .map(|c| c.to_string())
                         .collect();
 
+                    // going to copy the commit
+                    // then just do an inplace
+                    // replace after
                     let commit_to_edit =
-                        match print::input::fuzzy_to_num(
+                        match print::input::fuzzy_to_idx(
                             &renderer,
                             "Which commit? ",
                             &commits,
                         )? {
-                            print::input::InputType::Text(_) => {}
-                            print::input::InputType::Number(_) => {}
-                            print::input::InputType::None => {
+                            InputType::Number(idx) => {
+                                commits[idx].to_owned()
+                            }
+                            _ => {
                                 continue;
                             }
                         };
+
+                    let new_commit_msg =
+                        crate::utils::open::edit(&commit_to_edit)?;
                 }
                 ResponseActions::Response => {
                     print::commits::full_response(
