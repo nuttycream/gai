@@ -182,8 +182,8 @@ fn run_commit(
 
     loop {
         let handle = SpinnerBuilder::new()
-            .text("Generating Commits")
-            .start();
+            .text("Generating commits")
+            .start(&renderer);
 
         let result: Value = match extract_from_provider(
             &cfg.provider,

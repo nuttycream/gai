@@ -6,20 +6,27 @@
 // alot of the code here has been reused from the
 // library
 
-use crossterm::{cursor, event, execute, queue, terminal};
+use crossterm::{
+    cursor, execute, queue,
+    style::{Print, ResetColor, SetForegroundColor},
+    terminal,
+};
 use std::{
     borrow::Cow,
     fmt::Display,
     io::{Write, stdout},
     sync::mpsc::{Receiver, Sender, TryRecvError, channel},
     thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, Instant},
 };
+
+use super::renderer::Renderer;
 
 type Str = Cow<'static, str>;
 
-const WAVE: &[u8] = b")(|";
-const RATE: Duration = Duration::from_millis(100);
+const COL: usize = 40;
+const RATE: Duration = Duration::from_millis(300);
+const DOTS: [&str; 4] = ["", ".", "..", "..."];
 
 #[derive(Copy, Clone)]
 enum StopType {
@@ -58,7 +65,6 @@ enum SpinnerCommand {
 // Holds all the data needed to actually render the spinner on a render thread.
 struct Spinner {
     text: Str,
-    prefix: Str,
     rx: Receiver<SpinnerCommand>,
 }
 
@@ -66,7 +72,6 @@ struct Spinner {
 #[derive(Clone, Default)]
 pub struct SpinnerBuilder {
     text: Option<Str>,
-    prefix: Option<Str>,
 }
 
 impl SpinnerBuilder {
@@ -84,19 +89,6 @@ impl SpinnerBuilder {
         self
     }
 
-    /// The prefix to print before the actual spinning animation.
-    ///
-    /// # Note
-    ///
-    /// The prefix must not include newlines, as the library deletion does not account for those.
-    pub fn prefix(
-        mut self,
-        prefix: impl Into<Cow<'static, str>>,
-    ) -> Self {
-        self.prefix = Some(prefix.into());
-        self
-    }
-
     /// Starts the spinner and renders it on a separate thread.
     ///
     /// # Returns
@@ -106,18 +98,19 @@ impl SpinnerBuilder {
     /// # Panics
     ///
     /// If no text and spinner have been set.
-    pub fn start(self) -> SpinnerHandle {
+    pub fn start(
+        self,
+        renderer: &Renderer,
+    ) -> SpinnerHandle {
         assert!(self.text.is_some());
 
         let (tx, rx) = channel();
         let spinner = Spinner {
             text: self.text.unwrap(),
-            prefix: self
-                .prefix
-                .unwrap_or(Cow::Borrowed("")),
             rx,
         };
-        spinner.start(tx)
+
+        spinner.start(tx, renderer)
     }
 }
 
@@ -125,44 +118,33 @@ impl Spinner {
     fn start(
         mut self,
         tx: Sender<SpinnerCommand>,
+        renderer: &Renderer,
     ) -> SpinnerHandle {
-        let handle = thread::spawn(move || {
-            let mut stdout = stdout();
-            let mut symbol: Option<StopType> = None;
+        let colors = renderer
+            .style
+            .allow_colors;
 
-            // col idx of leading char
-            let mut head: usize = 0;
+        let primary = renderer
+            .style
+            .primary;
+
+        let secondary = renderer
+            .style
+            .secondary;
+
+        let highlight = renderer
+            .style
+            .highlight;
+
+        let handle = thread::spawn(move || {
+            let mut out = stdout();
+
+            let start = Instant::now();
+            let mut tick: usize = 0;
+
+            execute!(out, cursor::Hide).ok();
 
             loop {
-                while event::poll(RATE).unwrap_or(false) {
-                    if let Ok(ev) = event::read() {
-                        match ev {
-                            event::Event::Resize(..) => {
-                                // cheeky terminal resize handler
-                                // redraw bar and reset anims
-                                head = 0;
-                            }
-                            // LOL lidl C-c sig handler
-                            event::Event::Key(key)
-                                if key.code
-                                    == event::KeyCode::Char('c')
-                                    && key
-                                        .modifiers
-                                        .contains(
-                                        event::KeyModifiers::CONTROL,
-                                    ) =>
-                            {
-                                execute!(stdout, cursor::Show).ok();
-
-                                terminal::disable_raw_mode().ok();
-
-                                std::process::exit(1);
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-
                 let mut should_clear_line = false;
                 let mut should_stop_cycle_loop = false;
 
@@ -171,9 +153,8 @@ impl Spinner {
                         SpinnerCommand::ChangeText(text) => {
                             self.text = text
                         }
-                        SpinnerCommand::Stop(s) => {
+                        SpinnerCommand::Stop(_s) => {
                             should_stop_cycle_loop = true;
-                            symbol = s;
                         }
                         SpinnerCommand::StopAndClear => {
                             should_clear_line = true;
@@ -189,85 +170,85 @@ impl Spinner {
                 // Continue with the animation.
                 // 1. Delete current line.
                 queue!(
-                    stdout,
+                    out,
                     terminal::Clear(terminal::ClearType::CurrentLine)
                 )
                 .unwrap();
 
-                queue!(stdout, cursor::MoveToColumn(0)).unwrap();
-
-                let width = self.bar_width();
-                let bar = ".".repeat(width as usize);
+                queue!(out, cursor::MoveToColumn(0)).unwrap();
 
                 // 2. Check if we can early-stop.
                 if should_stop_cycle_loop {
                     if !should_clear_line {
-                        if let Some(sym) = symbol {
-                            writeln!(
-                                stdout,
-                                "{} {}[{}]{}",
-                                self.text, self.prefix, bar, sym,
+                        let elapsed = start
+                            .elapsed()
+                            .as_secs_f64();
+
+                        let left = format!("{}...", self.text);
+                        let right = format!("done ({elapsed:.1}s)");
+
+                        let pad = COL.saturating_sub(left.len()) + 4;
+
+                        if colors {
+                            queue!(
+                                out,
+                                SetForegroundColor(primary),
+                                Print(&left),
+                                Print(" ".repeat(pad)),
+                                SetForegroundColor(highlight),
+                                Print(&right),
+                                Print("\r\n"),
+                                ResetColor,
                             )
-                            .unwrap();
+                            .ok();
                         } else {
-                            writeln!(
-                                stdout,
-                                "{} {}[{}]",
-                                self.text, self.prefix, bar,
+                            queue!(
+                                out,
+                                Print(&left),
+                                Print(" ".repeat(pad)),
+                                Print(&right),
+                                Print("\r\n"),
                             )
-                            .unwrap();
+                            .ok();
                         }
                     }
 
-                    stdout
-                        .flush()
-                        .unwrap();
+                    out.flush().unwrap();
+
+                    execute!(out, cursor::Show).ok();
 
                     break; // Breaks out of the animation loop
                 }
 
-                // 3. Print the new line.
-                let width = width as usize;
-                let wave_len = WAVE.len();
-                let mut cells: Vec<u8> = vec![b'.'; width];
+                let dots = DOTS[tick % DOTS.len()];
 
-                let pos = head % (width + wave_len);
-
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..wave_len {
-                    let col = pos.wrapping_sub(i);
-                    if col < width {
-                        cells[col] = WAVE[i];
-                    }
+                if colors {
+                    queue!(
+                        out,
+                        SetForegroundColor(primary),
+                        Print(self.text.as_ref()),
+                        SetForegroundColor(secondary),
+                        Print(dots),
+                        ResetColor,
+                    )
+                    .ok();
+                } else {
+                    queue!(
+                        out,
+                        Print(self.text.as_ref()),
+                        Print(dots),
+                    )
+                    .ok();
                 }
 
-                head += 1;
+                out.flush().ok();
 
-                let bar = String::from_utf8(cells).unwrap();
-
-                write!(
-                    stdout,
-                    "{} {}[{}][..]",
-                    self.text, self.prefix, bar,
-                )
-                .unwrap();
-
-                stdout
-                    .flush()
-                    .unwrap();
+                tick += 1;
+                thread::sleep(RATE);
             }
         });
 
         SpinnerHandle { handle, tx }
-    }
-
-    /// returns the bar width as half of terminal columns.
-    fn bar_width(&self) -> u16 {
-        let cols = terminal::size()
-            .map(|(w, _)| w)
-            .unwrap_or(80);
-
-        (cols / 2).max(1)
     }
 }
 
