@@ -277,13 +277,18 @@ fn event_handler(
 ) -> anyhow::Result<()> {
     enable_raw_mode()?;
     let mut out = stdout();
-    execute!(out, EnterAlternateScreen, cursor::Hide)?;
+    execute!(
+        out,
+        EnterAlternateScreen,
+        cursor::Hide,
+        terminal::EnableLineWrap
+    )?;
     let mut offset = 0;
 
     loop {
         let visible = height.saturating_sub(1) as usize;
 
-        execute!(out, terminal::Clear(terminal::ClearType::All))?;
+        execute!(out, terminal::Clear(terminal::ClearType::All),)?;
 
         for (i, line) in lines
             .iter()
@@ -353,7 +358,12 @@ fn event_handler(
         }
     }
 
-    execute!(out, cursor::Show, LeaveAlternateScreen)?;
+    execute!(
+        out,
+        cursor::Show,
+        LeaveAlternateScreen,
+        terminal::DisableLineWrap
+    )?;
     disable_raw_mode()?;
 
     Ok(())
