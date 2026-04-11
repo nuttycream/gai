@@ -55,25 +55,29 @@ pub fn find_parent_commit(
     }
 }
 
+/// apply commits and return commit hashes
+/// for the completed commits
 pub fn apply_commits(
     repo: &Repository,
     git_commits: &[GitCommit],
     og_file_diffs: &mut Vec<FileDiff>,
     staging_stragey: &StagingStrategy,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<String>> {
     //todo when we implement verbose logging
     // make sure we log the files, hunks etc
     // before we apply commits
+    let mut res = Vec::new();
 
     for git_commit in git_commits {
         match staging_stragey {
             StagingStrategy::AllFilesOneCommit => {
                 stage_all(repo, ".")?;
                 og_file_diffs.clear();
-                commit(repo, git_commit)?;
+                let oid = commit(repo, git_commit)?;
+                res.push(oid.to_string());
 
                 // return early
-                return Ok(());
+                return Ok(res);
             }
             StagingStrategy::AtomicCommits
             | StagingStrategy::OneFilePerCommit => {
@@ -146,16 +150,19 @@ pub fn apply_commits(
             }
         }
 
-        commit(repo, git_commit)?;
+        let oid = commit(repo, git_commit)?;
+        res.push(oid.to_string());
     }
 
+    // TODO: we need to propagate and handle this gracefully
+    // else where, and show a menu to trigger regenerate
     for file in og_file_diffs {
         for hunk in &file.hunks {
-            println!("hunk [{}:{}] not applied", file.path, hunk.id);
+            eprintln!("hunk [{}:{}] not applied", file.path, hunk.id);
         }
     }
 
-    Ok(())
+    Ok(res)
 }
 
 fn commit(

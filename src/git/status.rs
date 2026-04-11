@@ -1,6 +1,11 @@
-use std::{fmt, path::Path};
+use std::{
+    fmt::{self, format},
+    path::Path,
+};
 
-use git2::{Delta, Repository, Status, StatusOptions, StatusShow};
+use git2::{
+    Delta, Oid, Repository, Status, StatusOptions, StatusShow,
+};
 
 /// status strategy when running
 /// get_status
@@ -124,6 +129,43 @@ pub fn is_workdir_clean(repo: &Repository) -> anyhow::Result<bool> {
     let statuses = repo.statuses(Some(&mut options))?;
 
     Ok(statuses.is_empty())
+}
+
+/// func to get stats of a specific commit
+/// specifically, files changed and the inserts
+/// deletions within em. meant to mimic commiting
+/// completion output
+/// FIXME: this breaks on a root commit
+pub(crate) fn get_commit_stats(
+    repo: &Repository,
+    hash: &str,
+) -> anyhow::Result<(String, usize, usize, usize)> {
+    let oid = Oid::from_str(hash)?;
+
+    let commit = repo.find_commit(oid)?;
+
+    let tree = commit.tree()?;
+
+    // not using find_parent_commit.
+    // FIXME: this is assuming that this func
+    // runs after committing, this will break
+    // if this is the root commit
+    let parent = commit
+        .parent(0)?
+        .tree()?;
+
+    let diff =
+        repo.diff_tree_to_tree(Some(&parent), Some(&tree), None)?;
+
+    let stats = diff.stats()?;
+    let branch_name = get_branch_name(repo)?;
+
+    Ok((
+        branch_name,
+        stats.files_changed(),
+        stats.insertions(),
+        stats.deletions(),
+    ))
 }
 
 pub fn get_status(
