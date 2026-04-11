@@ -73,7 +73,7 @@ static HARDCODED_NAMES: &[&str] = &[
 /// If successful, returns the edited string.
 /// Any errors related to spawning the editor process will also be passed through.
 pub fn edit(text: &str) -> anyhow::Result<String> {
-    let path = env::temp_dir().join(format!("{}.tmp", text));
+    let path = env::temp_dir().join("edit.tmp");
     fs::write(&path, text)?;
 
     let (editor, args) = get_editor_args()?;
