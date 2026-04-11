@@ -13,7 +13,6 @@ use crossterm::{
 };
 use std::{
     borrow::Cow,
-    fmt::Display,
     io::{Write, stdout},
     sync::mpsc::{Receiver, Sender, TryRecvError, channel},
     thread::{self, JoinHandle},
@@ -32,29 +31,10 @@ const DOTS: [&str; 4] = ["", ".", "..", "..."];
 enum StopType {
     Done,
     Error,
-    Info,
-}
-
-impl Display for StopType {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        let symbol = match self {
-            StopType::Done => "[ok]",
-            StopType::Error => "[!!]",
-            StopType::Info => "[i]",
-        };
-
-        write!(f, "{symbol}")
-    }
 }
 
 // Commands send through the mpsc channels to notify the render thread of certain events.
 enum SpinnerCommand {
-    /// Changes the text of the spinner. The change is visible once the spinner gets redrawn.
-    ChangeText(Cow<'static, str>),
-
     // Commands that stop the spinner.
     Stop(Option<StopType>),
     StopAndClear,
@@ -116,7 +96,7 @@ impl SpinnerBuilder {
 
 impl Spinner {
     fn start(
-        mut self,
+        self,
         tx: Sender<SpinnerCommand>,
         renderer: &Renderer,
     ) -> SpinnerHandle {
@@ -127,10 +107,6 @@ impl Spinner {
         let primary = renderer
             .style
             .primary;
-
-        let secondary = renderer
-            .style
-            .secondary;
 
         let highlight = renderer
             .style
@@ -144,17 +120,27 @@ impl Spinner {
 
             execute!(out, cursor::Hide).ok();
 
+            let mut stop_msg = String::new();
             loop {
                 let mut should_clear_line = false;
                 let mut should_stop_cycle_loop = false;
 
                 match self.rx.try_recv() {
                     Ok(cmd) => match cmd {
-                        SpinnerCommand::ChangeText(text) => {
-                            self.text = text
-                        }
-                        SpinnerCommand::Stop(_s) => {
+                        SpinnerCommand::Stop(s) => {
                             should_stop_cycle_loop = true;
+                            if let Some(s) = s {
+                                match s {
+                                    StopType::Done => {
+                                        stop_msg = "done".to_string()
+                                    }
+                                    StopType::Error => {
+                                        stop_msg = "error".to_string()
+                                    }
+                                }
+                            } else {
+                                stop_msg = "stopping".to_string()
+                            }
                         }
                         SpinnerCommand::StopAndClear => {
                             should_clear_line = true;
@@ -185,7 +171,8 @@ impl Spinner {
                             .as_secs_f64();
 
                         let left = format!("{}...", self.text);
-                        let right = format!("done ({elapsed:.1}s)");
+                        let right =
+                            format!("{} ({elapsed:.1}s)", stop_msg);
 
                         let pad = COL.saturating_sub(left.len()) + 4;
 
@@ -222,24 +209,8 @@ impl Spinner {
 
                 let dots = DOTS[tick % DOTS.len()];
 
-                if colors {
-                    queue!(
-                        out,
-                        SetForegroundColor(primary),
-                        Print(self.text.as_ref()),
-                        SetForegroundColor(secondary),
-                        Print(dots),
-                        ResetColor,
-                    )
+                queue!(out, Print(self.text.as_ref()), Print(dots),)
                     .ok();
-                } else {
-                    queue!(
-                        out,
-                        Print(self.text.as_ref()),
-                        Print(dots),
-                    )
-                    .ok();
-                }
 
                 out.flush().ok();
 
@@ -285,17 +256,6 @@ impl SpinnerHandle {
             .unwrap();
     }
 
-    /// Stops the spinner and renders an information symbol.
-    pub fn info(self) {
-        self.tx
-            .send(SpinnerCommand::Stop(Some(StopType::Info)))
-            .unwrap();
-
-        self.handle
-            .join()
-            .unwrap();
-    }
-
     /// Stops the spinner.
     pub fn stop(self) {
         self.tx
@@ -315,16 +275,6 @@ impl SpinnerHandle {
 
         self.handle
             .join()
-            .unwrap();
-    }
-
-    /// Changes the text of the spinner.
-    pub fn text(
-        &self,
-        text: impl Into<Cow<'static, str>>,
-    ) {
-        self.tx
-            .send(SpinnerCommand::ChangeText(text.into()))
             .unwrap();
     }
 }

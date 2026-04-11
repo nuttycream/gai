@@ -26,7 +26,7 @@ use crate::{
     },
     print::{
         commits::response_commits, input::retry_prompt,
-        option_prompt, progressbar, renderer::Renderer,
+        option_prompt, renderer::Renderer, spinner,
         style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},

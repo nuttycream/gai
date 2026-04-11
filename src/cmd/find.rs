@@ -4,8 +4,8 @@ use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
     print::{
-        InputHistory, find::print, input_prompt, progressbar,
-        retry_prompt,
+        InputHistory, find::print, input_prompt, retry_prompt,
+        spinner,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,

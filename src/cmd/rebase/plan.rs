@@ -2,9 +2,7 @@ use serde_json::Value;
 
 use crate::{
     git::Diffs,
-    print::{
-        progressbar, rebase_plan::print_rebase_plan, retry_prompt,
-    },
+    print::{rebase_plan::print_rebase_plan, retry_prompt, spinner},
     providers::extract_from_provider,
     requests::rebase_plan::create_rebase_plan_request,
     responses::rebase_plan::parse_from_rebase_plan_schema,

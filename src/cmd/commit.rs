@@ -9,9 +9,8 @@ use crate::{
         diffs::get_diffs_from_statuses,
     },
     print::{
-        self, input::InputType, menu::Menu,
-        progressbar::SpinnerBuilder, renderer::Renderer,
-        retry_prompt, style::StyleConfig,
+        self, input::InputType, menu::Menu, renderer::Renderer,
+        retry_prompt, spinner::SpinnerBuilder, style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
@@ -188,13 +187,12 @@ fn run_commit(
         ) {
             Ok(r) => r,
             Err(e) => {
-                let err = format!(
-                    "Done but Gai received an error from the provider: {:#}",
+                handle.error();
+
+                eprintln!(
+                    "gai received an error from the provider:\n{:#}",
                     e
                 );
-
-                handle.text(err);
-                handle.error();
 
                 if retry_prompt(None)? {
                     continue;
@@ -207,14 +205,7 @@ fn run_commit(
         let raw_commits =
             parse_to_commit_schema(result, &cfg.staging_type)?;
 
-        let msg = format!(
-            "Done! Received {} Commit{}",
-            raw_commits.len(),
-            if raw_commits.len() == 1 { "" } else { "s" }
-        );
-
-        handle.text(msg);
-        handle.stop();
+        handle.done();
 
         print::commits::response_commits(
             &renderer,
