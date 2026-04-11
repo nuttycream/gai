@@ -23,7 +23,7 @@ use super::renderer::Renderer;
 
 type Str = Cow<'static, str>;
 
-const COL: usize = 40;
+const COL: usize = 30;
 const RATE: Duration = Duration::from_millis(300);
 const DOTS: [&str; 4] = ["", ".", "..", "..."];
 
@@ -163,18 +163,21 @@ impl Spinner {
 
                 queue!(out, cursor::MoveToColumn(0)).unwrap();
 
+                let dots = DOTS[tick % DOTS.len()];
+                let elapsed = start
+                    .elapsed()
+                    .as_secs_f64();
+
+                let mut left = format!("{}{}", self.text, dots);
+                let mut right = format!("({elapsed:.0}s)");
+                let pad = COL.saturating_sub(left.len());
+
                 // 2. Check if we can early-stop.
                 if should_stop_cycle_loop {
                     if !should_clear_line {
-                        let elapsed = start
-                            .elapsed()
-                            .as_secs_f64();
-
-                        let left = format!("{}...", self.text);
-                        let right =
+                        left = format!("{}...", self.text);
+                        right =
                             format!("{} ({elapsed:.1}s)", stop_msg);
-
-                        let pad = COL.saturating_sub(left.len()) + 4;
 
                         if colors {
                             queue!(
@@ -207,10 +210,26 @@ impl Spinner {
                     break; // Breaks out of the animation loop
                 }
 
-                let dots = DOTS[tick % DOTS.len()];
-
-                queue!(out, Print(self.text.as_ref()), Print(dots),)
+                if colors {
+                    queue!(
+                        out,
+                        SetForegroundColor(primary),
+                        Print(&left),
+                        Print(" ".repeat(pad)),
+                        SetForegroundColor(highlight),
+                        Print(&right),
+                        ResetColor,
+                    )
                     .ok();
+                } else {
+                    queue!(
+                        out,
+                        Print(&left),
+                        Print(" ".repeat(pad)),
+                        Print(&right),
+                    )
+                    .ok();
+                }
 
                 out.flush().ok();
 
