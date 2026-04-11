@@ -328,7 +328,7 @@ pub(crate) fn completed_commit(
                     .attribute(Attribute::Bold)
                     .with(Color::Red)
             ),
-            Print(format!("{}", delets)),
+            Print(format!(" {}", delets)),
             Print("\r\n"),
             ResetColor,
         )?;
