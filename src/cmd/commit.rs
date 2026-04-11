@@ -8,6 +8,7 @@ use crate::{
         StatusStrategy,
         commit::{GitCommit, apply_commits},
         diffs::get_diffs_from_statuses,
+        status::get_commit_stats,
     },
     print::{
         self, input::InputType, menu::Menu, renderer::Renderer,
@@ -250,13 +251,13 @@ fn run_commit(
                         .map(|c| process_commit(c, &cfg))
                         .collect();
 
-                    match apply_commits(
+                    let oids = match apply_commits(
                         &git.repo,
                         &git_commits,
                         &mut diffs.files,
                         &cfg.staging_type,
                     ) {
-                        Ok(_) => break,
+                        Ok(c) => c,
                         Err(e) => {
                             println!(
                                 "Failed to Apply Commits: {}",
@@ -271,7 +272,34 @@ fn run_commit(
                                 break;
                             }
                         }
+                    };
+
+                    for (i, oid) in oids
+                        .iter()
+                        .enumerate()
+                    {
+                        let (
+                            branch_name,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        ) = get_commit_stats(&git.repo, &oid)?;
+
+                        let commit_msg =
+                            raw_commits[i].just_the_header();
+
+                        print::commits::completed_commit(
+                            &renderer,
+                            &branch_name,
+                            &oid,
+                            &commit_msg,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        )?;
                     }
+
+                    break;
                 }
                 ResponseActions::Regenerate => {
                     regenerate = true;

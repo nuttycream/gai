@@ -3,8 +3,8 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     style::{
-        Attribute, Color, ContentStyle, Print, ResetColor, SetStyle,
-        Stylize,
+        Attribute, Color, ContentStyle, Print, PrintStyledContent,
+        ResetColor, SetForegroundColor, SetStyle, Stylize,
     },
     terminal::{
         self, EnterAlternateScreen, LeaveAlternateScreen,
@@ -247,6 +247,108 @@ pub fn response_commits(
             .style(dim)
             .render();
     }
+
+    Ok(())
+}
+
+pub(crate) fn completed_commit(
+    renderer: &Renderer,
+    branch_name: &str,
+    hash: &str,
+    commit_msg: &str,
+    files_changed: usize,
+    insertions: usize,
+    deletions: usize,
+) -> anyhow::Result<()> {
+    let short = &hash[..7];
+
+    let file = if files_changed == 1 { "file" } else { "files" };
+
+    let inserts = if insertions == 1 {
+        "insertion(+)"
+    } else {
+        "insertions(+)"
+    };
+
+    let delets = if deletions == 1 {
+        "deletion(-)"
+    } else {
+        "deletions(-)"
+    };
+
+    if renderer
+        .style
+        .allow_colors
+    {
+        let primary = renderer
+            .style
+            .primary;
+
+        let secondary = renderer
+            .style
+            .secondary;
+        let tertiary = renderer
+            .style
+            .tertiary;
+        let highlight = renderer
+            .style
+            .highlight;
+
+        execute!(
+            stdout(),
+            SetForegroundColor(primary),
+            Print("\r\n["),
+            PrintStyledContent(
+                branch_name
+                    .attribute(Attribute::Bold)
+                    .with(tertiary)
+            ),
+            Print(" "),
+            PrintStyledContent(short.with(secondary)),
+            Print("] "),
+            PrintStyledContent(commit_msg.with(highlight)),
+            Print("\r\n "),
+            PrintStyledContent(
+                files_changed
+                    .to_string()
+                    .attribute(Attribute::Bold)
+                    .with(highlight)
+            ),
+            Print(format!(" {} changed, ", file)),
+            PrintStyledContent(
+                insertions
+                    .to_string()
+                    .attribute(Attribute::Bold)
+                    .with(Color::Green)
+            ),
+            Print(format!(" {}, ", inserts)),
+            PrintStyledContent(
+                deletions
+                    .to_string()
+                    .attribute(Attribute::Bold)
+                    .with(Color::Red)
+            ),
+            Print(format!("{}", delets)),
+            Print("\r\n"),
+            ResetColor,
+        )?;
+    } else {
+        execute!(
+            stdout(),
+            Print(format!(
+                "\n[{} {}] {}\n {} {} changed, {} {}, {} {}\n",
+                branch_name,
+                short,
+                commit_msg,
+                files_changed,
+                file,
+                insertions,
+                inserts,
+                deletions,
+                delets,
+            ))
+        )?;
+    };
 
     Ok(())
 }
