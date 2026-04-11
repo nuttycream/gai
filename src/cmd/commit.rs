@@ -1,4 +1,5 @@
 use serde_json::Value;
+use strum::{IntoEnumIterator, VariantNames};
 
 use crate::{
     args::{CommitArgs, GlobalArgs},
@@ -15,7 +16,12 @@ use crate::{
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
     responses::commit::{parse_to_commit_schema, process_commit},
-    schema::{SchemaSettings, commit::create_commit_response_schema},
+    schema::{
+        SchemaSettings,
+        commit::{
+            CommitSchema, PrefixType, create_commit_response_schema,
+        },
+    },
     settings::Settings,
     state::State,
 };
@@ -29,16 +35,33 @@ enum ResponseActions {
     Quit,
 }
 
+#[derive(Debug, Clone)]
+enum EditActions {
+    Next,
+    Previous,
+    Prefix,
+    Scope,
+    Header,
+    Body,
+    Quit,
+}
+
 const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
     (ResponseActions::Apply, 'y', "apply all commit/s"),
     (ResponseActions::Regenerate, 'r', "regenerate commits"),
-    (
-        ResponseActions::Edit,
-        'e',
-        "edit a commit, opens in $EDITOR",
-    ),
+    (ResponseActions::Edit, 'e', "edit a commit"),
     (ResponseActions::Response, 'f', "view the full response"),
     (ResponseActions::Quit, 'q', "quit"),
+];
+
+const EDIT_OPTS: [(EditActions, char, &str); 7] = [
+    (EditActions::Next, 'n', "next commit"),
+    (EditActions::Previous, 'r', "return to previous commit"),
+    (EditActions::Prefix, 'p', "select a new prefix"),
+    (EditActions::Scope, 's', "edit the scope message"),
+    (EditActions::Header, 'h', "edit the header in $EDITOR"),
+    (EditActions::Body, 'b', "edit the body in $EDITOR"),
+    (EditActions::Quit, 'q', "quit"),
 ];
 
 pub fn run(
@@ -202,7 +225,7 @@ fn run_commit(
             }
         };
 
-        let raw_commits =
+        let mut raw_commits =
             parse_to_commit_schema(result, &cfg.staging_type)?;
 
         handle.done();
@@ -255,30 +278,23 @@ fn run_commit(
                     break;
                 }
                 ResponseActions::Edit => {
-                    let commits: Vec<String> = raw_commits
-                        .iter()
-                        .map(|c| c.to_string())
-                        .collect();
+                    let edited =
+                        edit_commits(&renderer, &raw_commits)?;
 
-                    // going to copy the commit
-                    // then just do an inplace
-                    // replace after
-                    let commit_to_edit =
-                        match print::input::fuzzy_to_idx(
+                    if !edited.is_empty() {
+                        raw_commits = edited;
+
+                        print::commits::response_commits(
                             &renderer,
-                            "Which commit? ",
-                            &commits,
-                        )? {
-                            InputType::Number(idx) => {
-                                commits[idx].to_owned()
-                            }
-                            _ => {
-                                continue;
-                            }
-                        };
+                            &raw_commits,
+                            matches!(
+                                cfg.staging_type,
+                                StagingStrategy::Hunks
+                            ),
+                        )?;
+                    }
 
-                    let new_commit_msg =
-                        crate::utils::open::edit(&commit_to_edit)?;
+                    continue;
                 }
                 ResponseActions::Response => {
                     print::commits::full_response(
@@ -303,4 +319,112 @@ fn run_commit(
     }
 
     Ok(())
+}
+
+fn edit_commits(
+    renderer: &Renderer,
+    commits: &[CommitSchema],
+) -> anyhow::Result<Vec<CommitSchema>> {
+    let mut res: Vec<CommitSchema> = commits.to_vec();
+
+    // for previous to work properly
+    let mut i = 0;
+    while i < res.len() {
+        let mut edited = res[i].to_owned();
+
+        let msg = format!(
+            "{}\n({}/{}) Edit what?",
+            edited.just_the_header(),
+            i + 1,
+            commits.len(),
+        );
+
+        loop {
+            let action =
+                Menu::new(&msg, &EDIT_OPTS).render(renderer)?;
+
+            match action {
+                EditActions::Next => {
+                    res[i] = edited.to_owned();
+                    i = i.saturating_add(1);
+
+                    break;
+                }
+                EditActions::Previous => {
+                    // im assuming the user wants
+                    // to save the progress here and
+                    // go back?
+                    res[i] = edited.to_owned();
+
+                    if i > 0 {
+                        i = i.saturating_sub(1);
+                    }
+                    break;
+                }
+                EditActions::Prefix => {
+                    // grab variants and have user fuzzy find them
+                    // i feel this is decent ux, if its atrocious
+                    // we can change it
+                    let variants = PrefixType::VARIANTS
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<String>>();
+
+                    let idx = match print::input::fuzzy_to_idx(
+                        renderer, "prefix: ", &variants,
+                    )? {
+                        InputType::Number(idx) => idx,
+                        _ => continue,
+                    };
+
+                    edited.prefix = PrefixType::iter()
+                        .nth(idx)
+                        .unwrap();
+
+                    continue;
+                }
+                EditActions::Scope => {
+                    edited.scope = Some(print::input::prompt(
+                        renderer, "scope: ",
+                    )?);
+
+                    continue;
+                }
+                EditActions::Header => {
+                    let new_header =
+                        crate::utils::open::edit(&edited.header)?;
+
+                    edited.header = new_header
+                        .trim()
+                        .to_string();
+
+                    continue;
+                }
+                EditActions::Body => {
+                    let body_text = edited
+                        .body
+                        .as_deref()
+                        .unwrap_or("");
+
+                    let new_body =
+                        crate::utils::open::edit(body_text)?;
+
+                    edited.body = Some(
+                        new_body
+                            .trim()
+                            .to_string(),
+                    );
+
+                    continue;
+                }
+
+                EditActions::Quit => {
+                    res[i] = edited.to_owned();
+                    return Ok(res);
+                }
+            }
+        }
+    }
+
+    Ok(res)
 }
