@@ -85,6 +85,7 @@ pub struct CommitSchema {
     pub body: Option<String>,
 }
 
+// full display
 impl fmt::Display for CommitSchema {
     fn fmt(
         &self,
@@ -110,6 +111,33 @@ impl fmt::Display for CommitSchema {
         }
 
         Ok(())
+    }
+}
+
+impl CommitSchema {
+    /// return just the commit header including
+    /// prefix, scope, breaking, and header
+    /// use CommitSchema::to_string() if you want the full
+    /// commit including the body
+    pub(crate) fn just_the_header(&self) -> String {
+        let mut s = String::new();
+
+        s.push_str(&format!("{}", self.prefix));
+
+        if let Some(ref scope) = self.scope {
+            s.push_str(&format!("({})", scope));
+        }
+
+        if self
+            .breaking
+            .unwrap_or(false)
+        {
+            s.push('?');
+        }
+
+        s.push_str(&format!(": {}", self.header));
+
+        s
     }
 }
 
