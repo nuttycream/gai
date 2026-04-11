@@ -358,12 +358,7 @@ fn event_handler(
         }
     }
 
-    execute!(
-        out,
-        cursor::Show,
-        LeaveAlternateScreen,
-        terminal::DisableLineWrap
-    )?;
+    execute!(out, cursor::Show, LeaveAlternateScreen,)?;
     disable_raw_mode()?;
 
     Ok(())
