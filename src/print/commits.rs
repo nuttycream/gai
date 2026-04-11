@@ -480,7 +480,12 @@ fn response_lines(
             }
 
             // gotta find the matching filediff then
-            // render its hunks
+            // render its hunks, note:
+            // this was partly llm generated
+            // id like to refactor this out completely
+            // and have some sort of simplified
+            // way of showing this, i feel its
+            // redundant to parse through it like this
             if let Some(file_diff) = diffs
                 .files
                 .iter()
