@@ -1,10 +1,11 @@
 use crossterm::{
     cursor::{self},
     event::{Event, KeyCode, KeyEvent, KeyModifiers},
-    style::{Print, Stylize},
+    queue,
+    style::{Print, ResetColor, SetForegroundColor, Stylize},
     terminal,
 };
-use std::io::{Write, stdout};
+use std::io::{Write, stdin, stdout};
 
 use super::{InputHistory, renderer::Renderer};
 
@@ -138,6 +139,37 @@ fn draw_input(
     }
 
     out.flush()
+}
+
+pub(crate) fn prompt(
+    renderer: &Renderer,
+    prompt: &str,
+) -> anyhow::Result<String> {
+    let mut out = stdout();
+
+    if renderer
+        .style
+        .allow_colors
+    {
+        queue!(
+            out,
+            SetForegroundColor(
+                renderer
+                    .style
+                    .highlight
+            )
+        )?;
+    }
+
+    queue!(out, Print(&prompt), ResetColor)?;
+
+    out.flush()?;
+    let mut input = String::new();
+    stdin().read_line(&mut input)?;
+
+    Ok(input
+        .trim_end()
+        .to_string())
 }
 
 /// Input prompt
