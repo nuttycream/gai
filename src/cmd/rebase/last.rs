@@ -1,8 +1,7 @@
 use git2::Oid;
 
-use crate::{
-    git::{GitRepo, commit::find_parent_commit, log::get_logs},
-    print::input_prompt,
+use crate::git::{
+    GitRepo, commit::find_parent_commit, log::get_logs,
 };
 
 pub(super) fn rebase_last(
@@ -59,15 +58,7 @@ fn last_n_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
     let n: usize;
 
     loop {
-        let input =
-            match input_prompt("Specify a valid number", None)? {
-                Some(i) => i,
-                None => {
-                    println!("Exiting...");
-                    return Ok(None);
-                }
-            };
-
+        let input = "42";
         match input.parse::<usize>() {
             Ok(v) => {
                 if v == 0 {
