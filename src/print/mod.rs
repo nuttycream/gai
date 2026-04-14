@@ -13,4 +13,4 @@ pub mod style;
 pub mod tree;
 
 pub use history::InputHistory;
-pub use input::{input_prompt, option_prompt, retry_prompt};
+pub use input::{option_prompt, retry_prompt};

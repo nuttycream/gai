@@ -172,14 +172,6 @@ pub(crate) fn prompt(
         .to_string())
 }
 
-/// Input prompt
-pub fn input_prompt(
-    prompt: &str,
-    history: Option<&mut InputHistory>,
-) -> anyhow::Result<Option<String>> {
-    Ok(None)
-}
-
 // prints multiple choice prompt
 // does not require to add Exit to
 // option list, if Exit is selected

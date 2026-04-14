@@ -4,8 +4,8 @@ use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
     print::{
-        InputHistory, find::print, input_prompt, retry_prompt,
-        spinner,
+        menu::Menu, renderer::Renderer, retry_prompt,
+        spinner::SpinnerBuilder, style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
@@ -14,11 +14,31 @@ use crate::{
     state::State,
 };
 
+#[derive(Debug, Clone)]
+enum ResponseActions {
+    Checkout,
+    ReQuery,
+    Full,
+    Retry,
+    Quit,
+}
+
+const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
+    (ResponseActions::Checkout, 'c', "checkout the commit"),
+    (ResponseActions::Full, 'f', "see full commit information"),
+    (ResponseActions::ReQuery, 'a', "retry with a another query"),
+    (ResponseActions::Retry, 'r', "retry with the same query"),
+    (ResponseActions::Quit, 'q', "quit"),
+];
+
 pub fn run(
     args: &FindArgs,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
     let state = State::new(None, global)?;
+
+    let renderer =
+        Renderer::new(StyleConfig::default(), global.compact)?;
 
     let count = args.number;
 
@@ -90,29 +110,23 @@ pub fn run(
     };
 
     let schema = create_find_schema(schema_settings, count)?;
-    let mut history = InputHistory::default();
 
-    let mut query = String::new();
+    let query = String::new();
     let mut should_retry = false;
 
     loop {
         let q = if should_retry {
             query.to_owned()
         } else {
-            match input_prompt(
-                "What is your query?",
-                Some(&mut history),
-            )? {
-                Some(q) => {
-                    query = q.to_owned();
-                    q
-                }
-                None => break,
-            }
+            crate::print::input::prompt(
+                &renderer,
+                "What do you want to search for? ",
+            )?
         };
 
-        let text =
-            format!("Querying through your commits for \"{}\"", q);
+        let handle = SpinnerBuilder::new()
+            .text("Searching through commits")
+            .start(&renderer);
 
         let req = create_find_request(&state.settings, &log_strs, &q);
 
@@ -130,8 +144,10 @@ pub fn run(
         ) {
             Ok(r) => r,
             Err(e) => {
-                let msg = format!(
-                    "Gai received an error from the provider:\n{:#}",
+                handle.error();
+
+                eprintln!(
+                    "gai received an error from the provider:\n{:#}",
                     e
                 );
 
@@ -145,41 +161,38 @@ pub fn run(
 
         let result = parse_to_find_schema(response)?;
 
+        handle.done();
+
         let log = logs.git_logs[result.commit_id as usize].to_owned();
 
-        let reasoning = if args.reasoning {
-            Some(
-                result
-                    .reasoning
-                    .as_str(),
-            )
-        } else {
-            None
-        };
+        let reasoning = result
+            .reasoning
+            .as_str();
 
-        let opt =
-            print(&log, args.files, reasoning, result.confidence)?;
+        crate::print::find::found_commit(
+            &renderer,
+            &log,
+            reasoning,
+            result.confidence,
+        )?;
 
-        match opt {
-            0 => {
-                println!("Checking out {}", log.commit_hash);
+        match Menu::new("What do you want to do? ", &RESPONSE_OPTS)
+            .render(&renderer)?
+        {
+            ResponseActions::Checkout => {
                 checkout_commit(&state.git.repo, &log.commit_hash)?;
                 break;
             }
-            1 => {
-                println!("Entering another query...");
+            ResponseActions::ReQuery => {
                 should_retry = false;
                 continue;
             }
-            2 => {
-                println!("Retrying...");
+            ResponseActions::Full => todo!(),
+            ResponseActions::Retry => {
                 should_retry = true;
                 continue;
             }
-            _ => {
-                println!("Exiting...");
-                break;
-            }
+            ResponseActions::Quit => break,
         }
     }
 

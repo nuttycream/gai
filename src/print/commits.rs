@@ -664,7 +664,7 @@ fn response_lines(
     lines
 }
 
-fn prefix_color(prefix: &PrefixType) -> Color {
+pub(super) fn prefix_color(prefix: &PrefixType) -> Color {
     match prefix {
         PrefixType::Feat => Color::Green,
         PrefixType::Fix => Color::Red,
