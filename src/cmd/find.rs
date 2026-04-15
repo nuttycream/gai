@@ -26,7 +26,7 @@ enum ResponseActions {
 const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
     (ResponseActions::Checkout, 'c', "checkout the commit"),
     (ResponseActions::Full, 'f', "see full commit information"),
-    (ResponseActions::ReQuery, 'a', "retry with a another query"),
+    (ResponseActions::ReQuery, 'a', "retry with another query"),
     (ResponseActions::Retry, 'r', "retry with the same query"),
     (ResponseActions::Quit, 'q', "quit"),
 ];

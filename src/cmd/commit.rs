@@ -32,7 +32,6 @@ enum ResponseActions {
     Apply,
     Regenerate,
     Edit,
-    Response,
     Quit,
 }
 
@@ -47,11 +46,10 @@ enum EditActions {
     Quit,
 }
 
-const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
+const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
     (ResponseActions::Apply, 'y', "apply all commit/s"),
     (ResponseActions::Regenerate, 'r', "regenerate commits"),
     (ResponseActions::Edit, 'e', "edit a commit"),
-    (ResponseActions::Response, 'f', "view the full response"),
     (ResponseActions::Quit, 'q', "quit"),
 ];
 
@@ -321,15 +319,6 @@ fn run_commit(
                             ),
                         )?;
                     }
-
-                    continue;
-                }
-                ResponseActions::Response => {
-                    print::commits::full_response(
-                        &renderer,
-                        &raw_commits,
-                        &diffs,
-                    )?;
 
                     continue;
                 }
