@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use termcolor::Color;
 
 /// configurable styling
 /// available styles
@@ -19,7 +19,7 @@ impl Default for StyleConfig {
             allow_colors: true,
 
             primary: Color::White,
-            secondary: Color::DarkGrey,
+            secondary: Color::Magenta,
             tertiary: Color::Yellow,
             highlight: Color::Blue,
             error: Color::Red,

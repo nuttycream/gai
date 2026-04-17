@@ -1,10 +1,9 @@
-use crossterm::style::{ContentStyle, Print};
-use std::collections::HashSet;
+use std::{collections::HashSet, io::Write};
+use termcolor::ColorSpec;
 
 // this is a tree printing util that helps
 // pretty printing trees
 // it's a modified version of the original
-// arena graph that used crossterm
 // this time however, it also takes heavy
 // inspiration from the `tui-rs-tree-widget`
 // crate that implements ratatui's widget trait
@@ -12,8 +11,6 @@ use std::collections::HashSet;
 // the main difference, being this doesn't
 // have state  since i dont plan on having
 // interactivity for this.
-//
-// styling is done by crossterm
 
 /// tui-rs-tree-widget esque TreeItem
 /// while identifier is not really being used
@@ -27,7 +24,7 @@ pub struct TreeItem<Identifier> {
 
     text: String,
 
-    style: ContentStyle,
+    style: ColorSpec,
 }
 
 /// A Tree which can be rendered
@@ -41,7 +38,7 @@ pub struct Tree<'a, Identifier> {
     padding_top: usize,
     padding_bottom: usize,
 
-    style: ContentStyle,
+    style: ColorSpec,
 
     collapsed: bool,
 
@@ -77,7 +74,7 @@ where
             identifier,
             text,
             children: Vec::new(),
-            style: ContentStyle::default(),
+            style: ColorSpec::new(),
         }
     }
 
@@ -111,14 +108,14 @@ where
             identifier,
             text,
             children,
-            style: ContentStyle::default(),
+            style: ColorSpec::new(),
         })
     }
 
     /// text content styling
     pub fn style(
         mut self,
-        style: ContentStyle,
+        style: ColorSpec,
     ) -> Self {
         self.style = style;
         self
@@ -186,7 +183,7 @@ where
             padding_left: 0,
             padding_top: 0,
             padding_bottom: 0,
-            style: ContentStyle::default(),
+            style: ColorSpec::new(),
             collapsed: false,
             other_child,
             other_entry,
@@ -197,7 +194,10 @@ where
 
     /// render tree
     /// using console-rs styling
-    pub fn render(self) {
+    pub fn render(
+        self,
+        out: &mut impl Write,
+    ) {
         if self
             .items
             .is_empty()
@@ -207,37 +207,25 @@ where
 
         // top
         for _ in 0..self.padding_top {
-            crossterm::queue!(std::io::stdout(), Print("\n")).ok();
+            write!(out, "\n").ok();
         }
 
         let flattened = flatten(self.items, &[], self.collapsed, 0);
 
         for flat in flattened.iter() {
-            let prefix = self
-                .style
-                .apply(self.prefix(&flat.is_last_at_depth));
+            let prefix = self.prefix(&flat.is_last_at_depth);
 
             let text = flat
                 .item
-                .style
-                .apply(
-                    flat.item
-                        .text
-                        .to_owned(),
-                );
+                .text
+                .to_owned();
 
-            crossterm::queue!(
-                std::io::stdout(),
-                Print(prefix),
-                Print(text),
-                Print("\r\n")
-            )
-            .ok();
+            write!(out, "{}{}\r\n", prefix, text).ok();
         }
 
         // bottom
         for _ in 0..self.padding_bottom {
-            crossterm::queue!(std::io::stdout(), Print("\n")).ok();
+            write!(out, "\n").ok();
         }
     }
 
@@ -257,18 +245,12 @@ where
         let flattened = flatten(self.items, &[], self.collapsed, 0);
 
         for flat in flattened.iter() {
-            let prefix = self
-                .style
-                .apply(self.prefix(&flat.is_last_at_depth));
+            let prefix = self.prefix(&flat.is_last_at_depth);
 
             let text = flat
                 .item
-                .style
-                .apply(
-                    flat.item
-                        .text
-                        .to_owned(),
-                );
+                .text
+                .to_owned();
 
             s.push_str(&format!("{prefix}{text}\n"));
         }
@@ -279,7 +261,7 @@ where
     /// prefix styling
     pub fn style(
         mut self,
-        style: ContentStyle,
+        style: ColorSpec,
     ) -> Self {
         self.style = style;
         self

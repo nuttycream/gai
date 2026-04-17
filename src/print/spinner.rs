@@ -6,20 +6,14 @@
 // alot of the code here has been reused from the
 // library
 
-use crossterm::{
-    cursor, execute, queue,
-    style::{Print, ResetColor, SetForegroundColor},
-    terminal,
-};
 use std::{
     borrow::Cow,
-    io::{Write, stdout},
+    io::Write,
     sync::mpsc::{Receiver, Sender, TryRecvError, channel},
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
-
-use super::renderer::Renderer;
+use termcolor::{ColorChoice, StandardStream, WriteColor};
 
 type Str = Cow<'static, str>;
 
@@ -78,10 +72,7 @@ impl SpinnerBuilder {
     /// # Panics
     ///
     /// If no text and spinner have been set.
-    pub fn start(
-        self,
-        renderer: &Renderer,
-    ) -> SpinnerHandle {
+    pub fn start(self) -> SpinnerHandle {
         assert!(self.text.is_some());
 
         let (tx, rx) = channel();
@@ -90,7 +81,7 @@ impl SpinnerBuilder {
             rx,
         };
 
-        spinner.start(tx, renderer)
+        spinner.start(tx)
     }
 }
 
@@ -98,27 +89,12 @@ impl Spinner {
     fn start(
         self,
         tx: Sender<SpinnerCommand>,
-        renderer: &Renderer,
     ) -> SpinnerHandle {
-        let colors = renderer
-            .style
-            .allow_colors;
-
-        let primary = renderer
-            .style
-            .primary;
-
-        let highlight = renderer
-            .style
-            .highlight;
-
         let handle = thread::spawn(move || {
-            let mut out = stdout();
+            let mut out = StandardStream::stdout(ColorChoice::Auto);
 
             let start = Instant::now();
             let mut tick: usize = 0;
-
-            execute!(out, cursor::Hide).ok();
 
             let mut stop_msg = String::new();
             loop {
@@ -155,13 +131,7 @@ impl Spinner {
 
                 // Continue with the animation.
                 // 1. Delete current line.
-                queue!(
-                    out,
-                    terminal::Clear(terminal::ClearType::CurrentLine)
-                )
-                .unwrap();
-
-                queue!(out, cursor::MoveToColumn(0)).unwrap();
+                write!(out, "\r").ok();
 
                 let dots = DOTS[tick % DOTS.len()];
                 let elapsed = start
@@ -179,57 +149,31 @@ impl Spinner {
                         right =
                             format!("{} ({elapsed:.1}s)", stop_msg);
 
-                        if colors {
-                            queue!(
-                                out,
-                                SetForegroundColor(primary),
-                                Print(&left),
-                                Print(" ".repeat(pad)),
-                                SetForegroundColor(highlight),
-                                Print(&right),
-                                Print("\r\n"),
-                                ResetColor,
-                            )
-                            .ok();
-                        } else {
-                            queue!(
-                                out,
-                                Print(&left),
-                                Print(" ".repeat(pad)),
-                                Print(&right),
-                                Print("\r\n"),
-                            )
-                            .ok();
-                        }
+                        writeln!(
+                            out,
+                            "{}{}{}",
+                            &left,
+                            " ".repeat(pad),
+                            &right,
+                        )
+                        .ok();
                     }
 
                     out.flush().unwrap();
 
-                    execute!(out, cursor::Show).ok();
-
                     break; // Breaks out of the animation loop
                 }
 
-                if colors {
-                    queue!(
-                        out,
-                        SetForegroundColor(primary),
-                        Print(&left),
-                        Print(" ".repeat(pad)),
-                        SetForegroundColor(highlight),
-                        Print(&right),
-                        ResetColor,
-                    )
-                    .ok();
-                } else {
-                    queue!(
-                        out,
-                        Print(&left),
-                        Print(" ".repeat(pad)),
-                        Print(&right),
-                    )
-                    .ok();
-                }
+                write!(
+                    out,
+                    "{}{}{}",
+                    &left,
+                    " ".repeat(pad),
+                    &right,
+                )
+                .ok();
+
+                out.reset().ok();
 
                 out.flush().ok();
 

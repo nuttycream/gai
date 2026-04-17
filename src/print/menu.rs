@@ -1,16 +1,13 @@
 /// a util for displaying an columned menu
 /// originally a style for dialoguer-rs
-/// rewritten for crossterm
 ///
 /// admittedly kinda jank. and some hacky ways
 /// were implemented for clearing lines
 /// we need to handle wrapping lines + resized
 /// terminals
-use crossterm::{
-    queue,
-    style::{Print, ResetColor, SetAttribute, SetForegroundColor},
-};
 use std::io::{Write, stdin, stdout};
+
+use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use super::renderer::Renderer;
 
@@ -60,7 +57,6 @@ impl<T: Clone> Menu<T> {
         }
     }
 
-    /// draws an columned menu, with crossterm
     /// event handling, this is a generic
     /// function that should and would be handled
     /// by higher level functions
@@ -86,24 +82,9 @@ impl<T: Clone> Menu<T> {
         if renderer
             .style
             .allow_colors
-        {
-            queue!(
-                out,
-                SetForegroundColor(
-                    renderer
-                        .style
-                        .highlight
-                )
-            )?;
-        }
+        {}
 
-        queue!(
-            out,
-            Print(&self.prompt),
-            Print(" "),
-            Print(&form),
-            ResetColor
-        )?;
+        write!(out, "{} {}", &self.prompt, &form,)?;
 
         out.flush()?;
 
@@ -119,6 +100,8 @@ impl<T: Clone> Menu<T> {
             return self.render(renderer);
         };
 
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+
         if let Some(item) = self
             .items
             .iter()
@@ -127,11 +110,14 @@ impl<T: Clone> Menu<T> {
             match &item.val {
                 Some(v) => return Ok(v.to_owned()),
                 None if item.keybind == '?' => {
-                    self.help(renderer, &mut out)?;
+                    self.help(renderer, &mut stdout)?;
                     return self.render(renderer);
                 }
                 None => {
-                    return Err(anyhow::anyhow!("invalid val").into());
+                    anyhow::bail!(
+                        "no matching val? {}",
+                        item.keybind
+                    );
                 }
             }
         } else {
@@ -139,20 +125,16 @@ impl<T: Clone> Menu<T> {
                 .style
                 .allow_colors
             {
-                queue!(
-                    out,
-                    SetForegroundColor(renderer.style.error),
-                    SetAttribute(crossterm::style::Attribute::Bold)
+                stdout.set_color(
+                    ColorSpec::new()
+                        .set_fg(Some(renderer.style.error))
+                        .set_bold(true),
                 )?;
             }
 
-            queue!(
-                out,
-                Print(ch),
-                Print(" is not a valid option, see ?"),
-                Print("\r\n"),
-                ResetColor,
-            )?;
+            writeln!(stdout, "{ch} is not a valid option, see ?")?;
+
+            stdout.reset()?;
 
             return self.render(renderer);
         }
@@ -161,37 +143,28 @@ impl<T: Clone> Menu<T> {
     fn help(
         &self,
         renderer: &Renderer,
-        out: &mut impl Write,
+        out: &mut StandardStream,
     ) -> anyhow::Result<()> {
         if renderer
             .style
             .allow_colors
         {
-            queue!(
-                out,
-                SetForegroundColor(
-                    renderer
-                        .style
-                        .tertiary
-                ),
-                SetAttribute(crossterm::style::Attribute::Bold)
+            out.set_color(
+                ColorSpec::new()
+                    .set_fg(Some(
+                        renderer
+                            .style
+                            .tertiary,
+                    ))
+                    .set_bold(true),
             )?;
         }
 
         for item in self.items.iter() {
-            let item = item.to_owned();
-
-            queue!(
-                out,
-                Print(" "),
-                Print(item.keybind),
-                Print(" - "),
-                Print(item.description),
-                Print("\r\n"),
-            )?;
+            writeln!(out, "{} - {}", item.keybind, item.description)?;
         }
 
-        queue!(out, ResetColor)?;
+        out.reset()?;
 
         Ok(())
     }

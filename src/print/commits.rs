@@ -1,12 +1,5 @@
-use crossterm::{
-    execute,
-    style::{
-        Attribute, Color, ContentStyle, Print, PrintStyledContent,
-        ResetColor, SetForegroundColor, Stylize,
-    },
-    terminal::{self},
-};
 use std::io::stdout;
+use termcolor::Color;
 
 use crate::schema::commit::{CommitSchema, PrefixType};
 
@@ -26,36 +19,8 @@ pub fn response_commits(
 ) -> anyhow::Result<()> {
     let mut items = Vec::new();
 
-    let allow_colors = renderer
-        .style
-        .allow_colors;
-
-    let width = terminal::size()?.1;
-    let max_length = width.saturating_sub(3) as usize;
-
-    // avoiding the rewriting of treeitem, since it takes
-    // in a style
-    let no = ContentStyle::new();
-
-    let dim = if allow_colors {
-        ContentStyle::new().attribute(Attribute::Dim)
-    } else {
-        no
-    };
-
-    let white = if allow_colors {
-        ContentStyle::new().with(Color::White)
-    } else {
-        no
-    };
-
-    let magenta_dim = if allow_colors {
-        ContentStyle::new()
-            .with(Color::Magenta)
-            .attribute(Attribute::Dim)
-    } else {
-        no
-    };
+    let width: usize = 80;
+    let max_length = width.saturating_sub(3);
 
     for (i, commit) in commits
         .iter()
@@ -72,8 +37,7 @@ pub fn response_commits(
             let header_item = TreeItem::new_leaf(
                 format!("commit_{}_header", i),
                 &commit.header,
-            )
-            .style(white);
+            );
 
             commit_children.push(header_item);
         }
@@ -92,8 +56,7 @@ pub fn response_commits(
             };
 
             let body_item =
-                TreeItem::new_leaf("body".to_owned(), &body)
-                    .style(dim);
+                TreeItem::new_leaf("body".to_owned(), &body);
 
             commit_children.push(body_item);
         }
@@ -146,8 +109,7 @@ pub fn response_commits(
                 let hunks_item = TreeItem::new_leaf(
                     format!("{}_hunks", file),
                     &hunks_display,
-                )
-                .style(dim);
+                );
 
                 file_children.push(hunks_item);
 
@@ -155,15 +117,13 @@ pub fn response_commits(
                     file.clone(),
                     file_display,
                     file_children,
-                )?
-                .style(magenta_dim);
+                )?;
 
                 //commit_children.push(file_item);
                 files.push(file_item);
             } else {
                 let file_item =
-                    TreeItem::new_leaf(file.clone(), &file_display)
-                        .style(magenta_dim);
+                    TreeItem::new_leaf(file.clone(), &file_display);
 
                 //commit_children.push(file_item);
                 files.push(file_item);
@@ -176,8 +136,7 @@ pub fn response_commits(
             format!("commit_{}_files", i),
             files_display,
             files,
-        )?
-        .style(dim);
+        )?;
 
         commit_children.push(files_item);
 
@@ -201,13 +160,6 @@ pub fn response_commits(
                 .to_lowercase(),
         };
 
-        let colored = if allow_colors {
-            let color = prefix_color(&commit.prefix);
-            ContentStyle::new().with(color)
-        } else {
-            no
-        };
-
         let commit_idx = format!("[{}]", i + 1);
 
         let display = if renderer.compact {
@@ -227,8 +179,7 @@ pub fn response_commits(
         let for_fuzzy_id = format!("{}: {}", prefix, commit.header);
 
         let item =
-            TreeItem::new(for_fuzzy_id, display, commit_children)?
-                .style(colored);
+            TreeItem::new(for_fuzzy_id, display, commit_children)?;
 
         items.push(item);
     }
@@ -236,15 +187,14 @@ pub fn response_commits(
     if !items.is_empty() {
         Tree::new(&items)?
             .collapsed(renderer.compact)
-            .style(dim)
-            .render();
+            .render(&mut stdout());
     }
 
     Ok(())
 }
 
 pub(crate) fn completed_commit(
-    renderer: &Renderer,
+    _renderer: &Renderer,
     branch_name: &str,
     hash: &str,
     commit_msg: &str,
@@ -253,108 +203,40 @@ pub(crate) fn completed_commit(
     deletions: usize,
 ) -> anyhow::Result<()> {
     let short = &hash[..7];
-
     let file = if files_changed == 1 { "file" } else { "files" };
-
     let inserts = if insertions == 1 {
         "insertion(+)"
     } else {
         "insertions(+)"
     };
-
     let delets = if deletions == 1 {
         "deletion(-)"
     } else {
         "deletions(-)"
     };
 
-    if renderer
-        .style
-        .allow_colors
-    {
-        let primary = renderer
-            .style
-            .primary;
-
-        let secondary = renderer
-            .style
-            .secondary;
-        let tertiary = renderer
-            .style
-            .tertiary;
-        let highlight = renderer
-            .style
-            .highlight;
-
-        execute!(
-            stdout(),
-            SetForegroundColor(primary),
-            Print("\r\n["),
-            PrintStyledContent(
-                branch_name
-                    .attribute(Attribute::Bold)
-                    .with(tertiary)
-            ),
-            Print(" "),
-            PrintStyledContent(short.with(secondary)),
-            Print("] "),
-            PrintStyledContent(commit_msg.with(highlight)),
-            Print("\r\n "),
-            PrintStyledContent(
-                files_changed
-                    .to_string()
-                    .attribute(Attribute::Bold)
-                    .with(highlight)
-            ),
-            Print(format!(" {} changed, ", file)),
-            PrintStyledContent(
-                insertions
-                    .to_string()
-                    .attribute(Attribute::Bold)
-                    .with(Color::Green)
-            ),
-            Print(format!(" {}, ", inserts)),
-            PrintStyledContent(
-                deletions
-                    .to_string()
-                    .attribute(Attribute::Bold)
-                    .with(Color::Red)
-            ),
-            Print(format!(" {}", delets)),
-            Print("\r\n"),
-            ResetColor,
-        )?;
-    } else {
-        execute!(
-            stdout(),
-            Print(format!(
-                "\n[{} {}] {}\n {} {} changed, {} {}, {} {}\n",
-                branch_name,
-                short,
-                commit_msg,
-                files_changed,
-                file,
-                insertions,
-                inserts,
-                deletions,
-                delets,
-            ))
-        )?;
-    };
+    println!(
+        "\n[{} {}] {}\n {} {} changed, {} {}, {} {}\n",
+        branch_name,
+        short,
+        commit_msg,
+        files_changed,
+        file,
+        insertions,
+        inserts,
+        deletions,
+        delets,
+    );
 
     Ok(())
 }
 
-pub(super) fn prefix_color(prefix: &PrefixType) -> Color {
+pub(super) fn _prefix_color(prefix: &PrefixType) -> Color {
     match prefix {
         PrefixType::Feat => Color::Green,
         PrefixType::Fix => Color::Red,
         //urange
-        PrefixType::Refactor => Color::Rgb {
-            r: 255,
-            g: 127,
-            b: 80,
-        },
+        PrefixType::Refactor => Color::Rgb(255, 127, 80),
         _ => Color::White,
     }
 }
