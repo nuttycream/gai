@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use strum::{Display, EnumIter};
 
-use crate::schema::SchemaSettings;
-
 use super::{
     gai::GaiConfig, gemini::GeminiConfig, openai::OpenAIConfig,
 };
@@ -105,13 +103,6 @@ impl ProviderSettings {
             ProviderKind::Gemini => &self.gemini.model,
             ProviderKind::Claude => "not yet implemented",
             ProviderKind::Gai => &self.gai.model,
-        }
-    }
-
-    pub fn schema_settings() -> SchemaSettings {
-        SchemaSettings {
-            additional_properties: todo!(),
-            allow_min_max_ints: todo!(),
         }
     }
 }

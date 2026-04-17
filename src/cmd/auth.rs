@@ -73,7 +73,7 @@ pub fn get_token() -> Result<String> {
     Ok(token)
 }
 
-fn store_token(token: &str) -> Result<()> {
+fn _store_token(token: &str) -> Result<()> {
     if token.is_empty() {
         return Err(anyhow::anyhow!("token cannot be empty"));
     }
