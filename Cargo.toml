@@ -10,7 +10,6 @@ anyhow = "1.0.100"
 chrono = { version = "0.4.42", default-features = false, features = ["alloc", "now"] }
 clap = { version = "4.5.48", default-features = false, features = ["derive", "std", "help", "color", "usage", "suggestions", "error-context"] }
 config = { version = "0.15.19", default-features = false, features = ["toml"] }
-crossterm = { version = "0.29.0", default-features = false }
 directories = { version = "6.0.0", default-features = false }
 dotenv = "0.15.0"
 git2 = { git = "https://github.com/rust-lang/git2-rs.git", default-features = false}
@@ -19,6 +18,7 @@ llmao = { git = "https://github.com/nuttycream/llmao", branch = "main", version 
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
 strum = { version = "0.27.2", default-features = false, features = ["derive", "strum_macros"] }
+termcolor = { version = "1.4.1", default-features = false }
 ureq = { version = "3.1.4", default-features = false, features = ["json", "rustls"] }
 
 [profile.dev]
