@@ -5,17 +5,16 @@ use crate::{
         GitRepo,
         branch::{find_divergence_branch, get_diverged_branches},
     },
-    print::{option_prompt, rebase::print_branches_info},
+    print::{input, renderer::Renderer, style::StyleConfig},
 };
 
 pub(super) fn rebase_branch(
     git: &GitRepo,
     div_branch_arg: Option<&str>,
     interactive: bool,
-    compact: bool,
 ) -> anyhow::Result<Option<Oid>> {
     if interactive {
-        return divergence_flow(git, compact);
+        return divergence_flow(git);
     }
 
     if let Some(div_branch_arg) = div_branch_arg {
@@ -33,24 +32,22 @@ pub(super) fn rebase_branch(
     }
 }
 
-fn divergence_flow(
-    repo: &GitRepo,
-    compact: bool,
-) -> anyhow::Result<Option<Oid>> {
+fn divergence_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
+    let renderer = Renderer::new(StyleConfig::default(), false)?;
     let branches = get_diverged_branches(&repo.repo)?;
 
-    let opts = print_branches_info(&branches, compact)?;
+    let typed_branch = input::prompt(&renderer, "Specify branch")?;
 
-    let selected_branch = if let Some(b) =
-        option_prompt(&opts, None, Some("Select a Branch"))?
+    let branch = if let Some(b) = branches
+        .iter()
+        .find(|b| b.name == typed_branch)
     {
         b
     } else {
-        println!("Exiting...");
-        return Ok(None);
+        todo!()
     };
 
-    let commit_oid = if let Some(d) = branches[selected_branch]
+    let commit_oid = if let Some(d) = branch
         .divergence
         .to_owned()
     {

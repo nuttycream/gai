@@ -1,5 +1,4 @@
 use serde_json::Value;
-use strum::{IntoEnumIterator, VariantNames};
 
 use crate::{
     args::{CommitArgs, GlobalArgs},
@@ -11,17 +10,15 @@ use crate::{
         status::get_commit_stats,
     },
     print::{
-        self, input::InputType, menu::Menu, renderer::Renderer,
-        retry_prompt, spinner::SpinnerBuilder, style::StyleConfig,
+        self, menu::Menu, renderer::Renderer,
+        spinner::SpinnerBuilder, style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
     responses::commit::{parse_to_commit_schema, process_commit},
     schema::{
         SchemaSettings,
-        commit::{
-            CommitSchema, PrefixType, create_commit_response_schema,
-        },
+        commit::{CommitSchema, create_commit_response_schema},
     },
     settings::Settings,
     state::State,
@@ -191,16 +188,12 @@ fn run_commit(
     git: GitRepo,
     mut diffs: Diffs,
 ) -> anyhow::Result<()> {
-    print::status::provider_info(
-        &renderer,
-        &cfg.provider,
-        &cfg.providers,
-    )?;
+    print::status::provider_info(&cfg.provider, &cfg.providers)?;
 
     loop {
         let handle = SpinnerBuilder::new()
             .text("Generating commits")
-            .start(&renderer);
+            .start();
 
         let result: Value = match extract_from_provider(
             &cfg.provider,
@@ -211,16 +204,9 @@ fn run_commit(
             Err(e) => {
                 handle.error();
 
-                eprintln!(
-                    "gai received an error from the provider:\n{:#}",
-                    e
-                );
+                eprintln!("error from the provider:\n{:#}", e);
 
-                if retry_prompt(None)? {
-                    continue;
-                } else {
-                    break;
-                }
+                break;
             }
         };
 
@@ -257,18 +243,11 @@ fn run_commit(
                     ) {
                         Ok(c) => c,
                         Err(e) => {
-                            println!(
-                                "Failed to Apply Commits: {}",
-                                e
+                            eprintln!(
+                                "failed to apply commits:\n{e}",
                             );
 
-                            if retry_prompt(None).unwrap() {
-                                println!("Regenerating...");
-                                continue;
-                            } else {
-                                println!("Exiting");
-                                break;
-                            }
+                            break;
                         }
                     };
 
@@ -382,23 +361,7 @@ fn edit_commits(
                     // grab variants and have user fuzzy find them
                     // i feel this is decent ux, if its atrocious
                     // we can change it
-                    let variants = PrefixType::VARIANTS
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<String>>();
-
-                    let idx = match print::input::fuzzy_to_idx(
-                        renderer, "prefix: ", &variants,
-                    )? {
-                        InputType::Number(idx) => idx,
-                        _ => continue,
-                    };
-
-                    edited.prefix = PrefixType::iter()
-                        .nth(idx)
-                        .unwrap();
-
-                    continue;
+                    todo!();
                 }
                 EditActions::Scope => {
                     edited.scope = Some(print::input::prompt(

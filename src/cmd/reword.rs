@@ -13,7 +13,7 @@ use crate::{
         utils::get_head_repo,
     },
     print::{
-        commits::response_commits, renderer::Renderer, retry_prompt,
+        commits::response_commits, renderer::Renderer,
         style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
@@ -151,16 +151,9 @@ pub fn run(
         ) {
             Ok(r) => r,
             Err(e) => {
-                let msg = format!(
-                    "Gai received an error from the provider:\n{:#}\nRetry?",
-                    e
-                );
+                eprintln!("error from the provider:\n{:#}", e);
 
-                if retry_prompt(Some(&msg))? {
-                    continue;
-                } else {
-                    break;
-                }
+                break;
             }
         };
 

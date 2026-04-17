@@ -2,7 +2,6 @@ use serde_json::Value;
 
 use crate::{
     git::Diffs,
-    print::{rebase_plan::print_rebase_plan, retry_prompt, spinner},
     providers::extract_from_provider,
     requests::rebase_plan::create_rebase_plan_request,
     responses::rebase_plan::parse_from_rebase_plan_schema,
@@ -48,34 +47,27 @@ pub(super) fn gen_plan(
         ) {
             Ok(r) => r,
             Err(e) => {
-                let msg = format!(
-                    "Gai received an error from the provider:\n{:#}\nRetry?",
-                    e
-                );
-
-                if retry_prompt(Some(&msg))? {
-                    continue;
-                } else {
-                    break;
-                }
+                eprintln!("error from the provider:\n{e}");
+                break;
             }
         };
 
-        let raw_ops = parse_from_rebase_plan_schema(response)?;
+        let _raw_ops = parse_from_rebase_plan_schema(response)?;
         //println!("{:#?}", raw_ops);
 
-        if let Some(opt) = print_rebase_plan(&raw_ops, false)? {
-            if opt == 0 {
-                println!("Applying");
-                return Ok(Some(raw_ops));
-            } else if opt == 1 {
-                println!("Regenerating");
-                continue;
-            }
-        } else {
-            println!("Exiting");
-            return Ok(None);
-        }
+        return Ok(None);
+        // if let Some(opt) = print_rebase_plan(&raw_ops, false)? {
+        //     if opt == 0 {
+        //         println!("Applying");
+        //         return Ok(Some(raw_ops));
+        //     } else if opt == 1 {
+        //         println!("Regenerating");
+        //         continue;
+        //     }
+        // } else {
+        //     println!("Exiting");
+        //     return Ok(None);
+        // }
     }
 
     Ok(None)

@@ -25,8 +25,7 @@ use crate::{
         utils::get_head_repo,
     },
     print::{
-        commits::response_commits, input::retry_prompt,
-        option_prompt, renderer::Renderer, spinner,
+        commits::response_commits, renderer::Renderer,
         style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
@@ -101,12 +100,9 @@ pub fn run(
     let mut trailing_commits: Option<Vec<String>> = None;
 
     let diverge_from = if let Some(ref div_branch_arg) = args.branch {
-        if let Some(oid) = rebase_branch(
-            &state.git,
-            Some(div_branch_arg),
-            false,
-            global.compact,
-        )? {
+        if let Some(oid) =
+            rebase_branch(&state.git, Some(div_branch_arg), false)?
+        {
             oid
         } else {
             return Ok(());
@@ -135,35 +131,36 @@ pub fn run(
             None => return Ok(()),
         }
     } else {
-        let options = [
+        // TODO maybe get rid of interactive flow?
+        let _options = [
             "Commits Since Divergence",
             "Last Number of Commits",
             "Specify Commit Range",
         ];
 
-        let selected_flow = if let Some(s) = option_prompt(
-            &options,
-            None,
-            Some("Select a Scope for the Rebase Operation"),
-        )? {
-            s
-        } else {
-            println!("Exiting...");
-            return Ok(());
-        };
+        // TODO: menu
+        todo!();
 
+        // let selected_flow = if let Some(s) = option_prompt(
+        //     &options,
+        //     None,
+        //     Some("Select a Scope for the Rebase Operation"),
+        // )? {
+        //     s
+        // } else {
+        //     println!("Exiting...");
+        //     return Ok(());
+        // };
+
+        #[allow(unreachable_code)]
+        let selected_flow = 1;
         match selected_flow {
             0 => {
                 // handle commits since divergence
                 // user can pick a branch, then run the logic
                 // to find where it diverged from head
                 // colllect all commits from that point to head
-                match rebase_branch(
-                    &state.git,
-                    None,
-                    true,
-                    global.compact,
-                )? {
+                match rebase_branch(&state.git, None, true)? {
                     Some(oid) => oid,
                     None => return Ok(()),
                 }
@@ -348,16 +345,9 @@ pub fn run(
         ) {
             Ok(r) => r,
             Err(e) => {
-                let msg = format!(
-                    "Gai received an error from the provider:\n{:#}\nRetry?",
-                    e
-                );
+                eprintln!("error from the provider:\n{:#}", e);
 
-                if retry_prompt(Some(&msg))? {
-                    continue;
-                } else {
-                    break;
-                }
+                break;
             }
         };
 
@@ -561,15 +551,9 @@ fn apply(
             Ok(false)
         }
         Err(e) => {
-            let msg = format!("Failed to Apply Commits: {}", e);
+            eprintln!("failed to apply commits:\n{e}");
 
-            if retry_prompt(Some(&msg))? {
-                println!("Regenerating...");
-                Ok(true)
-            } else {
-                println!("Exiting");
-                Ok(false)
-            }
+            Ok(false)
         }
     }
 }

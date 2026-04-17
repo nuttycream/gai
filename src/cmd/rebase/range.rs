@@ -1,14 +1,11 @@
 use git2::Oid;
 
-use crate::{
-    git::{
-        GitRepo,
-        commit::find_parent_commit,
-        log::{get_logs, get_short_hash},
-        rebase::trailing_commits,
-        utils::get_head_repo,
-    },
-    print::log::print_logs,
+use crate::git::{
+    GitRepo,
+    commit::find_parent_commit,
+    log::{get_logs, get_short_hash},
+    rebase::trailing_commits,
+    utils::get_head_repo,
 };
 
 /// stores additional range info
@@ -107,33 +104,13 @@ fn specify_range_flow(
     }
 
     loop {
+        todo!();
         // logs are ordered newwest, so we use
         // older and newer terms
         // to avoid confusion with list position
-        let first = match print_logs(
-            &logs.git_logs,
-            Some("Select the starting range"),
-            Some(10),
-        )? {
-            Some(s) => s,
-            None => {
-                println!("Exiting...");
-                return Ok(None);
-            }
-        };
-
-        let second = match print_logs(
-            &logs.git_logs,
-            Some("Select the ending range"),
-            Some(10),
-        )? {
-            Some(s) => s,
-            None => {
-                println!("Exiting...");
-                return Ok(None);
-            }
-        };
-
+        #[allow(unreachable_code)]
+        let first = 1;
+        let second = 2;
         // auto sort
         let (from_idx, to_idx) = if first > second {
             (first, second)

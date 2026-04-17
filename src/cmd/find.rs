@@ -4,8 +4,8 @@ use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
     print::{
-        menu::Menu, renderer::Renderer, retry_prompt,
-        spinner::SpinnerBuilder, style::StyleConfig,
+        menu::Menu, renderer::Renderer, spinner::SpinnerBuilder,
+        style::StyleConfig,
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
@@ -126,7 +126,7 @@ pub fn run(
 
         let handle = SpinnerBuilder::new()
             .text("Searching through commits")
-            .start(&renderer);
+            .start();
 
         let req = create_find_request(&state.settings, &log_strs, &q);
 
@@ -146,16 +146,9 @@ pub fn run(
             Err(e) => {
                 handle.error();
 
-                eprintln!(
-                    "gai received an error from the provider:\n{:#}",
-                    e
-                );
+                eprintln!("error from the provider:\n{:#}", e);
 
-                if retry_prompt(None)? {
-                    continue;
-                } else {
-                    break;
-                }
+                break;
             }
         };
 
