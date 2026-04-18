@@ -7,8 +7,6 @@
 /// terminals
 use std::io::{Write, stdin, stdout};
 
-use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
-
 use super::renderer::Renderer;
 
 #[derive(Debug)]
@@ -79,11 +77,6 @@ impl<T: Clone> Menu<T> {
 
         let form = format!("[{}]: ", opts.join(","));
 
-        if renderer
-            .style
-            .allow_colors
-        {}
-
         write!(out, "{} {}", &self.prompt, &form,)?;
 
         out.flush()?;
@@ -100,7 +93,7 @@ impl<T: Clone> Menu<T> {
             return self.render(renderer);
         };
 
-        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+        let mut stdout = stdout();
 
         if let Some(item) = self
             .items
@@ -121,20 +114,9 @@ impl<T: Clone> Menu<T> {
                 }
             }
         } else {
-            if renderer
-                .style
-                .allow_colors
-            {
-                stdout.set_color(
-                    ColorSpec::new()
-                        .set_fg(Some(renderer.style.error))
-                        .set_bold(true),
-                )?;
-            }
-
             writeln!(stdout, "{ch} is not a valid option, see ?")?;
 
-            stdout.reset()?;
+            stdout.flush()?;
 
             return self.render(renderer);
         }
@@ -142,29 +124,12 @@ impl<T: Clone> Menu<T> {
 
     fn help(
         &self,
-        renderer: &Renderer,
-        out: &mut StandardStream,
+        _renderer: &Renderer,
+        out: &mut impl Write,
     ) -> anyhow::Result<()> {
-        if renderer
-            .style
-            .allow_colors
-        {
-            out.set_color(
-                ColorSpec::new()
-                    .set_fg(Some(
-                        renderer
-                            .style
-                            .tertiary,
-                    ))
-                    .set_bold(true),
-            )?;
-        }
-
         for item in self.items.iter() {
             writeln!(out, "{} - {}", item.keybind, item.description)?;
         }
-
-        out.reset()?;
 
         Ok(())
     }

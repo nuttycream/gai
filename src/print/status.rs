@@ -1,5 +1,4 @@
-use std::io::Write;
-use termcolor::{ColorChoice, StandardStream};
+use std::io::{Write, stdout};
 
 use crate::{
     git::status::{FileStatus, StatusItemType},
@@ -12,10 +11,12 @@ pub fn provider_info(
     provider: &ProviderKind,
     provider_settings: &ProviderSettings,
 ) -> anyhow::Result<()> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+    let mut stdout = stdout();
     let model = provider_settings.get_model(provider);
 
-    writeln!(stdout, "Provider: {provider}\nModel: {model}",)?;
+    writeln!(stdout, "Provider: {provider}\nModel: {model}")?;
+
+    stdout.flush()?;
 
     Ok(())
 }
@@ -26,7 +27,7 @@ pub fn repo_status(
     working_dir_statuses: &[FileStatus],
     compact: bool,
 ) -> anyhow::Result<()> {
-    let mut out = StandardStream::stdout(ColorChoice::Always);
+    let mut out = stdout();
 
     let mut modified = Vec::new();
     let mut new = Vec::new();
@@ -136,7 +137,7 @@ pub fn repo_status(
         )?);
     }
 
-    writeln!(out, "On branch: {}", branch,)?;
+    writeln!(out, "On branch: {}", branch)?;
 
     if !root_items.is_empty() {
         Tree::new(&root_items)?

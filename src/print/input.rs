@@ -1,30 +1,14 @@
-use std::io::{Write, stdin};
-use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
+use std::io::{Write, stdin, stdout};
 
 use super::renderer::Renderer;
 
 pub(crate) fn prompt(
-    renderer: &Renderer,
+    _renderer: &Renderer,
     prompt: &str,
 ) -> anyhow::Result<String> {
-    let mut out = StandardStream::stdout(ColorChoice::Auto);
-
-    if renderer
-        .style
-        .allow_colors
-    {
-        out.set_color(
-            ColorSpec::new().set_fg(Some(
-                renderer
-                    .style
-                    .highlight,
-            )),
-        )?;
-    }
+    let mut out = stdout();
 
     write!(out, "{}", &prompt)?;
-
-    out.reset()?;
 
     out.flush()?;
     let mut input = String::new();

@@ -1,30 +1,17 @@
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream};
+use owo_colors::Style;
+use std::io::stdout;
 
 use crate::{git::log::GitLog, schema::find::Confidence};
 
 use super::{renderer::Renderer, tree::Tree, tree::TreeItem};
 
 pub fn found_commit(
-    renderer: &Renderer,
+    _renderer: &Renderer,
     commit: &GitLog,
     _reasoning: &str,
-    confidence: Confidence,
+    _confidence: Confidence,
 ) -> anyhow::Result<()> {
-    let mut out = StandardStream::stdout(ColorChoice::Auto);
-
-    let allow_colors = renderer
-        .style
-        .allow_colors;
-
-    let _conf_color = if allow_colors {
-        match confidence {
-            Confidence::Exact => Color::Green,
-            Confidence::Likely => Color::Yellow,
-            Confidence::Ambiguous => Color::Magenta,
-        }
-    } else {
-        Color::White
-    };
+    let mut out = stdout();
 
     //let commit_color = prefix_color(commit.prefix);
     let mut children = Vec::new();
@@ -83,7 +70,7 @@ pub fn found_commit(
             display.to_string(),
             children,
         )?
-        .style(ColorSpec::new()),
+        .style(Style::new()),
     ];
 
     Tree::new(&tree)?.render(&mut out);

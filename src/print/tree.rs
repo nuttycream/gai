@@ -1,5 +1,5 @@
+use owo_colors::Style;
 use std::{collections::HashSet, io::Write};
-use termcolor::ColorSpec;
 
 // this is a tree printing util that helps
 // pretty printing trees
@@ -24,7 +24,7 @@ pub struct TreeItem<Identifier> {
 
     text: String,
 
-    style: ColorSpec,
+    style: Style,
 }
 
 /// A Tree which can be rendered
@@ -38,7 +38,7 @@ pub struct Tree<'a, Identifier> {
     padding_top: usize,
     padding_bottom: usize,
 
-    style: ColorSpec,
+    style: Style,
 
     collapsed: bool,
 
@@ -74,7 +74,7 @@ where
             identifier,
             text,
             children: Vec::new(),
-            style: ColorSpec::new(),
+            style: Style::new(),
         }
     }
 
@@ -108,14 +108,14 @@ where
             identifier,
             text,
             children,
-            style: ColorSpec::new(),
+            style: Style::new(),
         })
     }
 
     /// text content styling
     pub fn style(
         mut self,
-        style: ColorSpec,
+        style: Style,
     ) -> Self {
         self.style = style;
         self
@@ -183,7 +183,7 @@ where
             padding_left: 0,
             padding_top: 0,
             padding_bottom: 0,
-            style: ColorSpec::new(),
+            style: Style::new(),
             collapsed: false,
             other_child,
             other_entry,
@@ -261,7 +261,7 @@ where
     /// prefix styling
     pub fn style(
         mut self,
-        style: ColorSpec,
+        style: Style,
     ) -> Self {
         self.style = style;
         self

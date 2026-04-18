@@ -1,28 +1,26 @@
-use termcolor::Color;
+use owo_colors::Style;
 
 /// configurable styling
 /// available styles
 #[derive(Debug, Clone)]
 pub struct StyleConfig {
-    pub allow_colors: bool,
+    pub primary: Style,
+    pub secondary: Style,
+    pub highlight: Style,
 
-    pub primary: Color,
-    pub secondary: Color,
-    pub tertiary: Color,
-    pub highlight: Color,
-    pub error: Color,
+    pub warning: Style,
+    pub error: Style,
 }
 
 impl Default for StyleConfig {
     fn default() -> Self {
         Self {
-            allow_colors: true,
+            primary: Style::new().white(),
+            secondary: Style::new().magenta(),
+            highlight: Style::new().blue(),
 
-            primary: Color::White,
-            secondary: Color::Magenta,
-            tertiary: Color::Yellow,
-            highlight: Color::Blue,
-            error: Color::Red,
+            warning: Style::new().yellow(),
+            error: Style::new().red(),
         }
     }
 }

@@ -1,7 +1,6 @@
-use std::io::stdout;
-use termcolor::Color;
+use std::io::{Write, stdout};
 
-use crate::schema::commit::{CommitSchema, PrefixType};
+use crate::schema::commit::CommitSchema;
 
 use super::{
     renderer::Renderer,
@@ -202,6 +201,8 @@ pub(crate) fn completed_commit(
     insertions: usize,
     deletions: usize,
 ) -> anyhow::Result<()> {
+    let mut out = stdout();
+
     let short = &hash[..7];
     let file = if files_changed == 1 { "file" } else { "files" };
     let inserts = if insertions == 1 {
@@ -215,7 +216,8 @@ pub(crate) fn completed_commit(
         "deletions(-)"
     };
 
-    println!(
+    write!(
+        out,
         "\n[{} {}] {}\n {} {} changed, {} {}, {} {}\n",
         branch_name,
         short,
@@ -226,17 +228,7 @@ pub(crate) fn completed_commit(
         inserts,
         deletions,
         delets,
-    );
+    )?;
 
     Ok(())
-}
-
-pub(super) fn _prefix_color(prefix: &PrefixType) -> Color {
-    match prefix {
-        PrefixType::Feat => Color::Green,
-        PrefixType::Fix => Color::Red,
-        //urange
-        PrefixType::Refactor => Color::Rgb(255, 127, 80),
-        _ => Color::White,
-    }
 }

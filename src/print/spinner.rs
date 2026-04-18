@@ -8,12 +8,11 @@
 
 use std::{
     borrow::Cow,
-    io::Write,
+    io::{Write, stdout},
     sync::mpsc::{Receiver, Sender, TryRecvError, channel},
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
-use termcolor::{ColorChoice, StandardStream, WriteColor};
 
 type Str = Cow<'static, str>;
 
@@ -91,7 +90,7 @@ impl Spinner {
         tx: Sender<SpinnerCommand>,
     ) -> SpinnerHandle {
         let handle = thread::spawn(move || {
-            let mut out = StandardStream::stdout(ColorChoice::Auto);
+            let mut out = stdout();
 
             let start = Instant::now();
             let mut tick: usize = 0;
@@ -172,8 +171,6 @@ impl Spinner {
                     &right,
                 )
                 .ok();
-
-                out.reset().ok();
 
                 out.flush().ok();
 
