@@ -15,10 +15,10 @@ dotenv = "0.15.0"
 git2 = { git = "https://github.com/rust-lang/git2-rs.git", default-features = false}
 humantime = { version = "2.3.0", default-features = false }
 llmao = { git = "https://github.com/nuttycream/llmao", branch = "main", version = "0.0.2" }
+owo-colors = { version = "4.3.0", default-features = false }
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
 strum = { version = "0.27.2", default-features = false, features = ["derive", "strum_macros"] }
-termcolor = { version = "1.4.1", default-features = false }
 ureq = { version = "3.1.4", default-features = false, features = ["json", "rustls"] }
 
 [profile.dev]
