@@ -1,6 +1,6 @@
 use std::io::{Write, stdout};
 
-use crate::schema::commit::CommitSchema;
+use crate::{print::utils::tput_size, schema::commit::CommitSchema};
 
 use super::tree::{Tree, TreeItem};
 
@@ -14,8 +14,8 @@ pub fn response_commits(
 ) -> anyhow::Result<()> {
     let mut items = Vec::new();
 
-    let width: usize = 80;
-    let max_length = width.saturating_sub(3);
+    let (width, _) = tput_size().unwrap_or((80, 100));
+    let max_length = width.saturating_sub(5) as usize;
 
     for (i, commit) in commits
         .iter()
