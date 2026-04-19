@@ -137,7 +137,7 @@ pub fn repo_status(
         )?);
     }
 
-    writeln!(out, "On branch: {}", branch)?;
+    writeln!(out, "On branch: {}", branch,)?;
 
     if !root_items.is_empty() {
         Tree::new(&root_items)?

@@ -1,3 +1,4 @@
+use owo_colors::OwoColorize;
 use serde_json::Value;
 
 use crate::{
@@ -13,10 +14,7 @@ use crate::{
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
     responses::commit::{parse_to_commit_schema, process_commit},
-    schema::{
-        SchemaSettings,
-        commit::{CommitSchema, create_commit_response_schema},
-    },
+    schema::{SchemaSettings, commit::create_commit_response_schema},
     settings::Settings,
     state::State,
 };
@@ -34,10 +32,7 @@ enum EditActions {
     Next,
     Previous,
     Remove,
-    Prefix,
-    Scope,
-    Header,
-    Body,
+    Message,
     Quit,
 }
 
@@ -48,14 +43,11 @@ const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
     (ResponseActions::Quit, 'q', "quit"),
 ];
 
-const EDIT_OPTS: [(EditActions, char, &str); 8] = [
+const EDIT_OPTS: [(EditActions, char, &str); 5] = [
     (EditActions::Next, 'n', "next commit"),
     (EditActions::Previous, 'r', "return to previous commit"),
     (EditActions::Remove, 'd', "remove commit from list"),
-    (EditActions::Prefix, 'p', "select a new prefix"),
-    (EditActions::Scope, 's', "edit the scope message"),
-    (EditActions::Header, 'h', "edit the header in $EDITOR"),
-    (EditActions::Body, 'b', "edit the body in $EDITOR"),
+    (EditActions::Message, 'm', "edit commit message in $EDITOR"),
     (EditActions::Quit, 'q', "quit"),
 ];
 
@@ -115,6 +107,19 @@ pub fn run(
         diff_strategy.ignored_files = files_to_ignore.to_owned();
     }
 
+    print::status::provider_info(
+        &state
+            .settings
+            .provider,
+        &state
+            .settings
+            .providers,
+    )?;
+
+    let handle = SpinnerBuilder::new()
+        .text("Generating request")
+        .start();
+
     state.diffs = get_diffs_from_statuses(
         &state.git.repo,
         &state.git.workdir,
@@ -126,7 +131,12 @@ pub fn run(
         .files
         .is_empty()
     {
-        println!("Repository does not have any known changes.");
+        println!(
+            "{}",
+            "Repository does not have any known changes."
+                .yellow()
+                .bold()
+        );
         return Ok(());
     }
 
@@ -164,6 +174,8 @@ pub fn run(
     /* println!("{}", serde_json::to_string_pretty(&schema)?);
     println!("{:#?}", req); */
 
+    handle.done();
+
     run_commit(req, schema, state.settings, state.git, state.diffs)?;
 
     Ok(())
@@ -176,8 +188,6 @@ fn run_commit(
     git: GitRepo,
     mut diffs: Diffs,
 ) -> anyhow::Result<()> {
-    print::status::provider_info(&cfg.provider, &cfg.providers)?;
-
     loop {
         let handle = SpinnerBuilder::new()
             .text("Generating commits")
@@ -198,7 +208,7 @@ fn run_commit(
             }
         };
 
-        let mut raw_commits =
+        let raw_commits =
             parse_to_commit_schema(result, &cfg.staging_type)?;
 
         handle.done();
@@ -207,6 +217,12 @@ fn run_commit(
             &raw_commits,
             matches!(cfg.staging_type, StagingStrategy::Hunks),
         )?;
+
+        let mut git_commits: Vec<GitCommit> = raw_commits
+            .iter()
+            .cloned()
+            .map(|c| process_commit(c, &cfg))
+            .collect();
 
         let mut regenerate = false;
 
@@ -217,12 +233,6 @@ fn run_commit(
 
             match selected {
                 ResponseActions::Apply => {
-                    let git_commits: Vec<GitCommit> = raw_commits
-                        .iter()
-                        .cloned()
-                        .map(|c| process_commit(c, &cfg))
-                        .collect();
-
                     let oids = match apply_commits(
                         &git.repo,
                         &git_commits,
@@ -250,8 +260,9 @@ fn run_commit(
                             deletions,
                         ) = get_commit_stats(&git.repo, &oid)?;
 
-                        let commit_msg =
-                            raw_commits[i].just_the_header();
+                        let commit_msg = git_commits[i]
+                            .message
+                            .to_owned();
 
                         print::commits::completed_commit(
                             &branch_name,
@@ -270,10 +281,10 @@ fn run_commit(
                     break;
                 }
                 ResponseActions::Edit => {
-                    let edited = edit_commits(&raw_commits)?;
+                    let edited = edit_commits(&git_commits)?;
 
                     if !edited.is_empty() {
-                        raw_commits = edited;
+                        git_commits = edited;
 
                         print::commits::response_commits(
                             &raw_commits,
@@ -303,9 +314,9 @@ fn run_commit(
 }
 
 fn edit_commits(
-    commits: &[CommitSchema]
-) -> anyhow::Result<Vec<CommitSchema>> {
-    let mut res: Vec<CommitSchema> = commits.to_vec();
+    commits: &[GitCommit]
+) -> anyhow::Result<Vec<GitCommit>> {
+    let mut res: Vec<GitCommit> = commits.to_vec();
 
     // for previous to work properly
     let mut i = 0;
@@ -314,7 +325,11 @@ fn edit_commits(
 
         let msg = format!(
             "{}\n({}/{}) Edit what?",
-            edited.just_the_header(),
+            edited
+                .message
+                .lines()
+                .next()
+                .unwrap_or(""),
             i + 1,
             res.len(),
         );
@@ -344,46 +359,16 @@ fn edit_commits(
                     res.remove(i);
                     break;
                 }
-                EditActions::Prefix => {
-                    // grab variants and have user fuzzy find them
-                    // i feel this is decent ux, if its atrocious
-                    // we can change it
-                    todo!();
-                }
-                EditActions::Scope => {
-                    edited.scope =
-                        Some(print::input::prompt("scope: ")?);
+                EditActions::Message => {
+                    let new_message =
+                        crate::utils::open::edit(&edited.message)?;
 
-                    continue;
-                }
-                EditActions::Header => {
-                    let new_header =
-                        crate::utils::open::edit(&edited.header)?;
-
-                    edited.header = new_header
+                    edited.message = new_message
                         .trim()
                         .to_string();
 
                     continue;
                 }
-                EditActions::Body => {
-                    let body_text = edited
-                        .body
-                        .as_deref()
-                        .unwrap_or("");
-
-                    let new_body =
-                        crate::utils::open::edit(body_text)?;
-
-                    edited.body = Some(
-                        new_body
-                            .trim()
-                            .to_string(),
-                    );
-
-                    continue;
-                }
-
                 EditActions::Quit => {
                     res[i] = edited.to_owned();
                     return Ok(res);

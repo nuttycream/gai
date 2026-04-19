@@ -7,6 +7,8 @@
 /// terminals
 use std::io::{Write, stdin, stdout};
 
+use owo_colors::OwoColorize;
+
 #[derive(Debug)]
 pub(crate) struct Menu<T> {
     prompt: String,
@@ -72,7 +74,15 @@ impl<T: Clone> Menu<T> {
 
         let form = format!("[{}]: ", opts.join(","));
 
-        write!(out, "{} {}", &self.prompt, &form,)?;
+        write!(
+            out,
+            "{} {}",
+            &self
+                .prompt
+                .blue()
+                .bold(),
+            &form.blue(),
+        )?;
 
         out.flush()?;
 
@@ -122,7 +132,15 @@ impl<T: Clone> Menu<T> {
         out: &mut impl Write,
     ) -> anyhow::Result<()> {
         for item in self.items.iter() {
-            writeln!(out, "{} - {}", item.keybind, item.description)?;
+            writeln!(
+                out,
+                "{} - {}",
+                item.keybind
+                    .yellow()
+                    .bold(),
+                item.description
+                    .yellow()
+            )?;
         }
 
         Ok(())

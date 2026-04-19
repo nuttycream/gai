@@ -14,6 +14,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use owo_colors::OwoColorize;
+
 type Str = Cow<'static, str>;
 
 const COL: usize = 30;
@@ -107,10 +109,16 @@ impl Spinner {
                             if let Some(s) = s {
                                 match s {
                                     StopType::Done => {
-                                        stop_msg = "done".to_string()
+                                        stop_msg = "done"
+                                            .green()
+                                            .bold()
+                                            .to_string()
                                     }
                                     StopType::Error => {
-                                        stop_msg = "error".to_string()
+                                        stop_msg = "error"
+                                            .red()
+                                            .bold()
+                                            .to_string()
                                     }
                                 }
                             } else {
@@ -138,22 +146,23 @@ impl Spinner {
                     .as_secs_f64();
 
                 let mut left = format!("{}{}", self.text, dots);
-                let mut right = format!("({elapsed:.0}s)");
+                let right = format!("({elapsed:.0}s)");
                 let pad = COL.saturating_sub(left.len());
 
                 // 2. Check if we can early-stop.
                 if should_stop_cycle_loop {
                     if !should_clear_line {
                         left = format!("{}...", self.text);
-                        right =
-                            format!("{} ({elapsed:.1}s)", stop_msg);
+                        let time = format!("({elapsed:.1}s)");
+                        let pad = COL.saturating_sub(left.len());
 
                         writeln!(
                             out,
-                            "{}{}{}",
-                            &left,
+                            "{}{}{} {}",
+                            &left.blue(),
                             " ".repeat(pad),
-                            &right,
+                            &stop_msg,
+                            &time,
                         )
                         .ok();
                     }
@@ -166,7 +175,7 @@ impl Spinner {
                 write!(
                     out,
                     "{}{}{}",
-                    &left,
+                    &left.blue(),
                     " ".repeat(pad),
                     &right,
                 )

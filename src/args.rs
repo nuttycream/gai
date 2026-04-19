@@ -42,11 +42,6 @@ pub struct Cli {
 
 #[derive(Debug, Args)]
 pub struct GlobalArgs {
-    /// Allow color to be printed in the terminal
-    /// Defaults to auto
-    #[arg(long)]
-    pub allow_color: bool,
-
     /// Override config option for this command
     #[arg(
         short = 'c',
