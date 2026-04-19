@@ -24,7 +24,6 @@ use crate::{
 #[derive(Debug, Clone)]
 enum ResponseActions {
     Apply,
-    Selectively,
     Regenerate,
     Edit,
     Quit,
@@ -34,6 +33,7 @@ enum ResponseActions {
 enum EditActions {
     Next,
     Previous,
+    Remove,
     Prefix,
     Scope,
     Header,
@@ -41,17 +41,17 @@ enum EditActions {
     Quit,
 }
 
-const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
+const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
     (ResponseActions::Apply, 'y', "apply all commit/s"),
-    (ResponseActions::Selectively, 's', "select commits to apply"),
     (ResponseActions::Regenerate, 'r', "regenerate commits"),
     (ResponseActions::Edit, 'e', "edit a commit"),
     (ResponseActions::Quit, 'q', "quit"),
 ];
 
-const EDIT_OPTS: [(EditActions, char, &str); 7] = [
+const EDIT_OPTS: [(EditActions, char, &str); 8] = [
     (EditActions::Next, 'n', "next commit"),
     (EditActions::Previous, 'r', "return to previous commit"),
+    (EditActions::Remove, 'd', "remove commit from list"),
     (EditActions::Prefix, 'p', "select a new prefix"),
     (EditActions::Scope, 's', "edit the scope message"),
     (EditActions::Header, 'h', "edit the header in $EDITOR"),
@@ -265,9 +265,6 @@ fn run_commit(
 
                     break;
                 }
-                ResponseActions::Selectively => {
-                    todo!();
-                }
                 ResponseActions::Regenerate => {
                     regenerate = true;
                     break;
@@ -319,7 +316,7 @@ fn edit_commits(
             "{}\n({}/{}) Edit what?",
             edited.just_the_header(),
             i + 1,
-            commits.len(),
+            res.len(),
         );
 
         loop {
@@ -341,6 +338,10 @@ fn edit_commits(
                     if i > 0 {
                         i = i.saturating_sub(1);
                     }
+                    break;
+                }
+                EditActions::Remove => {
+                    res.remove(i);
                     break;
                 }
                 EditActions::Prefix => {
