@@ -9,10 +9,7 @@ use crate::{
         diffs::get_diffs_from_statuses,
         status::get_commit_stats,
     },
-    print::{
-        self, menu::Menu, renderer::Renderer,
-        spinner::SpinnerBuilder, style::StyleConfig,
-    },
+    print::{self, menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
     responses::commit::{parse_to_commit_schema, process_commit},
@@ -27,6 +24,7 @@ use crate::{
 #[derive(Debug, Clone)]
 enum ResponseActions {
     Apply,
+    Selectively,
     Regenerate,
     Edit,
     Quit,
@@ -43,8 +41,9 @@ enum EditActions {
     Quit,
 }
 
-const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
+const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
     (ResponseActions::Apply, 'y', "apply all commit/s"),
+    (ResponseActions::Selectively, 's', "select commits to apply"),
     (ResponseActions::Regenerate, 'r', "regenerate commits"),
     (ResponseActions::Edit, 'e', "edit a commit"),
     (ResponseActions::Quit, 'q', "quit"),
@@ -77,9 +76,6 @@ pub fn run(
         .hint = global
         .hint
         .to_owned();
-
-    let renderer =
-        Renderer::new(StyleConfig::default(), global.compact)?;
 
     if args.staged {
         state
@@ -168,14 +164,7 @@ pub fn run(
     /* println!("{}", serde_json::to_string_pretty(&schema)?);
     println!("{:#?}", req); */
 
-    run_commit(
-        req,
-        schema,
-        renderer,
-        state.settings,
-        state.git,
-        state.diffs,
-    )?;
+    run_commit(req, schema, state.settings, state.git, state.diffs)?;
 
     Ok(())
 }
@@ -183,7 +172,6 @@ pub fn run(
 fn run_commit(
     req: Request,
     schema: Value,
-    renderer: Renderer,
     cfg: Settings,
     git: GitRepo,
     mut diffs: Diffs,
@@ -216,7 +204,6 @@ fn run_commit(
         handle.done();
 
         print::commits::response_commits(
-            &renderer,
             &raw_commits,
             matches!(cfg.staging_type, StagingStrategy::Hunks),
         )?;
@@ -224,8 +211,9 @@ fn run_commit(
         let mut regenerate = false;
 
         loop {
-            let selected = Menu::new("Apply all?", &RESPONSE_OPTS)
-                .render(&renderer)?;
+            let selected =
+                Menu::new("What do you want to do?", &RESPONSE_OPTS)
+                    .render()?;
 
             match selected {
                 ResponseActions::Apply => {
@@ -266,7 +254,6 @@ fn run_commit(
                             raw_commits[i].just_the_header();
 
                         print::commits::completed_commit(
-                            &renderer,
                             &branch_name,
                             &oid,
                             &commit_msg,
@@ -278,19 +265,20 @@ fn run_commit(
 
                     break;
                 }
+                ResponseActions::Selectively => {
+                    todo!();
+                }
                 ResponseActions::Regenerate => {
                     regenerate = true;
                     break;
                 }
                 ResponseActions::Edit => {
-                    let edited =
-                        edit_commits(&renderer, &raw_commits)?;
+                    let edited = edit_commits(&raw_commits)?;
 
                     if !edited.is_empty() {
                         raw_commits = edited;
 
                         print::commits::response_commits(
-                            &renderer,
                             &raw_commits,
                             matches!(
                                 cfg.staging_type,
@@ -318,8 +306,7 @@ fn run_commit(
 }
 
 fn edit_commits(
-    renderer: &Renderer,
-    commits: &[CommitSchema],
+    commits: &[CommitSchema]
 ) -> anyhow::Result<Vec<CommitSchema>> {
     let mut res: Vec<CommitSchema> = commits.to_vec();
 
@@ -336,8 +323,7 @@ fn edit_commits(
         );
 
         loop {
-            let action =
-                Menu::new(&msg, &EDIT_OPTS).render(renderer)?;
+            let action = Menu::new(&msg, &EDIT_OPTS).render()?;
 
             match action {
                 EditActions::Next => {
@@ -364,9 +350,8 @@ fn edit_commits(
                     todo!();
                 }
                 EditActions::Scope => {
-                    edited.scope = Some(print::input::prompt(
-                        renderer, "scope: ",
-                    )?);
+                    edited.scope =
+                        Some(print::input::prompt("scope: ")?);
 
                     continue;
                 }

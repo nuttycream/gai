@@ -7,8 +7,6 @@
 /// terminals
 use std::io::{Write, stdin, stdout};
 
-use super::renderer::Renderer;
-
 #[derive(Debug)]
 pub(crate) struct Menu<T> {
     prompt: String,
@@ -60,10 +58,7 @@ impl<T: Clone> Menu<T> {
     /// by higher level functions
     /// can take in a max of 9 options
     /// prompt/label is rendered columned if compact
-    pub fn render(
-        self,
-        renderer: &Renderer,
-    ) -> anyhow::Result<T> {
+    pub fn render(self) -> anyhow::Result<T> {
         let mut out = stdout();
 
         let opts = self
@@ -90,7 +85,7 @@ impl<T: Clone> Menu<T> {
             .chars()
             .next()
         else {
-            return self.render(renderer);
+            return self.render();
         };
 
         let mut stdout = stdout();
@@ -103,8 +98,8 @@ impl<T: Clone> Menu<T> {
             match &item.val {
                 Some(v) => return Ok(v.to_owned()),
                 None if item.keybind == '?' => {
-                    self.help(renderer, &mut stdout)?;
-                    return self.render(renderer);
+                    self.help(&mut stdout)?;
+                    return self.render();
                 }
                 None => {
                     anyhow::bail!(
@@ -118,13 +113,12 @@ impl<T: Clone> Menu<T> {
 
             stdout.flush()?;
 
-            return self.render(renderer);
+            return self.render();
         }
     }
 
     fn help(
         &self,
-        _renderer: &Renderer,
         out: &mut impl Write,
     ) -> anyhow::Result<()> {
         for item in self.items.iter() {

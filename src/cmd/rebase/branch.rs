@@ -5,7 +5,7 @@ use crate::{
         GitRepo,
         branch::{find_divergence_branch, get_diverged_branches},
     },
-    print::{input, renderer::Renderer, style::StyleConfig},
+    print::input,
 };
 
 pub(super) fn rebase_branch(
@@ -33,10 +33,9 @@ pub(super) fn rebase_branch(
 }
 
 fn divergence_flow(repo: &GitRepo) -> anyhow::Result<Option<Oid>> {
-    let renderer = Renderer::new(StyleConfig::default(), false)?;
     let branches = get_diverged_branches(&repo.repo)?;
 
-    let typed_branch = input::prompt(&renderer, "Specify branch")?;
+    let typed_branch = input::prompt("Specify branch")?;
 
     let branch = if let Some(b) = branches
         .iter()

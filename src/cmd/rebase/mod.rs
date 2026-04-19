@@ -24,10 +24,7 @@ use crate::{
         status::is_workdir_clean,
         utils::get_head_repo,
     },
-    print::{
-        commits::response_commits, renderer::Renderer,
-        style::StyleConfig,
-    },
+    print::commits::response_commits,
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
     responses::{
@@ -364,10 +361,7 @@ pub fn run(
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let renderer = Renderer::new(StyleConfig::default(), false)?;
-
         response_commits(
-            &renderer,
             &raw_commits,
             matches!(
                 state

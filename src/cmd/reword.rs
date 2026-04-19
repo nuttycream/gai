@@ -12,10 +12,7 @@ use crate::{
         status::is_workdir_clean,
         utils::get_head_repo,
     },
-    print::{
-        commits::response_commits, renderer::Renderer,
-        style::StyleConfig,
-    },
+    print::commits::response_commits,
     providers::{extract_from_provider, provider::ProviderKind},
     requests::reword::create_reword_request,
     responses::reword::{
@@ -165,9 +162,7 @@ pub fn run(
             if raw_commits.len() == 1 { "" } else { "s" }
         );
 
-        let renderer = Renderer::new(StyleConfig::default(), false)?;
-
-        response_commits(&renderer, &raw_commits, false)?;
+        response_commits(&raw_commits, false)?;
 
         let commit_messages: Vec<String> = raw_commits
             .into_iter()

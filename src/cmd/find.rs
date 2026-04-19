@@ -3,10 +3,7 @@ use serde_json::Value;
 use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
-    print::{
-        menu::Menu, renderer::Renderer, spinner::SpinnerBuilder,
-        style::StyleConfig,
-    },
+    print::{menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
     responses::find::parse_to_find_schema,
@@ -36,9 +33,6 @@ pub fn run(
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
     let state = State::new(None, global)?;
-
-    let renderer =
-        Renderer::new(StyleConfig::default(), global.compact)?;
 
     let count = args.number;
 
@@ -119,7 +113,6 @@ pub fn run(
             query.to_owned()
         } else {
             crate::print::input::prompt(
-                &renderer,
                 "What do you want to search for? ",
             )?
         };
@@ -163,14 +156,13 @@ pub fn run(
             .as_str();
 
         crate::print::find::found_commit(
-            &renderer,
             &log,
             reasoning,
             result.confidence,
         )?;
 
         match Menu::new("What do you want to do? ", &RESPONSE_OPTS)
-            .render(&renderer)?
+            .render()?
         {
             ResponseActions::Checkout => {
                 checkout_commit(&state.git.repo, &log.commit_hash)?;

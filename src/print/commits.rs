@@ -2,17 +2,13 @@ use std::io::{Write, stdout};
 
 use crate::schema::commit::CommitSchema;
 
-use super::{
-    renderer::Renderer,
-    tree::{Tree, TreeItem},
-};
+use super::tree::{Tree, TreeItem};
 
 /// display the responsecommits
 /// before converting to usable
 /// git commits
 /// returns an selected option
 pub fn response_commits(
-    renderer: &Renderer,
     commits: &[CommitSchema],
     as_hunks: bool,
 ) -> anyhow::Result<()> {
@@ -26,20 +22,6 @@ pub fn response_commits(
         .enumerate()
     {
         let mut commit_children = Vec::new();
-
-        // if we need to we might have to truncate this
-        // similar to the body, but i foresee this as a non-issue?
-        if !commit
-            .header
-            .is_empty()
-        {
-            let header_item = TreeItem::new_leaf(
-                format!("commit_{}_header", i),
-                &commit.header,
-            );
-
-            commit_children.push(header_item);
-        }
 
         // preview the body if exists
         if let Some(ref body) = commit.body {
@@ -161,15 +143,8 @@ pub fn response_commits(
 
         let commit_idx = format!("[{}]", i + 1);
 
-        let display = if renderer.compact {
-            let prefix = format!("{}: {}", prefix, commit.header);
-
-            format!("{} {}", commit_idx, prefix)
-        } else {
-            let prefix = format!("{}:", prefix);
-
-            format!("{} {}", commit_idx, prefix)
-        };
+        let display =
+            format!("{} {}: {}", commit_idx, prefix, commit.header);
 
         // when we implement
         // fuzzy selection to trim
@@ -184,16 +159,13 @@ pub fn response_commits(
     }
 
     if !items.is_empty() {
-        Tree::new(&items)?
-            .collapsed(renderer.compact)
-            .render(&mut stdout());
+        Tree::new(&items)?.render(&mut stdout());
     }
 
     Ok(())
 }
 
 pub(crate) fn completed_commit(
-    _renderer: &Renderer,
     branch_name: &str,
     hash: &str,
     commit_msg: &str,

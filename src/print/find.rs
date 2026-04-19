@@ -3,10 +3,9 @@ use std::io::stdout;
 
 use crate::{git::log::GitLog, schema::find::Confidence};
 
-use super::{renderer::Renderer, tree::Tree, tree::TreeItem};
+use super::{tree::Tree, tree::TreeItem};
 
 pub fn found_commit(
-    _renderer: &Renderer,
     commit: &GitLog,
     _reasoning: &str,
     _confidence: Confidence,

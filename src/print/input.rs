@@ -1,11 +1,6 @@
 use std::io::{Write, stdin, stdout};
 
-use super::renderer::Renderer;
-
-pub(crate) fn prompt(
-    _renderer: &Renderer,
-    prompt: &str,
-) -> anyhow::Result<String> {
+pub(crate) fn prompt(prompt: &str) -> anyhow::Result<String> {
     let mut out = stdout();
 
     write!(out, "{}", &prompt)?;
