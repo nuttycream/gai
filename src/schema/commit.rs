@@ -114,33 +114,6 @@ impl fmt::Display for CommitSchema {
     }
 }
 
-impl CommitSchema {
-    /// return just the commit header including
-    /// prefix, scope, breaking, and header
-    /// use CommitSchema::to_string() if you want the full
-    /// commit including the body
-    pub(crate) fn just_the_header(&self) -> String {
-        let mut s = String::new();
-
-        s.push_str(&format!("{}", self.prefix));
-
-        if let Some(ref scope) = self.scope {
-            s.push_str(&format!("({})", scope));
-        }
-
-        if self
-            .breaking
-            .unwrap_or(false)
-        {
-            s.push('?');
-        }
-
-        s.push_str(&format!(": {}", self.header));
-
-        s
-    }
-}
-
 /// conventional commit type prefix
 #[derive(
     Clone,

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use git2::{Diff, Oid, Repository};
 
@@ -10,11 +10,27 @@ use super::{
     utils::get_head_repo,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GitCommit {
     pub files: Vec<String>,
     pub hunk_ids: Vec<String>,
     pub message: String,
+}
+
+impl fmt::Display for GitCommit {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.message
+                .lines()
+                .next()
+                .unwrap_or(""),
+        )
+    }
 }
 
 /// struct containing a new and an old version
