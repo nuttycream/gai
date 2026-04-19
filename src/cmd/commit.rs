@@ -323,18 +323,18 @@ fn edit_commits(
     while i < res.len() {
         let mut edited = res[i].to_owned();
 
-        let msg = format!(
-            "{}\n({}/{}) Edit what?",
-            edited
-                .message
-                .lines()
-                .next()
-                .unwrap_or(""),
-            i + 1,
-            res.len(),
-        );
-
         loop {
+            let msg = format!(
+                "{}\n({}/{}) Edit what?",
+                edited
+                    .message
+                    .lines()
+                    .next()
+                    .unwrap_or(""),
+                i + 1,
+                res.len(),
+            );
+
             let action = Menu::new(&msg, &EDIT_OPTS).render()?;
 
             match action {
@@ -366,6 +366,8 @@ fn edit_commits(
                     edited.message = new_message
                         .trim()
                         .to_string();
+
+                    res[i] = edited.to_owned();
 
                     continue;
                 }
