@@ -1,5 +1,6 @@
 use owo_colors::OwoColorize;
 use serde_json::Value;
+use strum::{IntoEnumIterator, VariantNames};
 
 use crate::{
     args::{CommitArgs, GlobalArgs},
@@ -14,7 +15,12 @@ use crate::{
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
     responses::commit::{parse_to_commit_schema, process_commit},
-    schema::{SchemaSettings, commit::create_commit_response_schema},
+    schema::{
+        SchemaSettings,
+        commit::{
+            CommitSchema, PrefixType, create_commit_response_schema,
+        },
+    },
     settings::Settings,
     state::State,
 };
@@ -32,7 +38,10 @@ enum EditActions {
     Next,
     Previous,
     Remove,
-    Message,
+    Prefix,
+    Scope,
+    Header,
+    Body,
     Quit,
 }
 
@@ -43,11 +52,14 @@ const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
     (ResponseActions::Quit, 'q', "quit"),
 ];
 
-const EDIT_OPTS: [(EditActions, char, &str); 5] = [
+const EDIT_OPTS: [(EditActions, char, &str); 8] = [
     (EditActions::Next, 'n', "next commit"),
     (EditActions::Previous, 'r', "return to previous commit"),
     (EditActions::Remove, 'd', "remove commit from list"),
-    (EditActions::Message, 'm', "edit commit message in $EDITOR"),
+    (EditActions::Prefix, 't', "edit prefix"),
+    (EditActions::Scope, 's', "edit scope"),
+    (EditActions::Header, 'h', "edit header"),
+    (EditActions::Body, 'b', "edit body in $EDITOR"),
     (EditActions::Quit, 'q', "quit"),
 ];
 
@@ -208,7 +220,7 @@ fn run_commit(
             }
         };
 
-        let raw_commits =
+        let mut raw_commits =
             parse_to_commit_schema(result, &cfg.staging_type)?;
 
         handle.done();
@@ -217,12 +229,6 @@ fn run_commit(
             &raw_commits,
             matches!(cfg.staging_type, StagingStrategy::Hunks),
         )?;
-
-        let mut git_commits: Vec<GitCommit> = raw_commits
-            .iter()
-            .cloned()
-            .map(|c| process_commit(c, &cfg))
-            .collect();
 
         let mut regenerate = false;
 
@@ -233,6 +239,12 @@ fn run_commit(
 
             match selected {
                 ResponseActions::Apply => {
+                    let git_commits: Vec<GitCommit> = raw_commits
+                        .iter()
+                        .cloned()
+                        .map(|c| process_commit(c, &cfg))
+                        .collect();
+
                     let oids = match apply_commits(
                         &git.repo,
                         &git_commits,
@@ -281,19 +293,15 @@ fn run_commit(
                     break;
                 }
                 ResponseActions::Edit => {
-                    let edited = edit_commits(&git_commits)?;
+                    raw_commits = edit_commits(&raw_commits)?;
 
-                    if !edited.is_empty() {
-                        git_commits = edited;
-
-                        print::commits::response_commits(
-                            &raw_commits,
-                            matches!(
-                                cfg.staging_type,
-                                StagingStrategy::Hunks
-                            ),
-                        )?;
-                    }
+                    print::commits::response_commits(
+                        &raw_commits,
+                        matches!(
+                            cfg.staging_type,
+                            StagingStrategy::Hunks
+                        ),
+                    )?;
 
                     continue;
                 }
@@ -314,9 +322,9 @@ fn run_commit(
 }
 
 fn edit_commits(
-    commits: &[GitCommit]
-) -> anyhow::Result<Vec<GitCommit>> {
-    let mut res: Vec<GitCommit> = commits.to_vec();
+    commits: &[CommitSchema]
+) -> anyhow::Result<Vec<CommitSchema>> {
+    let mut res = commits.to_vec();
 
     // for previous to work properly
     let mut i = 0;
@@ -326,8 +334,9 @@ fn edit_commits(
         loop {
             let msg = format!(
                 "{}\n({}/{}) Edit what?",
+                // sum
                 edited
-                    .message
+                    .to_string()
                     .lines()
                     .next()
                     .unwrap_or(""),
@@ -359,18 +368,82 @@ fn edit_commits(
                     res.remove(i);
                     break;
                 }
-                EditActions::Message => {
-                    let new_message =
-                        crate::utils::open::edit(&edited.message)?;
+                EditActions::Prefix => {
+                    loop {
+                        let raw = print::input::prompt(&format!(
+                            "type [{}]: ",
+                            PrefixType::VARIANTS.join("/")
+                        ))?;
+                        if raw.is_empty() {
+                            break;
+                        } // empty = cancel
 
-                    edited.message = new_message
-                        .trim()
-                        .to_string();
+                        let trimmed = raw.trim();
+
+                        match PrefixType::iter().find(|p| {
+                            p.to_string()
+                                .eq_ignore_ascii_case(trimmed)
+                        }) {
+                            Some(p) => {
+                                edited.prefix = p;
+                                break;
+                            }
+                            None => eprintln!(
+                                "not a valid type, try again"
+                            ),
+                        }
+                    }
+
+                    res[i] = edited.to_owned();
+                    continue;
+                }
+                EditActions::Scope => {
+                    let raw = print::input::prompt(
+                        "scope (empty to clear): ",
+                    )?;
+
+                    let trimmed = raw.trim();
+
+                    edited.scope = if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed.to_string())
+                    };
+
+                    res[i] = edited.to_owned();
+                    continue;
+                }
+                EditActions::Header => {
+                    edited.header =
+                        crate::utils::open::edit(&edited.header)?
+                            .trim()
+                            .to_string();
 
                     res[i] = edited.to_owned();
 
                     continue;
                 }
+
+                EditActions::Body => {
+                    let current = edited
+                        .body
+                        .as_deref()
+                        .unwrap_or("");
+
+                    let new_body = crate::utils::open::edit(current)?;
+
+                    let trimmed = new_body.trim();
+
+                    edited.body = if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed.to_string())
+                    };
+                    res[i] = edited.to_owned();
+
+                    continue;
+                }
+
                 EditActions::Quit => {
                     res[i] = edited.to_owned();
                     return Ok(res);
