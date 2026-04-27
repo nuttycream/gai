@@ -1,5 +1,5 @@
+use anstream::stdout;
 use owo_colors::Style;
-use std::io::stdout;
 
 use crate::{git::log::GitLog, schema::find::Confidence};
 

@@ -1,5 +1,6 @@
-use std::io::{Write, stdout};
+use std::io::Write;
 
+use anstream::stdout;
 use owo_colors::OwoColorize;
 
 use crate::{print::utils::tput_size, schema::commit::CommitSchema};

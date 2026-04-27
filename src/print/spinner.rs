@@ -8,12 +8,13 @@
 
 use std::{
     borrow::Cow,
-    io::{Write, stdout},
+    io::Write,
     sync::mpsc::{Receiver, Sender, TryRecvError, channel},
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
+use anstream::stdout;
 use owo_colors::OwoColorize;
 
 type Str = Cow<'static, str>;

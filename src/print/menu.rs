@@ -5,8 +5,9 @@
 /// were implemented for clearing lines
 /// we need to handle wrapping lines + resized
 /// terminals
-use std::io::{Write, stdin, stdout};
+use std::io::{Write, stdin};
 
+use anstream::stdout;
 use owo_colors::OwoColorize;
 
 #[derive(Debug)]
