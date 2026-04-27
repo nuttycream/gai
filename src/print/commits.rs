@@ -1,5 +1,7 @@
 use std::io::{Write, stdout};
 
+use owo_colors::OwoColorize;
+
 use crate::{print::utils::tput_size, schema::commit::CommitSchema};
 
 use super::tree::{Tree, TreeItem};
@@ -145,6 +147,14 @@ pub fn response_commits(
 
         let display =
             format!("{} {}: {}", commit_idx, prefix, commit.header);
+
+        let display = display
+            .style(
+                commit
+                    .prefix
+                    .style(),
+            )
+            .to_string();
 
         // when we implement
         // fuzzy selection to trim

@@ -1,5 +1,6 @@
 use std::fmt;
 
+use owo_colors::Style;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use strum::{EnumIter, VariantNames};
@@ -145,6 +146,23 @@ pub enum PrefixType {
     // create branches?
     //Merge,
     //Revert,
+}
+
+impl PrefixType {
+    pub fn style(&self) -> Style {
+        match self {
+            Self::Feat => Style::new().green(),
+            Self::Fix => Style::new().red(),
+            Self::Refactor => Style::new().yellow(),
+            Self::Style => Style::new().magenta(),
+            Self::Test => Style::new().cyan(),
+            Self::Docs => Style::new().blue(),
+            Self::Build => Style::new().bright_yellow(),
+            Self::CI => Style::new().bright_magenta(),
+            Self::Ops => Style::new().bright_cyan(),
+            Self::Chore => Style::new().bright_black(),
+        }
+    }
 }
 
 /// creates a schema for commits
