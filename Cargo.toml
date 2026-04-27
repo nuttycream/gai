@@ -6,6 +6,7 @@ homepage = "https://gai.fyi"
 repository = "https://github.com/cube-cult/gai"
 
 [dependencies]
+anstream = { version = "1.0.0", default-features = false, features = ["auto"] }
 anyhow = "1.0.100"
 chrono = { version = "0.4.42", default-features = false, features = ["alloc", "now"] }
 clap = { version = "4.5.48", default-features = false, features = ["derive", "std", "help", "color", "usage", "suggestions", "error-context"] }
