@@ -56,7 +56,7 @@ const EDIT_OPTS: [(EditActions, char, &str); 8] = [
     (EditActions::Next, 'n', "next commit"),
     (EditActions::Previous, 'r', "return to previous commit"),
     (EditActions::Remove, 'd', "remove commit from list"),
-    (EditActions::Prefix, 't', "edit prefix"),
+    (EditActions::Prefix, 'p', "edit prefix"),
     (EditActions::Scope, 's', "edit scope"),
     (EditActions::Header, 'h', "edit header"),
     (EditActions::Body, 'b', "edit body in $EDITOR"),
@@ -294,6 +294,10 @@ fn run_commit(
                 }
                 ResponseActions::Edit => {
                     raw_commits = edit_commits(&raw_commits)?;
+
+                    if raw_commits.is_empty() {
+                        break;
+                    }
 
                     print::commits::response_commits(
                         &raw_commits,
