@@ -160,7 +160,7 @@ impl PrefixType {
             Self::Build => Style::new().bright_yellow(),
             Self::CI => Style::new().bright_magenta(),
             Self::Ops => Style::new().bright_cyan(),
-            Self::Chore => Style::new().bright_black(),
+            Self::Chore => Style::new().dimmed(),
         }
     }
 }
