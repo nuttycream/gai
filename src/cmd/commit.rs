@@ -26,15 +26,15 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-enum ResponseActions {
+pub enum ResponseActions {
     Apply,
-    Regenerate,
+    Regen,
     Edit,
     Quit,
 }
 
 #[derive(Debug, Clone)]
-enum EditActions {
+pub enum EditActions {
     Next,
     Previous,
     Remove,
@@ -45,14 +45,14 @@ enum EditActions {
     Quit,
 }
 
-const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
+pub const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
     (ResponseActions::Apply, 'y', "apply all commit/s"),
-    (ResponseActions::Regenerate, 'r', "regenerate commits"),
+    (ResponseActions::Regen, 'r', "regenerate commits"),
     (ResponseActions::Edit, 'e', "edit a commit"),
     (ResponseActions::Quit, 'q', "quit"),
 ];
 
-const EDIT_OPTS: [(EditActions, char, &str); 8] = [
+pub const EDIT_OPTS: [(EditActions, char, &str); 8] = [
     (EditActions::Next, 'n', "next commit"),
     (EditActions::Previous, 'r', "return to previous commit"),
     (EditActions::Remove, 'd', "remove commit from list"),
@@ -288,7 +288,7 @@ fn run_commit(
 
                     break;
                 }
-                ResponseActions::Regenerate => {
+                ResponseActions::Regen => {
                     regenerate = true;
                     break;
                 }
@@ -325,7 +325,7 @@ fn run_commit(
     Ok(())
 }
 
-fn edit_commits(
+pub fn edit_commits(
     commits: &[CommitSchema]
 ) -> anyhow::Result<Vec<CommitSchema>> {
     let mut res = commits.to_vec();
