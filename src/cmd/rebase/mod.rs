@@ -1,5 +1,4 @@
 pub mod branch;
-pub mod interactive;
 pub mod last;
 pub mod plan;
 pub mod range;
@@ -8,7 +7,7 @@ use git2::Oid;
 use serde_json::Value;
 
 use crate::{
-    args::{GlobalArgs, RebaseArgs},
+    args::{GlobalArgs, RebaseArgs, RebaseScope},
     cmd::rebase::plan::gen_plan,
     git::{
         GitRepo, StagingStrategy,
@@ -96,98 +95,33 @@ pub fn run(
     let mut to_oid: Option<String> = None;
     let mut trailing_commits: Option<Vec<String>> = None;
 
-    let diverge_from = if let Some(ref div_branch_arg) = args.branch {
-        if let Some(oid) =
-            rebase_branch(&state.git, Some(div_branch_arg), false)?
-        {
-            oid
-        } else {
-            return Ok(());
+    let diverge_from = match &args.scope {
+        RebaseScope::Branch { name } => {
+            match rebase_branch(&state.git, Some(name), false)? {
+                Some(oid) => oid,
+                None => return Ok(()),
+            }
         }
-    } else if let Some(last_n) = args.last {
-        if let Some(oid) =
-            rebase_last(&state.git, false, Some(last_n))?
-        {
-            oid
-        } else {
-            return Ok(());
+        RebaseScope::Last { count } => {
+            match rebase_last(&state.git, false, Some(*count))? {
+                Some(oid) => oid,
+                None => return Ok(()),
+            }
         }
-    } else if let Some(ref from_hash) = args.from {
-        match rebase_range(
-            &state.git,
-            Some(from_hash),
-            args.to.as_deref(),
-            false,
-        )? {
-            Some(rebase_range) => {
-                to_oid = rebase_range.to;
-                trailing_commits = rebase_range.trailing;
-
-                rebase_range.from
-            }
-            None => return Ok(()),
-        }
-    } else {
-        // TODO maybe get rid of interactive flow?
-        let _options = [
-            "Commits Since Divergence",
-            "Last Number of Commits",
-            "Specify Commit Range",
-        ];
-
-        // TODO: menu
-        todo!();
-
-        // let selected_flow = if let Some(s) = option_prompt(
-        //     &options,
-        //     None,
-        //     Some("Select a Scope for the Rebase Operation"),
-        // )? {
-        //     s
-        // } else {
-        //     println!("Exiting...");
-        //     return Ok(());
-        // };
-
-        #[allow(unreachable_code)]
-        let selected_flow = 1;
-        match selected_flow {
-            0 => {
-                // handle commits since divergence
-                // user can pick a branch, then run the logic
-                // to find where it diverged from head
-                // colllect all commits from that point to head
-                match rebase_branch(&state.git, None, true)? {
-                    Some(oid) => oid,
-                    None => return Ok(()),
+        RebaseScope::Range { from, to } => {
+            match rebase_range(
+                &state.git,
+                Some(from),
+                to.as_deref(),
+                false,
+            )? {
+                Some(r) => {
+                    to_oid = r.to;
+                    trailing_commits = r.trailing;
+                    r.from
                 }
+                None => return Ok(()),
             }
-            1 => {
-                // handle specify last N fo commits
-                // pretty straightfoward, prompt for
-                // count, specify max,
-                match rebase_last(&state.git, true, None)? {
-                    Some(oid) => oid,
-                    None => return Ok(()),
-                }
-            }
-            2 => {
-                // handle commit range
-                // use something akin to print_query_logs()
-                // first bring up the query logs
-                // to fuzzy find a commit from_hash
-                // then use it again for to_hash
-                match rebase_range(&state.git, None, None, true)? {
-                    Some(rebase_range) => {
-                        to_oid = rebase_range.to;
-                        trailing_commits = rebase_range.trailing;
-
-                        rebase_range.from
-                    }
-                    None => return Ok(()),
-                }
-            }
-            _ => unreachable!(),
         }
     };
 
