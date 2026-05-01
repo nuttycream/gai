@@ -3,6 +3,9 @@ pub mod last;
 pub mod plan;
 pub mod range;
 
+//TODO: THIS ENTIRE THING NEEDS TO BE REDONE
+//MY GOD THIS IS DAMN NEAR UNREADABLE
+
 use git2::Oid;
 use serde_json::Value;
 
@@ -23,7 +26,7 @@ use crate::{
             cherry_pick_single, squash_to_head,
         },
         reset::{reset_repo_hard, reset_repo_mixed},
-        status::is_workdir_clean,
+        status::{get_commit_stats, is_workdir_clean},
         utils::get_head_repo,
     },
     print::{
@@ -352,7 +355,7 @@ pub fn run(
                         &diverge_from.to_string(),
                     )?;
 
-                    match apply(
+                    let oids = match apply(
                         &state.git,
                         &git_commits,
                         &mut state.diffs.files,
@@ -363,25 +366,7 @@ pub fn run(
                         trailing_commits.as_deref(),
                     ) {
                         // done
-                        Ok(false) => break,
-                        Ok(true) => {
-                            // wants to retry
-                            reset_repo_hard(
-                                &state.git.repo,
-                                &original_head,
-                            )?;
-
-                            // redo the scoped reset sequence
-                            if let Some(ref to) = to_oid {
-                                reset_repo_hard(&state.git.repo, to)?;
-                            }
-                            reset_repo_mixed(
-                                &state.git.repo,
-                                &diverge_from.to_string(),
-                            )?;
-
-                            continue;
-                        }
+                        Ok(oids) => oids,
                         Err(e) => {
                             // ideally restore on errors
                             reset_repo_hard(
@@ -390,7 +375,34 @@ pub fn run(
                             )?;
                             return Err(e);
                         }
+                    };
+
+                    for (i, oid) in oids
+                        .iter()
+                        .enumerate()
+                    {
+                        let (
+                            branch_name,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        ) = get_commit_stats(&state.git.repo, &oid)?;
+
+                        let commit_msg = git_commits[i]
+                            .message
+                            .to_owned();
+
+                        print::commits::completed_commit(
+                            &branch_name,
+                            &oid,
+                            &commit_msg,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        )?;
                     }
+
+                    break;
                 }
                 ResponseActions::Regen => {
                     regenerate = true;
@@ -494,6 +506,7 @@ fn apply_plan(
     Ok(())
 }
 
+// TODO: this needs to BE RIPPED TO SHREDS
 fn apply(
     git: &GitRepo,
     git_commits: &[GitCommit],
@@ -501,15 +514,14 @@ fn apply(
     staging_stragey: &StagingStrategy,
     to_oid: Option<&str>,
     trailing: Option<&[String]>,
-) -> anyhow::Result<bool> {
-    println!("Applying Commits...");
+) -> anyhow::Result<Vec<String>> {
     match apply_commits(
         &git.repo,
         git_commits,
         og_file_diffs,
         staging_stragey,
     ) {
-        Ok(_) => {
+        Ok(oids) => {
             // after applying check if we have to_oid and trailing
             // then re-apply them
             if let Some(to) = to_oid {
@@ -540,12 +552,12 @@ fn apply(
                 }
             }
 
-            Ok(false)
+            Ok(oids)
         }
         Err(e) => {
-            eprintln!("failed to apply commits:\n{e}");
-
-            Ok(false)
+            return Err(anyhow::anyhow!(
+                "failed to apply commits:\n{e}"
+            ));
         }
     }
 }

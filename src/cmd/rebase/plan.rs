@@ -21,6 +21,7 @@ use crate::{
 /// two: since it generates rebase operations, applying these will
 /// HANDLE ALOT differently, in terms of what can be rejected,
 /// as well as the flow within git itself
+/// WTF
 pub(super) fn gen_plan(
     settings: &Settings,
     diffs: &Diffs,
