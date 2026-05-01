@@ -102,10 +102,6 @@ pub fn run(
             .providers,
     )?;
 
-    let handle = SpinnerBuilder::new()
-        .text("Generating request")
-        .start();
-
     // save the original point, in case
     // we need to revert back hard
     // used for reset_repo_hard
@@ -143,6 +139,10 @@ pub fn run(
             }
         }
     };
+
+    let handle = SpinnerBuilder::new()
+        .text("Generating request")
+        .start();
 
     // collect logs
     let logs = get_logs(
