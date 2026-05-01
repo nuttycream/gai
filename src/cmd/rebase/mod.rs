@@ -8,7 +8,10 @@ use serde_json::Value;
 
 use crate::{
     args::{GlobalArgs, RebaseArgs, RebaseScope},
-    cmd::rebase::plan::gen_plan,
+    cmd::{
+        commit::{RESPONSE_OPTS, ResponseActions},
+        rebase::plan::gen_plan,
+    },
     git::{
         GitRepo, StagingStrategy,
         checkout::force_checkout_head,
@@ -23,7 +26,10 @@ use crate::{
         status::is_workdir_clean,
         utils::get_head_repo,
     },
-    print::commits::response_commits,
+    print::{
+        self, commits::response_commits, menu::Menu,
+        spinner::SpinnerBuilder,
+    },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
     responses::{
@@ -86,6 +92,19 @@ pub fn run(
     }
 
     //println!("{:#?}", state.settings);
+
+    print::status::provider_info(
+        &state
+            .settings
+            .provider,
+        &state
+            .settings
+            .providers,
+    )?;
+
+    let handle = SpinnerBuilder::new()
+        .text("Generating request")
+        .start();
 
     // save the original point, in case
     // we need to revert back hard
@@ -266,7 +285,13 @@ pub fn run(
     // of the specific commit to go back from should be in place
     //println!("{}", state.diffs);
 
+    handle.done();
+
     loop {
+        let handle = SpinnerBuilder::new()
+            .text("Generating commits")
+            .start();
+
         let response: Value = match extract_from_provider(
             &state
                 .settings
@@ -282,18 +307,14 @@ pub fn run(
             }
         };
 
-        let raw_commits = parse_from_rebase_schema(
+        let mut raw_commits = parse_from_rebase_schema(
             response,
             &state
                 .settings
                 .staging_type,
         )?;
 
-        println!(
-            "Done! Received {} Commit{}",
-            raw_commits.len(),
-            if raw_commits.len() == 1 { "" } else { "s" }
-        );
+        handle.done();
 
         response_commits(
             &raw_commits,
@@ -305,65 +326,108 @@ pub fn run(
             ),
         )?;
 
-        let git_commits: Vec<GitCommit> = raw_commits
-            .into_iter()
-            .map(|c| process_commit(c, &state.settings))
-            .collect();
+        let mut regenerate = false;
 
-        let selected = 0;
+        loop {
+            let selected =
+                Menu::new("What do you want to do?", &RESPONSE_OPTS)
+                    .render()?;
 
-        if selected == 0 {
-            if let Some(ref to) = to_oid {
-                // reset hard to the TO commit
-                reset_repo_hard(&state.git.repo, to)?;
-            }
+            match selected {
+                ResponseActions::Apply => {
+                    let git_commits: Vec<GitCommit> = raw_commits
+                        .iter()
+                        .cloned()
+                        .map(|c| process_commit(c, &state.settings))
+                        .collect();
 
-            // do a mixed reset to the FROM commit
-            reset_repo_mixed(
-                &state.git.repo,
-                &diverge_from.to_string(),
-            )?;
-
-            match apply(
-                &state.git,
-                &git_commits,
-                &mut state.diffs.files,
-                &state
-                    .settings
-                    .staging_type,
-                to_oid.as_deref(),
-                trailing_commits.as_deref(),
-            ) {
-                // done
-                Ok(false) => break,
-                Ok(true) => {
-                    // wants to retry
-                    reset_repo_hard(&state.git.repo, &original_head)?;
-
-                    // redo the scoped reset sequence
                     if let Some(ref to) = to_oid {
+                        // reset hard to the TO commit
                         reset_repo_hard(&state.git.repo, to)?;
                     }
+
+                    // do a mixed reset to the FROM commit
                     reset_repo_mixed(
                         &state.git.repo,
                         &diverge_from.to_string(),
                     )?;
 
+                    match apply(
+                        &state.git,
+                        &git_commits,
+                        &mut state.diffs.files,
+                        &state
+                            .settings
+                            .staging_type,
+                        to_oid.as_deref(),
+                        trailing_commits.as_deref(),
+                    ) {
+                        // done
+                        Ok(false) => break,
+                        Ok(true) => {
+                            // wants to retry
+                            reset_repo_hard(
+                                &state.git.repo,
+                                &original_head,
+                            )?;
+
+                            // redo the scoped reset sequence
+                            if let Some(ref to) = to_oid {
+                                reset_repo_hard(&state.git.repo, to)?;
+                            }
+                            reset_repo_mixed(
+                                &state.git.repo,
+                                &diverge_from.to_string(),
+                            )?;
+
+                            continue;
+                        }
+                        Err(e) => {
+                            // ideally restore on errors
+                            reset_repo_hard(
+                                &state.git.repo,
+                                &original_head,
+                            )?;
+                            return Err(e);
+                        }
+                    }
+                }
+                ResponseActions::Regen => {
+                    regenerate = true;
+                    break;
+                }
+                ResponseActions::Edit => {
+                    raw_commits = crate::cmd::commit::edit_commits(
+                        &raw_commits,
+                    )?;
+
+                    if raw_commits.is_empty() {
+                        break;
+                    }
+
+                    print::commits::response_commits(
+                        &raw_commits,
+                        matches!(
+                            state
+                                .settings
+                                .staging_type,
+                            StagingStrategy::Hunks
+                        ),
+                    )?;
+
                     continue;
                 }
-                Err(e) => {
-                    // ideally restore on errors
-                    reset_repo_hard(&state.git.repo, &original_head)?;
-                    return Err(e);
+                ResponseActions::Quit => {
+                    break;
                 }
             }
-        } else if selected == 1 {
-            println!("Regenerating");
-            continue;
-        } else if selected == 2 {
-            println!("Exiting");
-            break;
         }
+
+        if regenerate {
+            continue;
+        }
+
+        break;
     }
 
     Ok(())
