@@ -220,19 +220,32 @@ pub enum RebaseScope {
 
 #[derive(Debug, Args)]
 pub struct RewordArgs {
-    /// Specify the specific commit hash to amend
-    #[arg(short = 'c', long)]
-    pub commit: Option<String>,
+    #[command(subcommand)]
+    pub scope: RewordScope,
+}
 
-    /// Specify the amount of last commit messages to amend
-    #[arg(short = 'l', long)]
-    pub last: Option<usize>,
+#[derive(Debug, Subcommand)]
+pub enum RewordScope {
+    /// Reword a specific commit hash
+    Commit {
+        #[arg(value_name = "HASH")]
+        hash: String,
+    },
 
-    /// Specify the starting range for the commits you want to amend from.
-    #[arg(long)]
-    pub from: Option<String>,
+    /// Reword the last n commits
+    Last {
+        #[arg(value_name = "n")]
+        count: usize,
+    },
 
-    /// Specify ending range of the commits to amend.
-    #[arg(long)]
-    pub to: Option<String>,
+    /// Reword a specific commit range
+    Range {
+        /// Starting commit hash
+        #[arg(long)]
+        from: String,
+
+        /// Ending commit hash, defaults to HEAD
+        #[arg(long)]
+        to: Option<String>,
+    },
 }

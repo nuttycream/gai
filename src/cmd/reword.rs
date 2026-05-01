@@ -1,5 +1,5 @@
 use crate::{
-    args::{GlobalArgs, RewordArgs},
+    args::{GlobalArgs, RewordArgs, RewordScope},
     git::{
         GitRepo,
         checkout::force_checkout_head,
@@ -43,63 +43,65 @@ pub fn run(
 
     // mimicing the rebase flow, its pretty similar, the only major difference
     // is that we dont gen a plan, but only reword selected commits
-    let (logs, trailing_commits) = if let Some(ref hash) = args.commit
-    {
-        // we need the parent commit, to get the root since
-        // from is exclusive
-        let parent = find_parent_commit(&state.git.repo, hash)?;
+    let (logs, trailing_commits) = match args.scope {
+        RewordScope::Commit { ref hash } => {
+            // we need the parent commit, to get the root since
+            // from is exclusive
+            let parent = find_parent_commit(&state.git.repo, &hash)?;
 
-        let logs = get_logs(
-            &state.git,
-            true,
-            false,
-            0,
-            true,
-            Some(&parent.to_string()),
-            Some(hash),
-            None,
-        )?;
+            let logs = get_logs(
+                &state.git,
+                true,
+                false,
+                0,
+                true,
+                Some(&parent.to_string()),
+                Some(&hash),
+                None,
+            )?;
 
-        let trails = trailing_commits(&state.git.repo, hash)?;
+            let trails = trailing_commits(&state.git.repo, &hash)?;
 
-        (logs, trails)
-    } else if let Some(last_n) = args.last {
-        let mut logs = get_logs(
-            &state.git, true, false, last_n, false, None, None, None,
-        )?;
+            (logs, trails)
+        }
+        RewordScope::Last { count } => {
+            let mut logs = get_logs(
+                &state.git, true, false, count, false, None, None,
+                None,
+            )?;
 
-        // if logs are reversed
-        logs.git_logs
-            .reverse();
+            // if logs are reversed
+            logs.git_logs
+                .reverse();
 
-        // return an empty vec for now
-        // want to just leave trails empty
-        // instead of returning an
-        // option to unwrap
-        (logs, Vec::new())
-    } else if args.from.is_some() {
-        let logs = get_logs(
-            &state.git,
-            true,
-            false,
-            0,
-            true,
-            args.from.as_deref(),
-            args.to.as_deref(),
-            None,
-        )?;
+            // return an empty vec for now
+            // want to just leave trails empty
+            // instead of returning an
+            // option to unwrap
+            (logs, Vec::new())
+        }
+        RewordScope::Range { ref from, ref to } => {
+            let logs = get_logs(
+                &state.git,
+                true,
+                false,
+                0,
+                true,
+                Some(&from),
+                to.as_deref(),
+                None,
+            )?;
 
-        let to_hash = args
-            .to
-            .to_owned()
-            .unwrap_or(get_head_repo(&state.git.repo)?.to_string());
+            let to_hash = to
+                .to_owned()
+                .unwrap_or(
+                    get_head_repo(&state.git.repo)?.to_string(),
+                );
 
-        let trails = trailing_commits(&state.git.repo, &to_hash)?;
+            let trails = trailing_commits(&state.git.repo, &to_hash)?;
 
-        (logs, trails)
-    } else {
-        // do interactive
-        todo!()
+            (logs, trails)
+        }
     };
 
     let mut log_strs = Vec::new();
