@@ -1,7 +1,8 @@
 use crate::{
     args::{GlobalArgs, RewordArgs, RewordScope},
+    cmd::commit::{RESPONSE_OPTS, ResponseActions, edit_commits},
     git::{
-        GitRepo,
+        GitRepo, StagingStrategy,
         checkout::force_checkout_head,
         commit::find_parent_commit,
         log::{Logs, get_logs},
@@ -12,7 +13,7 @@ use crate::{
         status::is_workdir_clean,
         utils::get_head_repo,
     },
-    print::commits::response_commits,
+    print::{self, menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::reword::create_reword_request,
     responses::reword::{
@@ -40,6 +41,10 @@ pub fn run(
     }
 
     let original_head = get_head_repo(&state.git.repo)?.to_string();
+
+    let mut handle = SpinnerBuilder::new()
+        .text("Gathering logs")
+        .start();
 
     // mimicing the rebase flow, its pretty similar, the only major difference
     // is that we dont gen a plan, but only reword selected commits
@@ -121,6 +126,12 @@ pub fn run(
         log_strs.push(item);
     }
 
+    handle.done();
+
+    handle = SpinnerBuilder::new()
+        .text("Generating request")
+        .start();
+
     let schema_settings = if matches!(
         state
             .settings
@@ -140,7 +151,13 @@ pub fn run(
     let request =
         create_reword_request(&state.settings, &state.git, &log_strs);
 
+    handle.done();
+
     loop {
+        let handle = SpinnerBuilder::new()
+            .text("Generating commits")
+            .start();
+
         let response: serde_json::Value = match extract_from_provider(
             &state
                 .settings
@@ -156,51 +173,89 @@ pub fn run(
             }
         };
 
-        let raw_commits = parse_to_reword_commit_schema(response)?;
+        let mut raw_commits =
+            parse_to_reword_commit_schema(response)?;
 
-        println!(
-            "Done! Received {} Commit{}",
-            raw_commits.len(),
-            if raw_commits.len() == 1 { "" } else { "s" }
-        );
+        handle.done();
 
-        response_commits(&raw_commits, false)?;
+        print::commits::response_commits(&raw_commits, false)?;
 
-        let commit_messages: Vec<String> = raw_commits
-            .into_iter()
-            .map(|c| {
-                process_reword_commit_message(c, &state.settings)
-            })
-            .collect();
+        let mut regenerate = false;
 
-        let selected = 0;
-        if selected == 0 {
-            match apply(
-                &state.git,
-                &logs,
-                &commit_messages,
-                &trailing_commits,
-            ) {
-                // my god
-                Ok(retry) => {
-                    if retry {
-                        reset_repo_hard(
-                            &state.git.repo,
-                            &original_head,
-                        )?;
-                        continue;
+        loop {
+            let selected =
+                Menu::new("What do you want to do?", &RESPONSE_OPTS)
+                    .render()?;
+
+            match selected {
+                ResponseActions::Apply => {
+                    let commit_messages: Vec<String> = raw_commits
+                        .iter()
+                        .cloned()
+                        .map(|c| {
+                            process_reword_commit_message(
+                                c,
+                                &state.settings,
+                            )
+                        })
+                        .collect();
+
+                    match apply(
+                        &state.git,
+                        &logs,
+                        &commit_messages,
+                        &trailing_commits,
+                    ) {
+                        // my god
+                        Ok(retry) => {
+                            if retry {
+                                reset_repo_hard(
+                                    &state.git.repo,
+                                    &original_head,
+                                )?;
+                                continue;
+                            }
+                        }
+                        Err(e) => {
+                            reset_repo_hard(
+                                &state.git.repo,
+                                &original_head,
+                            )?;
+                            return Err(e);
+                        }
                     }
                 }
-                Err(e) => {
-                    reset_repo_hard(&state.git.repo, &original_head)?;
-                    return Err(e);
+                ResponseActions::Regen => {
+                    regenerate = true;
+                    break;
+                }
+                ResponseActions::Edit => {
+                    raw_commits = edit_commits(&raw_commits)?;
+
+                    if raw_commits.is_empty() {
+                        break;
+                    }
+
+                    print::commits::response_commits(
+                        &raw_commits,
+                        matches!(
+                            state
+                                .settings
+                                .staging_type,
+                            StagingStrategy::Hunks
+                        ),
+                    )?;
+
+                    continue;
+                }
+                ResponseActions::Quit => {
+                    break;
                 }
             }
-        } else if selected == 1 {
-            println!("Regenerating");
+        }
+
+        if regenerate {
             continue;
-        } else if selected == 2 {
-            println!("Exiting");
         }
 
         break;
