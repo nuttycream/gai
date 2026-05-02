@@ -207,7 +207,7 @@ where
 
         // top
         for _ in 0..self.padding_top {
-            write!(out, "\n").ok();
+            writeln!(out).ok();
         }
 
         let flattened = flatten(self.items, &[], self.collapsed, 0);
@@ -225,7 +225,7 @@ where
 
         // bottom
         for _ in 0..self.padding_bottom {
-            write!(out, "\n").ok();
+            writeln!(out).ok();
         }
     }
 
