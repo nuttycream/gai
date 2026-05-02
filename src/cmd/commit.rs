@@ -270,7 +270,7 @@ fn run_commit(
                             files_changed,
                             insertions,
                             deletions,
-                        ) = get_commit_stats(&git.repo, &oid)?;
+                        ) = get_commit_stats(&git.repo, oid)?;
 
                         let commit_msg = git_commits[i]
                             .message
@@ -278,7 +278,7 @@ fn run_commit(
 
                         print::commits::completed_commit(
                             &branch_name,
-                            &oid,
+                            oid,
                             &commit_msg,
                             files_changed,
                             insertions,

@@ -386,7 +386,7 @@ pub fn run(
                             files_changed,
                             insertions,
                             deletions,
-                        ) = get_commit_stats(&state.git.repo, &oid)?;
+                        ) = get_commit_stats(&state.git.repo, oid)?;
 
                         let commit_msg = git_commits[i]
                             .message
@@ -394,7 +394,7 @@ pub fn run(
 
                         print::commits::completed_commit(
                             &branch_name,
-                            &oid,
+                            oid,
                             &commit_msg,
                             files_changed,
                             insertions,
@@ -555,9 +555,9 @@ fn apply(
             Ok(oids)
         }
         Err(e) => {
-            return Err(anyhow::anyhow!(
+            Err(anyhow::anyhow!(
                 "failed to apply commits:\n{e}"
-            ));
+            ))
         }
     }
 }

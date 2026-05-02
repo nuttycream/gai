@@ -52,7 +52,7 @@ pub fn run(
         RewordScope::Commit { ref hash } => {
             // we need the parent commit, to get the root since
             // from is exclusive
-            let parent = find_parent_commit(&state.git.repo, &hash)?;
+            let parent = find_parent_commit(&state.git.repo, hash)?;
 
             let logs = get_logs(
                 &state.git,
@@ -61,11 +61,11 @@ pub fn run(
                 0,
                 true,
                 Some(&parent.to_string()),
-                Some(&hash),
+                Some(hash),
                 None,
             )?;
 
-            let trails = trailing_commits(&state.git.repo, &hash)?;
+            let trails = trailing_commits(&state.git.repo, hash)?;
 
             (logs, trails)
         }
@@ -92,7 +92,7 @@ pub fn run(
                 false,
                 0,
                 true,
-                Some(&from),
+                Some(from),
                 to.as_deref(),
                 None,
             )?;
@@ -226,14 +226,14 @@ pub fn run(
                             files_changed,
                             insertions,
                             deletions,
-                        ) = get_commit_stats(&state.git.repo, &oid)?;
+                        ) = get_commit_stats(&state.git.repo, oid)?;
 
                         let commit_msg =
                             commit_messages[i].to_owned();
 
                         print::commits::completed_commit(
                             &branch_name,
-                            &oid,
+                            oid,
                             &commit_msg,
                             files_changed,
                             insertions,
