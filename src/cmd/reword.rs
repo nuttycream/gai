@@ -10,7 +10,7 @@ use crate::{
             cherry_pick_commits, cherry_pick_reword, trailing_commits,
         },
         reset::reset_repo_hard,
-        status::is_workdir_clean,
+        status::{get_commit_stats, is_workdir_clean},
         utils::get_head_repo,
     },
     print::{self, menu::Menu, spinner::SpinnerBuilder},
@@ -200,30 +200,48 @@ pub fn run(
                         })
                         .collect();
 
-                    match apply(
+                    let oids = match apply(
                         &state.git,
                         &logs,
                         &commit_messages,
                         &trailing_commits,
                     ) {
-                        // my god
-                        Ok(retry) => {
-                            if retry {
-                                reset_repo_hard(
-                                    &state.git.repo,
-                                    &original_head,
-                                )?;
-                                continue;
-                            }
-                        }
+                        Ok(oids) => oids,
                         Err(e) => {
                             reset_repo_hard(
                                 &state.git.repo,
                                 &original_head,
                             )?;
+
                             return Err(e);
                         }
+                    };
+
+                    for (i, oid) in oids
+                        .iter()
+                        .enumerate()
+                    {
+                        let (
+                            branch_name,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        ) = get_commit_stats(&state.git.repo, &oid)?;
+
+                        let commit_msg =
+                            commit_messages[i].to_owned();
+
+                        print::commits::completed_commit(
+                            &branch_name,
+                            &oid,
+                            &commit_msg,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        )?;
                     }
+
+                    break;
                 }
                 ResponseActions::Regen => {
                     regenerate = true;
@@ -269,7 +287,7 @@ fn apply(
     logs: &Logs,
     new_commit_messages: &[String],
     trailing_commits: &[String],
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<Vec<String>> {
     // for the range and everything to work
     // when applying, gonna need to quickly
     // mimic the reset flow from rebase
@@ -277,6 +295,8 @@ fn apply(
     let oldest = &logs.git_logs[0].commit_hash;
 
     let parent = find_parent_commit(&git.repo, oldest)?;
+
+    let mut oids = Vec::new();
 
     reset_repo_hard(&git.repo, &parent.to_string())?;
 
@@ -290,19 +310,24 @@ fn apply(
             .to_owned();
 
         if let Some(message) = new_commit_messages.get(idx) {
-            cherry_pick_reword(&git.repo, &commit, message)?;
+            let oid =
+                cherry_pick_reword(&git.repo, &commit, message)?;
+            oids.push(oid);
         } else {
             return Err(anyhow::anyhow!("bad index"));
         }
     }
 
     if !trailing_commits.is_empty() {
-        cherry_pick_commits(&git.repo, trailing_commits)?;
+        let cherry_picked =
+            cherry_pick_commits(&git.repo, trailing_commits)?;
+
+        oids.extend(cherry_picked);
     }
     // readd the trailing commits if any
 
     // then sync it
     force_checkout_head(&git.repo)?;
 
-    Ok(false)
+    Ok(oids)
 }
