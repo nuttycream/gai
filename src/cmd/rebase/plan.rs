@@ -40,36 +40,31 @@ pub(super) fn gen_plan(
         false,
     )?;
 
-    loop {
-        let response: Value = match extract_from_provider(
-            &settings.provider,
-            request.to_owned(),
-            schema.to_owned(),
-        ) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("error from the provider:\n{e}");
-                break;
-            }
-        };
+    let response: Value = match extract_from_provider(
+        &settings.provider,
+        request.to_owned(),
+        schema.to_owned(),
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            return Err(anyhow::anyhow!("{e}"));
+        }
+    };
 
-        let _raw_ops = parse_from_rebase_plan_schema(response)?;
-        //println!("{:#?}", raw_ops);
-
-        return Ok(None);
-        // if let Some(opt) = print_rebase_plan(&raw_ops, false)? {
-        //     if opt == 0 {
-        //         println!("Applying");
-        //         return Ok(Some(raw_ops));
-        //     } else if opt == 1 {
-        //         println!("Regenerating");
-        //         continue;
-        //     }
-        // } else {
-        //     println!("Exiting");
-        //     return Ok(None);
-        // }
-    }
+    let _raw_ops = parse_from_rebase_plan_schema(response)?;
+    //println!("{:#?}", raw_ops);
 
     Ok(None)
+    // if let Some(opt) = print_rebase_plan(&raw_ops, false)? {
+    //     if opt == 0 {
+    //         println!("Applying");
+    //         return Ok(Some(raw_ops));
+    //     } else if opt == 1 {
+    //         println!("Regenerating");
+    //         continue;
+    //     }
+    // } else {
+    //     println!("Exiting");
+    //     return Ok(None);
+    // }
 }

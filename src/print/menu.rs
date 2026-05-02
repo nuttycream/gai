@@ -107,10 +107,11 @@ impl<T: Clone> Menu<T> {
             .find(|i| i.keybind == ch)
         {
             match &item.val {
-                Some(v) => return Ok(v.to_owned()),
+                Some(v) => Ok(v.to_owned()),
                 None if item.keybind == '?' => {
                     self.help(&mut stdout)?;
-                    return self.render();
+
+                    self.render()
                 }
                 None => {
                     anyhow::bail!(
@@ -124,7 +125,7 @@ impl<T: Clone> Menu<T> {
 
             stdout.flush()?;
 
-            return self.render();
+            self.render()
         }
     }
 
