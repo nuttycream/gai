@@ -189,29 +189,37 @@ pub(crate) fn completed_commit(
     let short = &hash[..7];
     let file = if files_changed == 1 { "file" } else { "files" };
     let inserts = if insertions == 1 {
-        "insertion(+)"
+        "insertion"
     } else {
-        "insertions(+)"
+        "insertions"
     };
     let delets = if deletions == 1 {
-        "deletion(-)"
+        "deletion"
     } else {
-        "deletions(-)"
+        "deletions"
     };
 
-    write!(
+    writeln!(
         out,
-        "\n[{} {}] {}\n {} {} changed, {} {}, {} {}\n",
-        branch_name,
-        short,
+        "\n[{} {}] {}",
+        branch_name
+            .green()
+            .bold(),
+        short.yellow(),
         commit_msg,
-        files_changed,
-        file,
-        insertions,
-        inserts,
-        deletions,
-        delets,
     )?;
+
+    write!(out, " {} {} changed", files_changed, file,)?;
+
+    if insertions > 0 {
+        write!(out, ", {} {}{}", insertions, inserts, "(+)".green(),)?;
+    }
+
+    if deletions > 0 {
+        write!(out, ", {} {}{}", deletions, delets, "(-)".red(),)?;
+    }
+
+    writeln!(out)?;
 
     Ok(())
 }
