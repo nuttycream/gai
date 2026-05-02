@@ -42,8 +42,7 @@ pub(super) fn rebase_last(
         let oid = find_parent_commit(&git.repo, &oldest_commit_hash)?;
 
         println!(
-            "{} Rebasing last {} commit{}",
-            "→",
+            "-> Rebasing last {} commit{}",
             last_n,
             if last_n == 1 { "" } else { "s" }
         );

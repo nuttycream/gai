@@ -21,8 +21,8 @@ pub(super) fn rebase_branch(
         let oid = find_divergence_branch(&git.repo, div_branch_arg)?;
 
         println!(
-            "{} Using divergence from branch: {}",
-            "→", div_branch_arg
+            "-> Using divergence from branch: {}",
+            div_branch_arg
         );
 
         Ok(Some(oid))

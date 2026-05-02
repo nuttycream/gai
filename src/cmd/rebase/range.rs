@@ -62,8 +62,7 @@ pub(super) fn rebase_range(
     let oid = find_parent_commit(&repo.repo, from)?;
 
     println!(
-        "{} Rebasing {} commit{} from {}",
-        "→",
+        "-> Rebasing {} commit{} from {}",
         count,
         if count == 1 { "" } else { "s" },
         //get_short_hash()
@@ -142,8 +141,7 @@ fn specify_range_flow(
         }
 
         println!(
-            "{} Rebasing {} commit{} in range:",
-            "→",
+            "-> Rebasing {} commit{} in range:",
             count + 1,
             if count == 1 { "" } else { "s" },
         );
