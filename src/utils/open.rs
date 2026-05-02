@@ -97,7 +97,7 @@ pub fn edit(text: &str) -> anyhow::Result<String> {
 
     let edited = fs::read_to_string(&path)?;
     // instead of tempdir
-    let _ = fs::remove_file(&path)?;
+    fs::remove_file(&path)?;
 
     Ok(edited)
 }
