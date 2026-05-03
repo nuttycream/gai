@@ -1,15 +1,34 @@
-use console::{Color, Style, style};
+use std::io::{Write, stdout};
 
-use crate::git::status::{FileStatus, StatusItemType};
+use crate::{
+    git::status::{FileStatus, StatusItemType},
+    providers::provider::{ProviderKind, ProviderSettings},
+};
 
 use super::tree::{Tree, TreeItem};
 
-pub fn print(
+pub fn provider_info(
+    provider: &ProviderKind,
+    provider_settings: &ProviderSettings,
+) -> anyhow::Result<()> {
+    let mut stdout = stdout();
+    let model = provider_settings.get_model(provider);
+
+    writeln!(stdout, "Provider: {provider}\nModel: {model}")?;
+
+    stdout.flush()?;
+
+    Ok(())
+}
+
+pub fn repo_status(
     branch: &str,
     staged_statuses: &[FileStatus],
     working_dir_statuses: &[FileStatus],
     compact: bool,
 ) -> anyhow::Result<()> {
+    let mut out = stdout();
+
     let mut modified = Vec::new();
     let mut new = Vec::new();
     let mut deleted = Vec::new();
@@ -21,27 +40,20 @@ pub fn print(
                 let item = TreeItem::new_leaf(
                     status.path.clone(),
                     &status.path,
-                )
-                .style(Style::new().fg(Color::Red));
+                );
                 new.push(item);
             }
             StatusItemType::Modified => {
                 let item = TreeItem::new_leaf(
                     status.path.clone(),
                     &status.path,
-                )
-                .style(Style::new().fg(Color::Yellow));
+                );
                 modified.push(item);
             }
             StatusItemType::Deleted => {
                 let item = TreeItem::new_leaf(
                     status.path.clone(),
                     &status.path,
-                )
-                .style(
-                    Style::new()
-                        .fg(Color::Red)
-                        .dim(),
                 );
                 deleted.push(item);
             }
@@ -49,8 +61,7 @@ pub fn print(
                 let item = TreeItem::new_leaf(
                     status.path.clone(),
                     &status.path,
-                )
-                .style(Style::new().fg(Color::Cyan));
+                );
                 renamed.push(item);
             }
             _ => {}
@@ -61,75 +72,45 @@ pub fn print(
 
     if !modified.is_empty() {
         let count = modified.len();
-        unstaged.push(
-            TreeItem::new(
-                "modified".to_owned(),
-                format!("Modified ({})", count),
-                modified,
-            )?
-            .style(
-                Style::new()
-                    .fg(Color::Yellow)
-                    .bold(),
-            ),
-        );
+        unstaged.push(TreeItem::new(
+            "modified".to_owned(),
+            format!("Modified ({})", count),
+            modified,
+        )?);
     }
 
     if !deleted.is_empty() {
         let count = deleted.len();
-        unstaged.push(
-            TreeItem::new(
-                "deleted".to_owned(),
-                format!("Deleted ({})", count),
-                deleted,
-            )?
-            .style(
-                Style::new()
-                    .fg(Color::Red)
-                    .dim()
-                    .bold(),
-            ),
-        );
+        unstaged.push(TreeItem::new(
+            "deleted".to_owned(),
+            format!("Deleted ({})", count),
+            deleted,
+        )?);
     }
 
     if !renamed.is_empty() {
         let count = renamed.len();
-        unstaged.push(
-            TreeItem::new(
-                "renamed".to_owned(),
-                format!("Renamed ({})", count),
-                renamed,
-            )?
-            .style(
-                Style::new()
-                    .fg(Color::Cyan)
-                    .bold(),
-            ),
-        );
+        unstaged.push(TreeItem::new(
+            "renamed".to_owned(),
+            format!("Renamed ({})", count),
+            renamed,
+        )?);
     }
 
     if !new.is_empty() {
         let count = new.len();
-        unstaged.push(
-            TreeItem::new(
-                "untracked".to_owned(),
-                format!("Untracked ({})", count),
-                new,
-            )?
-            .style(
-                Style::new()
-                    .fg(Color::Red)
-                    .bold(),
-            ),
-        );
+        unstaged.push(TreeItem::new(
+            "untracked".to_owned(),
+            format!("Untracked ({})", count),
+            new,
+        )?);
     }
 
     let mut staged_items = Vec::new();
 
     for status in staged_statuses {
         let item =
-            TreeItem::new_leaf(status.path.clone(), &status.path)
-                .style(Style::new().fg(Color::Green));
+            TreeItem::new_leaf(status.path.clone(), &status.path);
         staged_items.push(item);
     }
 
@@ -137,18 +118,11 @@ pub fn print(
 
     if !staged_items.is_empty() {
         let count = staged_items.len();
-        root_items.push(
-            TreeItem::new(
-                "staged".to_owned(),
-                format!("Staged Changes ({})", count),
-                staged_items,
-            )?
-            .style(
-                Style::new()
-                    .fg(Color::Green)
-                    .bold(),
-            ),
-        );
+        root_items.push(TreeItem::new(
+            "staged".to_owned(),
+            format!("Staged Changes ({})", count),
+            staged_items,
+        )?);
     }
 
     if !unstaged.is_empty() {
@@ -156,26 +130,18 @@ pub fn print(
             .iter()
             .map(|c| c.children().len())
             .sum();
-        root_items.push(
-            TreeItem::new(
-                "unstaged".to_owned(),
-                format!("Unstaged Changes ({})", count),
-                unstaged,
-            )?
-            .style(
-                Style::new()
-                    .fg(Color::Yellow)
-                    .bold(),
-            ),
-        );
+        root_items.push(TreeItem::new(
+            "unstaged".to_owned(),
+            format!("Unstaged Changes ({})", count),
+            unstaged,
+        )?);
     }
 
-    println!("On Branch: {}", style(branch).cyan());
+    writeln!(out, "On branch: {}", branch,)?;
 
     if !root_items.is_empty() {
         Tree::new(&root_items)?
             .collapsed(compact)
-            .style(Style::new().dim())
             .render();
     }
 

@@ -1,6 +1,6 @@
-use console::style;
-use dialoguer::{Confirm, Select, theme::ColorfulTheme};
+use owo_colors::OwoColorize;
 use serde_json::Value;
+use strum::{IntoEnumIterator, VariantNames};
 
 use crate::{
     args::{CommitArgs, GlobalArgs},
@@ -8,16 +8,60 @@ use crate::{
         DiffStrategy, Diffs, GitRepo, StagingStrategy,
         StatusStrategy,
         commit::{GitCommit, apply_commits},
-        diffs::{FileDiff, get_diffs_from_statuses},
+        diffs::get_diffs_from_statuses,
+        status::get_commit_stats,
     },
-    print::{commits, loading::Loading},
+    print::{self, menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
     responses::commit::{parse_to_commit_schema, process_commit},
-    schema::{SchemaSettings, commit::create_commit_response_schema},
+    schema::{
+        SchemaSettings,
+        commit::{
+            CommitSchema, PrefixType, create_commit_response_schema,
+        },
+    },
     settings::Settings,
     state::State,
 };
+
+#[derive(Debug, Clone)]
+pub enum ResponseActions {
+    Apply,
+    Regen,
+    Edit,
+    Quit,
+}
+
+#[derive(Debug, Clone)]
+pub enum EditActions {
+    Next,
+    Previous,
+    Remove,
+    Prefix,
+    Scope,
+    Header,
+    Body,
+    Quit,
+}
+
+pub const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
+    (ResponseActions::Apply, 'y', "apply all commit/s"),
+    (ResponseActions::Regen, 'r', "regenerate commits"),
+    (ResponseActions::Edit, 'e', "edit a commit"),
+    (ResponseActions::Quit, 'q', "quit"),
+];
+
+pub const EDIT_OPTS: [(EditActions, char, &str); 8] = [
+    (EditActions::Next, 'n', "next commit"),
+    (EditActions::Previous, 'r', "return to previous commit"),
+    (EditActions::Remove, 'd', "remove commit from list"),
+    (EditActions::Prefix, 'p', "edit prefix"),
+    (EditActions::Scope, 's', "edit scope"),
+    (EditActions::Header, 'h', "edit header"),
+    (EditActions::Body, 'b', "edit body in $EDITOR"),
+    (EditActions::Quit, 'q', "quit"),
+];
 
 pub fn run(
     args: &CommitArgs,
@@ -75,6 +119,19 @@ pub fn run(
         diff_strategy.ignored_files = files_to_ignore.to_owned();
     }
 
+    print::status::provider_info(
+        &state
+            .settings
+            .provider,
+        &state
+            .settings
+            .providers,
+    )?;
+
+    let handle = SpinnerBuilder::new()
+        .text("Generating request")
+        .start();
+
     state.diffs = get_diffs_from_statuses(
         &state.git.repo,
         &state.git.workdir,
@@ -88,7 +145,7 @@ pub fn run(
     {
         println!(
             "{}",
-            style("Repository does not have any known changes.")
+            "Repository does not have any known changes."
                 .yellow()
                 .bold()
         );
@@ -129,15 +186,9 @@ pub fn run(
     /* println!("{}", serde_json::to_string_pretty(&schema)?);
     println!("{:#?}", req); */
 
-    run_commit(
-        req,
-        schema,
-        state.settings,
-        state.git,
-        state.diffs,
-        args.skip_confirmation,
-        global.compact,
-    )?;
+    handle.done();
+
+    run_commit(req, schema, state.settings, state.git, state.diffs)?;
 
     Ok(())
 }
@@ -148,23 +199,11 @@ fn run_commit(
     cfg: Settings,
     git: GitRepo,
     mut diffs: Diffs,
-    skip_confirmation: bool,
-    compact: bool,
 ) -> anyhow::Result<()> {
-    let provider_display = format!(
-        "Generating Commits Using {}({})",
-        style(&cfg.provider).blue(),
-        style(
-            cfg.providers
-                .get_model(&cfg.provider)
-        )
-        .dim()
-    );
-
     loop {
-        let loading = Loading::new(&provider_display, compact)?;
-
-        loading.start();
+        let handle = SpinnerBuilder::new()
+            .text("Generating commits")
+            .start();
 
         let result: Value = match extract_from_provider(
             &cfg.provider,
@@ -173,75 +212,111 @@ fn run_commit(
         ) {
             Ok(r) => r,
             Err(e) => {
-                loading.stop();
-                println!(
-                    "Done but Gai received an error from the provider: {:#}",
-                    e
-                );
+                handle.error();
 
-                if Confirm::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Retry?")
-                    .interact()?
-                {
+                eprintln!("error from the provider:\n{:#}", e);
+
+                break;
+            }
+        };
+
+        let mut raw_commits =
+            parse_to_commit_schema(result, &cfg.staging_type)?;
+
+        handle.done();
+
+        print::commits::response_commits(
+            &raw_commits,
+            matches!(cfg.staging_type, StagingStrategy::Hunks),
+        )?;
+
+        let mut regenerate = false;
+
+        loop {
+            let selected =
+                Menu::new("What do you want to do?", &RESPONSE_OPTS)
+                    .render()?;
+
+            match selected {
+                ResponseActions::Apply => {
+                    let git_commits: Vec<GitCommit> = raw_commits
+                        .iter()
+                        .cloned()
+                        .map(|c| process_commit(c, &cfg))
+                        .collect();
+
+                    let oids = match apply_commits(
+                        &git.repo,
+                        &git_commits,
+                        &mut diffs.files,
+                        &cfg.staging_type,
+                    ) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            eprintln!(
+                                "failed to apply commits:\n{e}",
+                            );
+
+                            break;
+                        }
+                    };
+
+                    for (i, oid) in oids
+                        .iter()
+                        .enumerate()
+                    {
+                        let (
+                            branch_name,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        ) = get_commit_stats(&git.repo, oid)?;
+
+                        let commit_msg = git_commits[i]
+                            .message
+                            .to_owned();
+
+                        print::commits::completed_commit(
+                            &branch_name,
+                            oid,
+                            &commit_msg,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        )?;
+                    }
+
+                    break;
+                }
+                ResponseActions::Regen => {
+                    regenerate = true;
+                    break;
+                }
+                ResponseActions::Edit => {
+                    raw_commits = edit_commits(&raw_commits)?;
+
+                    if raw_commits.is_empty() {
+                        break;
+                    }
+
+                    print::commits::response_commits(
+                        &raw_commits,
+                        matches!(
+                            cfg.staging_type,
+                            StagingStrategy::Hunks
+                        ),
+                    )?;
+
                     continue;
-                } else {
+                }
+                ResponseActions::Quit => {
                     break;
                 }
             }
-        };
+        }
 
-        let raw_commits =
-            parse_to_commit_schema(result, &cfg.staging_type)?;
-
-        loading.stop();
-
-        println!(
-            "Done! Received {} Commit{}",
-            raw_commits.len(),
-            if raw_commits.len() == 1 { "" } else { "s" }
-        );
-
-        let selected = commits::print_response_commits(
-            &raw_commits,
-            compact,
-            matches!(cfg.staging_type, StagingStrategy::Hunks),
-            skip_confirmation,
-        )?;
-
-        let git_commits: Vec<GitCommit> = raw_commits
-            .into_iter()
-            .map(|c| process_commit(c, &cfg))
-            .collect();
-
-        let selected = match selected {
-            Some(s) => s,
-            None => {
-                if apply(
-                    &git,
-                    &git_commits,
-                    &mut diffs.files,
-                    &cfg.staging_type,
-                ) {
-                    continue;
-                }
-                0
-            }
-        };
-
-        if selected == 0 {
-            if apply(
-                &git,
-                &git_commits,
-                &mut diffs.files,
-                &cfg.staging_type,
-            ) {
-                continue;
-            }
-        } else if selected == 1 {
-            println!("Regenerating");
+        if regenerate {
             continue;
-        } else if selected == 2 {
-            println!("Exiting");
         }
 
         break;
@@ -250,39 +325,136 @@ fn run_commit(
     Ok(())
 }
 
-fn apply(
-    repo: &GitRepo,
-    git_commits: &[GitCommit],
-    og_file_diffs: &mut Vec<FileDiff>,
-    staging_stragey: &StagingStrategy,
-) -> bool {
-    println!("Applying Commits...");
-    match apply_commits(
-        &repo.repo,
-        git_commits,
-        og_file_diffs,
-        staging_stragey,
-    ) {
-        Ok(_) => false,
-        Err(e) => {
-            println!("Failed to Apply Commits: {}", e);
+pub fn edit_commits(
+    commits: &[CommitSchema]
+) -> anyhow::Result<Vec<CommitSchema>> {
+    let mut res = commits.to_vec();
 
-            let options = ["Retry", "Exit"];
-            let selection =
-                Select::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Select an option:")
-                    .items(options)
-                    .default(0)
-                    .interact()
-                    .unwrap();
+    // for previous to work properly
+    let mut i = 0;
+    while i < res.len() {
+        let mut edited = res[i].to_owned();
 
-            if selection == 0 {
-                println!("Regenerating...");
-                true
-            } else {
-                println!("Exiting");
-                false
+        loop {
+            let msg = format!(
+                "{}\n({}/{}) Edit what?",
+                // sum
+                edited
+                    .to_string()
+                    .lines()
+                    .next()
+                    .unwrap_or(""),
+                i + 1,
+                res.len(),
+            );
+
+            let action = Menu::new(&msg, &EDIT_OPTS).render()?;
+
+            match action {
+                EditActions::Next => {
+                    res[i] = edited.to_owned();
+                    i = i.saturating_add(1);
+
+                    break;
+                }
+                EditActions::Previous => {
+                    // im assuming the user wants
+                    // to save the progress here and
+                    // go back?
+                    res[i] = edited.to_owned();
+
+                    if i > 0 {
+                        i = i.saturating_sub(1);
+                    }
+                    break;
+                }
+                EditActions::Remove => {
+                    res.remove(i);
+                    break;
+                }
+                EditActions::Prefix => {
+                    loop {
+                        let raw = print::input::prompt(&format!(
+                            "type [{}]: ",
+                            PrefixType::VARIANTS.join("/")
+                        ))?;
+                        if raw.is_empty() {
+                            break;
+                        } // empty = cancel
+
+                        let trimmed = raw.trim();
+
+                        match PrefixType::iter().find(|p| {
+                            p.to_string()
+                                .eq_ignore_ascii_case(trimmed)
+                        }) {
+                            Some(p) => {
+                                edited.prefix = p;
+                                break;
+                            }
+                            None => eprintln!(
+                                "not a valid type, try again"
+                            ),
+                        }
+                    }
+
+                    res[i] = edited.to_owned();
+                    continue;
+                }
+                EditActions::Scope => {
+                    let raw = print::input::prompt(
+                        "scope (empty to clear): ",
+                    )?;
+
+                    let trimmed = raw.trim();
+
+                    edited.scope = if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed.to_string())
+                    };
+
+                    res[i] = edited.to_owned();
+                    continue;
+                }
+                EditActions::Header => {
+                    edited.header =
+                        crate::utils::open::edit(&edited.header)?
+                            .trim()
+                            .to_string();
+
+                    res[i] = edited.to_owned();
+
+                    continue;
+                }
+
+                EditActions::Body => {
+                    let current = edited
+                        .body
+                        .as_deref()
+                        .unwrap_or("");
+
+                    let new_body = crate::utils::open::edit(current)?;
+
+                    let trimmed = new_body.trim();
+
+                    edited.body = if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed.to_string())
+                    };
+                    res[i] = edited.to_owned();
+
+                    continue;
+                }
+
+                EditActions::Quit => {
+                    res[i] = edited.to_owned();
+                    return Ok(res);
+                }
             }
         }
     }
+
+    Ok(res)
 }

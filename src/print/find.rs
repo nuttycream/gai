@@ -1,28 +1,22 @@
-use console::{Color, Style, style};
-use dialoguer::{Select, theme::ColorfulTheme};
+use owo_colors::Style;
 
-use crate::{
-    git::log::{GitLog, get_short_hash},
-    schema::find::Confidence,
-};
+use crate::{git::log::GitLog, schema::find::Confidence};
 
-use super::tree::{Tree, TreeItem};
+use super::{tree::Tree, tree::TreeItem};
 
-pub fn print(
+pub fn found_commit(
     commit: &GitLog,
-    files: bool,
-    reasoning: Option<&str>,
-    confidence: Confidence,
-) -> anyhow::Result<usize> {
+    _reasoning: &str,
+    _confidence: Confidence,
+) -> anyhow::Result<()> {
+    //let commit_color = prefix_color(commit.prefix);
     let mut children = Vec::new();
-
     let date_item = TreeItem::new_leaf(
         commit
             .date
             .to_owned(),
         format!("Date: {}", commit.date),
-    )
-    .style(Style::new().dim());
+    );
 
     children.push(date_item);
 
@@ -31,35 +25,30 @@ pub fn print(
             .author
             .to_owned(),
         format!("Author: {}", commit.author),
-    )
-    .style(Style::new().dim());
+    );
 
     children.push(author_item);
 
-    if files {
-        let logs = commit
-            .files
-            .join(",");
+    // TODO: show commit stats instead,
+    // 1 files changed, 2 insertions, 3 deletions, etc.
+    let logs = commit
+        .files
+        .join(", ");
 
-        let files_item = TreeItem::new_leaf(
-            "raw_files".to_string(),
-            logs.to_string(),
-        )
-        .style(Style::new().dim());
+    let files_item =
+        TreeItem::new_leaf("raw_files".to_string(), logs.to_string());
 
-        children.push(files_item);
-    }
-
-    let (_, max_term_width) = console::Term::stderr().size();
-    let avail = (max_term_width as usize).saturating_sub(15);
+    children.push(files_item);
 
     let message: String = commit
         .to_owned()
         .into();
 
-    let short_hash = get_short_hash(commit);
+    let short_hash = &commit.commit_hash[..7];
 
-    let hash_display = style(format!("[{}]", short_hash)).dim();
+    let hash_display = format!("[{}]", short_hash);
+
+    let avail = 70;
 
     let truncated = if message.len() > avail {
         format!("{}...", &message[..avail])
@@ -67,22 +56,7 @@ pub fn print(
         message
     };
 
-    let prefix = commit
-        .prefix
-        .as_ref()
-        .map(|s| s.to_lowercase());
-
-    let color = match prefix.as_deref() {
-        Some("feat") => Color::Green,
-        Some("fix") => Color::Red,
-        Some("refactor") => Color::Color256(214),
-        Some("docs") => Color::Blue,
-        _ => Color::White,
-    };
-
-    let message = style(&truncated).fg(color);
-
-    let display = format!("{} {}", hash_display, message);
+    let display = format!("{} {}", hash_display, truncated);
 
     let tree = vec![
         TreeItem::new(
@@ -95,38 +69,7 @@ pub fn print(
         .style(Style::new()),
     ];
 
-    let confidence_color = match confidence {
-        Confidence::Exact => Color::Green,
-        Confidence::Likely => Color::Color256(214),
-        Confidence::Ambiguous => Color::Yellow,
-    };
-
-    println!(
-        "Found a \"{}\" Commit...",
-        style(confidence.to_string())
-            .fg(confidence_color)
-            .bold()
-    );
-
-    if let Some(r) = reasoning {
-        println!(
-            "{}:\n{}",
-            style("Reasoning")
-                .bold()
-                .cyan(),
-            style(r).dim(),
-        );
-    }
-
     Tree::new(&tree)?.render();
 
-    let options = ["Checkout", "Query Another", "Retry", "Exit"];
-
-    let selection = Select::with_theme(&ColorfulTheme::default())
-        .with_prompt("Select an option:")
-        .items(options)
-        .default(0)
-        .interact()?;
-
-    Ok(selection)
+    Ok(())
 }

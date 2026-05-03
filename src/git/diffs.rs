@@ -85,6 +85,23 @@ pub struct HunkHeader {
     //raw: String,
 }
 
+impl fmt::Display for HunkHeader {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        let h = format!(
+            "@@ -{},{} +{},{} @@",
+            self.old_start,
+            self.old_lines,
+            self.new_start,
+            self.new_lines,
+        );
+
+        write!(f, "{}", h)
+    }
+}
+
 /// type of diff of a single line
 #[derive(Copy, Clone, Default, PartialEq, Eq, Hash, Debug)]
 pub enum DiffLineType {

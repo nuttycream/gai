@@ -1,7 +1,6 @@
 use crate::{
     args::{GlobalArgs, LogArgs},
     git::log::get_logs,
-    print::log,
     state::State,
 };
 
@@ -15,7 +14,7 @@ pub fn run(
         .number
         .unwrap_or_default();
 
-    let logs = get_logs(
+    let _logs = get_logs(
         &state.git,
         true,
         false,
@@ -25,19 +24,6 @@ pub fn run(
         None,
         None,
     )?;
-
-    match log::print_logs(&logs.git_logs, None, None)? {
-        Some(s) => {
-            // todo impl perform checkout
-            let log: String = logs.git_logs[s]
-                .to_owned()
-                .into();
-            println!("Selected: {}", log);
-        }
-        None => {
-            // do nothing
-        }
-    }
 
     Ok(())
 }

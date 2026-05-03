@@ -6,20 +6,17 @@ homepage = "https://gai.fyi"
 repository = "https://github.com/cube-cult/gai"
 
 [dependencies]
+anstream = { version = "1.0.0", default-features = false, features = ["auto"] }
 anyhow = "1.0.100"
 chrono = { version = "0.4.42", default-features = false, features = ["alloc", "now"] }
 clap = { version = "4.5.48", default-features = false, features = ["derive", "std", "help", "color", "usage", "suggestions", "error-context"] }
 config = { version = "0.15.19", default-features = false, features = ["toml"] }
-console = { version = "0.16.2", default-features = false }
-dialoguer = { git = "https://github.com/nuttycream/dialoguer", version = "0.12.0", default-features = false, features = ["fuzzy-matcher", "fuzzy-select", "history", "password"] }
 directories = { version = "6.0.0", default-features = false }
 dotenv = "0.15.0"
-fuzzy-matcher = { version = "0.3.7", default-features = false }
-git2 = { version = "0.20.3", default-features = false}
+git2 = { git = "https://github.com/rust-lang/git2-rs.git", default-features = false}
 humantime = { version = "2.3.0", default-features = false }
-indicatif = { version = "0.18.0", default-features = false }
 llmao = { git = "https://github.com/nuttycream/llmao", branch = "main", version = "0.0.2" }
-open = { version = "5.3.2", default-features = false }
+owo-colors = { version = "4.3.0", default-features = false }
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
 strum = { version = "0.27.2", default-features = false, features = ["derive", "strum_macros"] }

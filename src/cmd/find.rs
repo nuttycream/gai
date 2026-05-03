@@ -1,17 +1,32 @@
-use console::style;
-use dialoguer::{Confirm, theme::ColorfulTheme};
 use serde_json::Value;
 
 use crate::{
     args::{FindArgs, GlobalArgs},
     git::{checkout::checkout_commit, log::get_logs},
-    print::{InputHistory, find::print, loading, print_input_prompt},
+    print::{menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
     responses::find::parse_to_find_schema,
     schema::{SchemaSettings, find::create_find_schema},
     state::State,
 };
+
+#[derive(Debug, Clone)]
+enum ResponseActions {
+    Checkout,
+    ReQuery,
+    Full,
+    Retry,
+    Quit,
+}
+
+const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
+    (ResponseActions::Checkout, 'c', "checkout the commit"),
+    (ResponseActions::Full, 'f', "see full commit information"),
+    (ResponseActions::ReQuery, 'a', "retry with another query"),
+    (ResponseActions::Retry, 'r', "retry with the same query"),
+    (ResponseActions::Quit, 'q', "quit"),
+];
 
 pub fn run(
     args: &FindArgs,
@@ -89,33 +104,22 @@ pub fn run(
     };
 
     let schema = create_find_schema(schema_settings, count)?;
-    let mut history = InputHistory::default();
 
-    let mut query = String::new();
+    let query = String::new();
     let mut should_retry = false;
 
     loop {
         let q = if should_retry {
             query.to_owned()
         } else {
-            match print_input_prompt(
-                "What is your query?",
-                Some(&mut history),
-            )? {
-                Some(q) => {
-                    query = q.to_owned();
-                    q
-                }
-                None => break,
-            }
+            crate::print::input::prompt(
+                "What do you want to search for? ",
+            )?
         };
 
-        let text = format!(
-            "Querying through your commits for \"{}\"",
-            style(q.to_owned())
-                .cyan()
-                .bold()
-        );
+        let handle = SpinnerBuilder::new()
+            .text("Searching through commits")
+            .start();
 
         let req = create_find_request(&state.settings, &log_strs, &q);
 
@@ -123,10 +127,6 @@ pub fn run(
             println!("{}", req);
             break;
         } */
-
-        let loading = loading::Loading::new(&text, global.compact)?;
-
-        loading.start();
 
         let response: Value = match extract_from_provider(
             &state
@@ -137,63 +137,47 @@ pub fn run(
         ) {
             Ok(r) => r,
             Err(e) => {
-                let msg = format!(
-                    "Gai received an error from the provider:\n{:#}",
-                    e
-                );
+                handle.error();
 
-                loading.stop_with_message(&msg);
+                eprintln!("error from the provider:\n{:#}", e);
 
-                if Confirm::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Retry?")
-                    .interact()?
-                {
-                    continue;
-                } else {
-                    break;
-                }
+                break;
             }
         };
 
         let result = parse_to_find_schema(response)?;
 
-        loading.stop();
+        handle.done();
 
         let log = logs.git_logs[result.commit_id as usize].to_owned();
 
-        let reasoning = if args.reasoning {
-            Some(
-                result
-                    .reasoning
-                    .as_str(),
-            )
-        } else {
-            None
-        };
+        let reasoning = result
+            .reasoning
+            .as_str();
 
-        let opt =
-            print(&log, args.files, reasoning, result.confidence)?;
+        crate::print::find::found_commit(
+            &log,
+            reasoning,
+            result.confidence,
+        )?;
 
-        match opt {
-            0 => {
-                println!("Checking out {}", log.commit_hash);
+        match Menu::new("What do you want to do? ", &RESPONSE_OPTS)
+            .render()?
+        {
+            ResponseActions::Checkout => {
                 checkout_commit(&state.git.repo, &log.commit_hash)?;
                 break;
             }
-            1 => {
-                println!("Entering another query...");
+            ResponseActions::ReQuery => {
                 should_retry = false;
                 continue;
             }
-            2 => {
-                println!("Retrying...");
+            ResponseActions::Full => todo!(),
+            ResponseActions::Retry => {
                 should_retry = true;
                 continue;
             }
-            _ => {
-                println!("Exiting...");
-                break;
-            }
+            ResponseActions::Quit => break,
         }
     }
 

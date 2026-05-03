@@ -1,3 +1,6 @@
+use std::fmt;
+
+use owo_colors::Style;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use strum::{EnumIter, VariantNames};
@@ -83,6 +86,35 @@ pub struct CommitSchema {
     pub body: Option<String>,
 }
 
+// full display
+impl fmt::Display for CommitSchema {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        write!(f, "{}", self.prefix)?;
+
+        if let Some(ref scope) = self.scope {
+            write!(f, "({})", scope)?;
+        }
+
+        if self
+            .breaking
+            .unwrap_or(false)
+        {
+            write!(f, "!")?;
+        }
+
+        write!(f, ": {}", self.header)?;
+
+        if let Some(ref body) = self.body {
+            write!(f, "\n\n{}", body)?;
+        }
+
+        Ok(())
+    }
+}
+
 /// conventional commit type prefix
 #[derive(
     Clone,
@@ -114,6 +146,23 @@ pub enum PrefixType {
     // create branches?
     //Merge,
     //Revert,
+}
+
+impl PrefixType {
+    pub fn style(&self) -> Style {
+        match self {
+            Self::Feat => Style::new().green(),
+            Self::Fix => Style::new().red(),
+            Self::Refactor => Style::new().yellow(),
+            Self::Style => Style::new().magenta(),
+            Self::Test => Style::new().cyan(),
+            Self::Docs => Style::new().blue(),
+            Self::Build => Style::new().bright_yellow(),
+            Self::CI => Style::new().bright_magenta(),
+            Self::Ops => Style::new().bright_cyan(),
+            Self::Chore => Style::new().dimmed(),
+        }
+    }
 }
 
 /// creates a schema for commits

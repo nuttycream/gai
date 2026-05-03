@@ -5,6 +5,7 @@ use crate::{
         status::get_status,
     },
     print::status,
+    requests::tokens::estimate_token_count,
     state::State,
 };
 
@@ -27,7 +28,18 @@ pub fn run(
     let working_dir =
         get_status(&state.git.repo, &StatusStrategy::WorkingDir)?;
 
-    status::print(
+    let provider = state
+        .settings
+        .provider;
+
+    status::provider_info(
+        &provider,
+        &state
+            .settings
+            .providers,
+    )?;
+
+    status::repo_status(
         &staged.branch_name,
         &staged.statuses,
         &working_dir.statuses,
@@ -62,7 +74,30 @@ pub fn run(
             &diff_strategy,
         )?;
 
-        println!("{}", diffs);
+        for file in &diffs.files {
+            let mut txt = String::new();
+
+            // mimicing what gets sent to the prompt
+            // ideally, this is done near the request
+            for hunk in &file.hunks {
+                txt.push_str(&format!(
+                    "HunkId[{}:{}]\n",
+                    file.path, hunk.id
+                ));
+
+                for line in &hunk.lines {
+                    txt.push_str(&format!(
+                        "{}{}\n",
+                        line.line_type, line.content
+                    ));
+                }
+            }
+
+            let token_estimate = estimate_token_count(&txt);
+            // temp println
+            // TODO: remove, use status::repo_status
+            println!("file:{} tokens:{}", file.path, token_estimate);
+        }
     }
 
     Ok(())

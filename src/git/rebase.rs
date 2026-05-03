@@ -39,12 +39,16 @@ use super::{checkout::force_checkout_head, errors::GitError};
 pub fn cherry_pick_commits(
     repo: &Repository,
     commits: &[String],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<String>> {
+    let mut oids = Vec::new();
     for oid_str in commits {
-        cherry_pick_single(repo, oid_str)?;
+        let oid = cherry_pick_single(repo, oid_str)?;
+        oids.push(oid);
     }
 
-    force_checkout_head(repo)
+    force_checkout_head(repo)?;
+
+    Ok(oids)
 }
 
 /// cherry pick single commit
@@ -52,7 +56,7 @@ pub fn cherry_pick_commits(
 pub fn cherry_pick_single(
     repo: &Repository,
     commit: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     let oid = Oid::from_str(commit)?;
 
     let commit = repo.find_commit(oid)?;
@@ -79,9 +83,16 @@ pub fn cherry_pick_single(
         .message()
         .unwrap_or_default();
 
-    repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&head])?;
+    let oid = repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        message,
+        &tree,
+        &[&head],
+    )?;
 
-    Ok(())
+    Ok(oid.to_string())
 }
 
 /// cherrypick a commit
@@ -93,7 +104,7 @@ pub fn cherry_pick_reword(
     repo: &Repository,
     commit: &str,
     message: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     let oid = Oid::from_str(commit)?;
 
     let commit = repo.find_commit(oid)?;
@@ -116,9 +127,16 @@ pub fn cherry_pick_reword(
     let tree = repo.find_tree(tree_oid)?;
     let sig = repo.signature()?;
 
-    repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&head])?;
+    let oid = repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        message,
+        &tree,
+        &[&head],
+    )?;
 
-    Ok(())
+    Ok(oid.to_string())
 }
 
 /// helper func to get a list of trailing commits

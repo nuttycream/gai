@@ -1,31 +1,24 @@
-use console::{Color, Style, style};
-use dialoguer::{Select, theme::ColorfulTheme};
+use std::io::Write;
 
-use crate::schema::commit::{CommitSchema, PrefixType};
+use anstream::stdout;
+use owo_colors::OwoColorize;
+
+use crate::{print::utils::tput_size, schema::commit::CommitSchema};
 
 use super::tree::{Tree, TreeItem};
-
-pub fn get_prefix_color(prefix: &PrefixType) -> Color {
-    match prefix {
-        PrefixType::Feat => Color::Green,
-        PrefixType::Fix => Color::Red,
-        //urange
-        PrefixType::Refactor => Color::Color256(214),
-        _ => Color::White,
-    }
-}
 
 /// display the responsecommits
 /// before converting to usable
 /// git commits
 /// returns an selected option
-pub fn print_response_commits(
+pub fn response_commits(
     commits: &[CommitSchema],
-    compact: bool,
     as_hunks: bool,
-    skip_confirmation: bool,
-) -> anyhow::Result<Option<usize>> {
+) -> anyhow::Result<()> {
     let mut items = Vec::new();
+
+    let (width, _) = tput_size().unwrap_or((80, 100));
+    let max_length = width.saturating_sub(5) as usize;
 
     for (i, commit) in commits
         .iter()
@@ -33,34 +26,21 @@ pub fn print_response_commits(
     {
         let mut commit_children = Vec::new();
 
-        // if we need to we might have to truncate this
-        // similar to the body, but i foresee this as a non-issue?
-        if !commit
-            .header
-            .is_empty()
-        {
-            let header_item = TreeItem::new_leaf(
-                format!("commit_{}_header", i),
-                &commit.header,
-            )
-            .style(Style::new().white());
-
-            commit_children.push(header_item);
-        }
-
         // preview the body if exists
         if let Some(ref body) = commit.body {
-            let truncated_body = if body.len() > 20 {
-                format!("{}...", &body[..20])
+            let truncated = body
+                .chars()
+                .take(max_length)
+                .collect::<String>();
+
+            let body = if truncated.len() < body.len() {
+                format!("{truncated}...")
             } else {
-                body.to_owned()
+                truncated
             };
 
-            let body_item = TreeItem::new_leaf(
-                "body".to_owned(),
-                &truncated_body,
-            )
-            .style(Style::new().dim());
+            let body_item =
+                TreeItem::new_leaf("body".to_owned(), &body);
 
             commit_children.push(body_item);
         }
@@ -79,7 +59,7 @@ pub fn print_response_commits(
         }
 
         for file in paths {
-            let file_display = format!("{}", style(file).magenta());
+            let file_display = file.to_string();
 
             // add the hunks as one-line
             // branch
@@ -107,16 +87,13 @@ pub fn print_response_commits(
 
                 let mut file_children = Vec::new();
 
-                let hunks_display = format!(
-                    "Hunks: [{}]",
-                    style(hunk_idxes.join(", ")).magenta()
-                );
+                let hunks_display =
+                    format!("Hunks: [{}]", hunk_idxes.join(", "));
 
                 let hunks_item = TreeItem::new_leaf(
                     format!("{}_hunks", file),
                     &hunks_display,
-                )
-                .style(Style::new().dim());
+                );
 
                 file_children.push(hunks_item);
 
@@ -124,32 +101,26 @@ pub fn print_response_commits(
                     file.clone(),
                     file_display,
                     file_children,
-                )?
-                .style(Style::new().dim());
+                )?;
 
                 //commit_children.push(file_item);
                 files.push(file_item);
             } else {
                 let file_item =
-                    TreeItem::new_leaf(file.clone(), &file_display)
-                        .style(Style::new().dim());
+                    TreeItem::new_leaf(file.clone(), &file_display);
 
                 //commit_children.push(file_item);
                 files.push(file_item);
             }
         }
 
-        let files_display = format!(
-            "{}",
-            style(format!("Files ({})", files.len())).dim()
-        );
+        let files_display = format!("Files ({})", files.len());
 
         let files_item = TreeItem::new(
             format!("commit_{}_files", i),
             files_display,
             files,
-        )?
-        .style(Style::new().dim());
+        )?;
 
         commit_children.push(files_item);
 
@@ -173,23 +144,18 @@ pub fn print_response_commits(
                 .to_lowercase(),
         };
 
-        let color = get_prefix_color(&commit.prefix);
+        let commit_idx = format!("[{}]", i + 1);
 
-        let commit_idx = style(format!("[{}]", i)).dim();
+        let display =
+            format!("{} {}: {}", commit_idx, prefix, commit.header);
 
-        let display = if compact {
-            let prefix =
-                style(format!("{}: {}", prefix, commit.header))
-                    .fg(color)
-                    .bold();
-
-            format!("{} {}", commit_idx, prefix)
-        } else {
-            let prefix = style(format!("{}:", prefix))
-                .fg(color)
-                .bold();
-            format!("{} {}", commit_idx, prefix)
-        };
+        let display = display
+            .style(
+                commit
+                    .prefix
+                    .style(),
+            )
+            .to_string();
 
         // when we implement
         // fuzzy selection to trim
@@ -198,38 +164,62 @@ pub fn print_response_commits(
         let for_fuzzy_id = format!("{}: {}", prefix, commit.header);
 
         let item =
-            TreeItem::new(for_fuzzy_id, display, commit_children)?
-                .style(
-                    Style::new()
-                        .fg(color)
-                        .bold(),
-                );
+            TreeItem::new(for_fuzzy_id, display, commit_children)?;
 
         items.push(item);
     }
 
     if !items.is_empty() {
-        Tree::new(&items)?
-            .collapsed(compact)
-            .style(
-                Style::new()
-                    .dim()
-                    .dim(),
-            )
-            .render();
+        Tree::new(&items)?.render();
     }
 
-    if skip_confirmation {
-        return Ok(None);
+    Ok(())
+}
+
+pub(crate) fn completed_commit(
+    branch_name: &str,
+    hash: &str,
+    commit_msg: &str,
+    files_changed: usize,
+    insertions: usize,
+    deletions: usize,
+) -> anyhow::Result<()> {
+    let mut out = stdout();
+
+    let short = &hash[..7];
+    let file = if files_changed == 1 { "file" } else { "files" };
+    let inserts = if insertions == 1 {
+        "insertion"
+    } else {
+        "insertions"
+    };
+    let delets = if deletions == 1 {
+        "deletion"
+    } else {
+        "deletions"
+    };
+
+    writeln!(
+        out,
+        "\n[{} {}] {}",
+        branch_name
+            .green()
+            .bold(),
+        short.yellow(),
+        commit_msg,
+    )?;
+
+    write!(out, " {} {} changed", files_changed, file,)?;
+
+    if insertions > 0 {
+        write!(out, ", {} {}{}", insertions, inserts, "(+)".green(),)?;
     }
 
-    let options = ["Apply", "Regenerate", "Exit"];
+    if deletions > 0 {
+        write!(out, ", {} {}{}", deletions, delets, "(-)".red(),)?;
+    }
 
-    let selection = Select::with_theme(&ColorfulTheme::default())
-        .with_prompt("Select an option:")
-        .items(options)
-        .default(0)
-        .interact_opt()?;
+    writeln!(out)?;
 
-    Ok(selection)
+    Ok(())
 }

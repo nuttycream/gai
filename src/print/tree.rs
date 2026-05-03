@@ -1,10 +1,9 @@
-use console::Style;
-use std::collections::HashSet;
+use owo_colors::Style;
+use std::{collections::HashSet, io::Write};
 
 // this is a tree printing util that helps
 // pretty printing trees
 // it's a modified version of the original
-// arena graph that used crossterm
 // this time however, it also takes heavy
 // inspiration from the `tui-rs-tree-widget`
 // crate that implements ratatui's widget trait
@@ -12,8 +11,6 @@ use std::collections::HashSet;
 // the main difference, being this doesn't
 // have state  since i dont plan on having
 // interactivity for this.
-//
-// styling is done by console-rs
 
 /// tui-rs-tree-widget esque TreeItem
 /// while identifier is not really being used
@@ -26,6 +23,7 @@ pub struct TreeItem<Identifier> {
     children: Vec<Self>,
 
     text: String,
+
     style: Style,
 }
 
@@ -76,7 +74,7 @@ where
             identifier,
             text,
             children: Vec::new(),
-            style: Style::default(),
+            style: Style::new(),
         }
     }
 
@@ -110,7 +108,7 @@ where
             identifier,
             text,
             children,
-            style: Style::default(),
+            style: Style::new(),
         })
     }
 
@@ -185,7 +183,7 @@ where
             padding_left: 0,
             padding_top: 0,
             padding_bottom: 0,
-            style: Style::default(),
+            style: Style::new(),
             collapsed: false,
             other_child,
             other_entry,
@@ -197,6 +195,7 @@ where
     /// render tree
     /// using console-rs styling
     pub fn render(self) {
+        let mut out = anstream::stdout();
         if self
             .items
             .is_empty()
@@ -206,27 +205,25 @@ where
 
         // top
         for _ in 0..self.padding_top {
-            println!();
+            writeln!(out).ok();
         }
 
         let flattened = flatten(self.items, &[], self.collapsed, 0);
 
         for flat in flattened.iter() {
             let prefix = self.prefix(&flat.is_last_at_depth);
-            let prefix = self
-                .style
-                .apply_to(&prefix);
+
             let text = flat
                 .item
-                .style
-                .apply_to(&flat.item.text);
+                .text
+                .to_owned();
 
-            println!("{prefix}{text}");
+            write!(out, "{}{}\r\n", prefix, text).ok();
         }
 
         // bottom
         for _ in 0..self.padding_bottom {
-            println!();
+            writeln!(out).ok();
         }
     }
 
@@ -247,13 +244,11 @@ where
 
         for flat in flattened.iter() {
             let prefix = self.prefix(&flat.is_last_at_depth);
-            let prefix = self
-                .style
-                .apply_to(&prefix);
+
             let text = flat
                 .item
-                .style
-                .apply_to(&flat.item.text);
+                .text
+                .to_owned();
 
             s.push_str(&format!("{prefix}{text}\n"));
         }
