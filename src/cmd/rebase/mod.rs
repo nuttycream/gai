@@ -237,16 +237,6 @@ pub fn run(
                 &schema_settings,
             ) {
                 Ok(ops) => {
-                    // reset to the from commit
-                    // since, compared to the
-                    // commit generation apply()
-                    // im not using the diffs/changes
-                    // but instead the existing commits
-                    reset_repo_hard(
-                        &state.git.repo,
-                        &diverge_from.to_string(),
-                    )?;
-
                     let selected = Menu::new(
                         "What do you want to do?",
                         &PLAN_ACTIONS,
@@ -255,6 +245,16 @@ pub fn run(
 
                     match selected {
                         PlanActions::Apply => {
+                            // reset to the from commit
+                            // since, compared to the
+                            // commit generation apply()
+                            // im not using the diffs/changes
+                            // but instead the existing commits
+                            reset_repo_hard(
+                                &state.git.repo,
+                                &diverge_from.to_string(),
+                            )?;
+
                             match apply_plan(
                                 &state.git,
                                 &ops,
@@ -280,9 +280,7 @@ pub fn run(
                         PlanActions::Regen => {
                             continue;
                         }
-                        PlanActions::Quit => {
-                            break;
-                        }
+                        PlanActions::Quit => return Ok(()),
                     }
                 }
 
@@ -293,8 +291,6 @@ pub fn run(
                 }
             }
         }
-
-        return Ok(());
     }
 
     let request = create_rebase_request(
