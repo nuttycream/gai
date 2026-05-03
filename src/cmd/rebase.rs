@@ -1,10 +1,3 @@
-pub mod branch;
-pub mod last;
-pub mod range;
-
-//TODO: THIS ENTIRE THING NEEDS TO BE REDONE
-//MY GOD THIS IS DAMN NEAR UNREADABLE
-
 use git2::Oid;
 use owo_colors::{OwoColorize, Style};
 use serde_json::Value;
@@ -45,10 +38,6 @@ use crate::{
     },
     settings::Settings,
     state::State,
-};
-
-use super::rebase::{
-    branch::rebase_branch, last::rebase_last, range::rebase_range,
 };
 
 #[derive(Debug, Clone)]
@@ -127,39 +116,71 @@ pub fn run(
     let mut to_oid: Option<String> = None;
     let mut trailing_commits: Option<Vec<String>> = None;
 
+    let handle = SpinnerBuilder::new()
+        .text("Gathering logs")
+        .start();
+
     let diverge_from = match &args.scope {
         RebaseScope::Branch { name } => {
-            match rebase_branch(&state.git, Some(name), false)? {
-                Some(oid) => oid,
-                None => return Ok(()),
-            }
+            crate::git::branch::find_divergence_branch(
+                &state.git.repo,
+                name,
+            )?
         }
         RebaseScope::Last { count } => {
-            match rebase_last(&state.git, false, Some(*count))? {
-                Some(oid) => oid,
-                None => return Ok(()),
+            let logs = crate::git::log::get_logs(
+                &state.git, false, false, *count, false, None, None,
+                None,
+            )?;
+
+            if *count > logs.git_logs.len() {
+                eprintln!(
+                    "Warning: Only {} commits exist in history but you requested {}",
+                    logs.git_logs.len(),
+                    count
+                );
             }
+
+            // this should get the last logged commit
+            // if the count exceeds, get_logs()
+            // will handle that and return or "take"
+            // the last commit
+            let oldest_commit_hash = logs
+                .git_logs
+                .last()
+                .map(|l| {
+                    l.commit_hash
+                        .to_owned()
+                })
+                .unwrap();
+
+            crate::git::commit::find_parent_commit(
+                &state.git.repo,
+                &oldest_commit_hash,
+            )?
         }
         RebaseScope::Range { from, to } => {
-            match rebase_range(
-                &state.git,
-                Some(from),
-                to.as_deref(),
-                false,
-            )? {
-                Some(r) => {
-                    to_oid = r.to;
-                    trailing_commits = r.trailing;
-                    r.from
-                }
-                None => return Ok(()),
+            let oid = crate::git::commit::find_parent_commit(
+                &state.git.repo,
+                from,
+            )?;
+
+            if let Some(to) = to {
+                let trailing = crate::git::rebase::trailing_commits(
+                    &state.git.repo,
+                    to,
+                )?;
+
+                to_oid = Some(to.to_owned());
+                trailing_commits = Some(trailing);
+            } else {
+                let head = get_head_repo(&state.git.repo)?;
+                to_oid = Some(head.to_string());
             }
+
+            oid
         }
     };
-
-    let handle = SpinnerBuilder::new()
-        .text("Generating request")
-        .start();
 
     // collect logs
     let logs = get_logs(

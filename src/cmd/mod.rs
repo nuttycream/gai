@@ -5,5 +5,3 @@ pub mod log;
 pub mod rebase;
 pub mod reword;
 pub mod status;
-
-pub use rebase::run;
