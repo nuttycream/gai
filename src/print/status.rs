@@ -142,7 +142,7 @@ pub fn repo_status(
     if !root_items.is_empty() {
         Tree::new(&root_items)?
             .collapsed(compact)
-            .render(&mut out);
+            .render();
     }
 
     Ok(())

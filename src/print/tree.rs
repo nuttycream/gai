@@ -194,10 +194,8 @@ where
 
     /// render tree
     /// using console-rs styling
-    pub fn render(
-        self,
-        out: &mut impl Write,
-    ) {
+    pub fn render(self) {
+        let mut out = anstream::stdout();
         if self
             .items
             .is_empty()

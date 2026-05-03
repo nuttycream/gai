@@ -1,4 +1,3 @@
-use anstream::stdout;
 use owo_colors::Style;
 
 use crate::{git::log::GitLog, schema::find::Confidence};
@@ -10,8 +9,6 @@ pub fn found_commit(
     _reasoning: &str,
     _confidence: Confidence,
 ) -> anyhow::Result<()> {
-    let mut out = stdout();
-
     //let commit_color = prefix_color(commit.prefix);
     let mut children = Vec::new();
     let date_item = TreeItem::new_leaf(
@@ -72,7 +69,7 @@ pub fn found_commit(
         .style(Style::new()),
     ];
 
-    Tree::new(&tree)?.render(&mut out);
+    Tree::new(&tree)?.render();
 
     Ok(())
 }

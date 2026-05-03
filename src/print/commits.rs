@@ -170,7 +170,7 @@ pub fn response_commits(
     }
 
     if !items.is_empty() {
-        Tree::new(&items)?.render(&mut stdout());
+        Tree::new(&items)?.render();
     }
 
     Ok(())
