@@ -1,22 +1,19 @@
 pub mod branch;
 pub mod last;
-pub mod plan;
 pub mod range;
 
 //TODO: THIS ENTIRE THING NEEDS TO BE REDONE
 //MY GOD THIS IS DAMN NEAR UNREADABLE
 
 use git2::Oid;
+use owo_colors::{OwoColorize, Style};
 use serde_json::Value;
 
 use crate::{
     args::{GlobalArgs, RebaseArgs, RebaseScope},
-    cmd::{
-        commit::{RESPONSE_OPTS, ResponseActions},
-        rebase::plan::gen_plan,
-    },
+    cmd::commit::{RESPONSE_OPTS, ResponseActions},
     git::{
-        GitRepo, StagingStrategy,
+        Diffs, GitRepo, StagingStrategy,
         checkout::force_checkout_head,
         commit::{GitCommit, apply_commits},
         diffs::{FileDiff, get_diffs_from_commits},
@@ -30,8 +27,11 @@ use crate::{
         utils::get_head_repo,
     },
     print::{
-        self, commits::response_commits, menu::Menu,
+        self,
+        commits::response_commits,
+        menu::Menu,
         spinner::SpinnerBuilder,
+        tree::{Tree, TreeItem},
     },
     providers::{extract_from_provider, provider::ProviderKind},
     requests::rebase::create_rebase_request,
@@ -43,12 +43,26 @@ use crate::{
         rebase::create_rebase_schema,
         rebase_plan::{PlanOperationKind, PlanOperationSchema},
     },
+    settings::Settings,
     state::State,
 };
 
 use super::rebase::{
     branch::rebase_branch, last::rebase_last, range::rebase_range,
 };
+
+#[derive(Debug, Clone)]
+enum PlanActions {
+    Apply,
+    Regen,
+    Quit,
+}
+
+const PLAN_ACTIONS: [(PlanActions, char, &str); 3] = [
+    (PlanActions::Apply, 'y', "apply plan op/s"),
+    (PlanActions::Regen, 'r', "regenerate operations"),
+    (PlanActions::Quit, 'q', "quit"),
+];
 
 pub fn run(
     args: &RebaseArgs,
@@ -213,50 +227,74 @@ pub fn run(
 
     // plan requires different schemas, and looping workflow
     if args.plan {
-        match gen_plan(
-            &state.settings,
-            &state.diffs,
-            &log_strs,
-            &schema_settings,
-        )? {
-            Some(ops) => {
-                // reset to the from commit
-                // since, compared to the
-                // commit generation apply()
-                // im not using the diffs/changes
-                // but instead the existing commits
-                reset_repo_hard(
-                    &state.git.repo,
-                    &diverge_from.to_string(),
-                )?;
+        handle.done();
 
-                match apply_plan(
-                    &state.git,
-                    &ops,
-                    &logs,
-                    trailing_commits.as_deref(),
-                ) {
-                    Ok(_) => return Ok(()),
-                    Err(e) => {
-                        println!(
-                            "couldnt apply plan: {}\nresetting",
-                            e
-                        );
+        loop {
+            match gen_plan(
+                &state.settings,
+                &state.diffs,
+                &log_strs,
+                &schema_settings,
+            ) {
+                Ok(ops) => {
+                    // reset to the from commit
+                    // since, compared to the
+                    // commit generation apply()
+                    // im not using the diffs/changes
+                    // but instead the existing commits
+                    reset_repo_hard(
+                        &state.git.repo,
+                        &diverge_from.to_string(),
+                    )?;
 
-                        reset_repo_hard(
-                            &state.git.repo,
-                            &original_head,
-                        )?;
+                    let selected = Menu::new(
+                        "What do you want to do?",
+                        &PLAN_ACTIONS,
+                    )
+                    .render()?;
+
+                    match selected {
+                        PlanActions::Apply => {
+                            match apply_plan(
+                                &state.git,
+                                &ops,
+                                &logs,
+                                trailing_commits.as_deref(),
+                            ) {
+                                Ok(_) => return Ok(()),
+                                Err(e) => {
+                                    eprintln!(
+                                        "couldnt apply plan: {}\nresetting",
+                                        e
+                                    );
+
+                                    reset_repo_hard(
+                                        &state.git.repo,
+                                        &original_head,
+                                    )?;
+
+                                    return Err(e);
+                                }
+                            }
+                        }
+                        PlanActions::Regen => {
+                            continue;
+                        }
+                        PlanActions::Quit => {
+                            break;
+                        }
                     }
                 }
 
-                return Ok(());
-            }
-            None => {
-                reset_repo_hard(&state.git.repo, &original_head)?;
-                return Ok(());
+                Err(e) => {
+                    reset_repo_hard(&state.git.repo, &original_head)?;
+                    eprintln!("error when gerating plan:\n{e}");
+                    return Err(e);
+                }
             }
         }
+
+        return Ok(());
     }
 
     let request = create_rebase_request(
@@ -555,9 +593,151 @@ fn apply(
             Ok(oids)
         }
         Err(e) => {
-            Err(anyhow::anyhow!(
-                "failed to apply commits:\n{e}"
-            ))
+            Err(anyhow::anyhow!("failed to apply commits:\n{e}"))
         }
     }
+}
+
+/// a gai rebase --plan will operate significantly
+/// different than the regular gai rebase.
+/// one: it will not generate commits, instead
+/// it will generate a list of RebaseOperationTypes'
+/// two: since it generates rebase operations, applying these will
+/// HANDLE ALOT differently, in terms of what can be rejected,
+/// as well as the flow within git itself
+/// WTF
+fn gen_plan(
+    settings: &Settings,
+    diffs: &Diffs,
+    logs: &[String],
+    schema_settings: &SchemaSettings,
+) -> anyhow::Result<Vec<PlanOperationSchema>> {
+    let handle = SpinnerBuilder::new()
+        .text("Generating Request")
+        .start();
+
+    let request =
+        crate::requests::rebase_plan::create_rebase_plan_request(
+            settings,
+            logs,
+            &diffs.to_string(),
+        );
+
+    let schema =
+        crate::schema::rebase_plan::create_rebase_plan_schema(
+            schema_settings.to_owned(),
+            logs.len(),
+            false,
+        )?;
+
+    let response: Value = match extract_from_provider(
+        &settings.provider,
+        request.to_owned(),
+        schema.to_owned(),
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            return Err(anyhow::anyhow!("{e}"));
+        }
+    };
+
+    let raw_ops =
+        crate::responses::rebase_plan::parse_from_rebase_plan_schema(
+            response,
+        )?;
+    //println!("{:#?}", raw_ops);
+
+    handle.done();
+
+    print_rebase_plan(&raw_ops)?;
+
+    Ok(raw_ops)
+}
+
+// print it here,
+// this will be the move
+// in the future
+// so that the print:: module
+// stays free
+fn print_rebase_plan(
+    raw_ops: &[PlanOperationSchema]
+) -> anyhow::Result<()> {
+    let mut items = Vec::new();
+
+    for (i, op) in raw_ops
+        .iter()
+        .enumerate()
+    {
+        let mut children = Vec::new();
+
+        let reason_item = TreeItem::new_leaf(
+            format!("reason_{i}"),
+            format!("Why? {}", op.reasoning),
+        )
+        .style(Style::new().dimmed());
+
+        children.push(reason_item);
+
+        if let Some(ref msg) = op.new_message {
+            let truncated = if msg.len() > 72 {
+                format!("{}...", &msg[..72])
+            } else {
+                msg.clone()
+            };
+
+            let msg_item = TreeItem::new_leaf(
+                format!("msg_{}", i),
+                format!("New Message: {truncated}",),
+            )
+            .style(Style::new().cyan());
+            children.push(msg_item);
+        }
+
+        let op_style = match op.operation {
+            PlanOperationKind::Pick => Style::new().green(),
+            PlanOperationKind::Reword => Style::new().yellow(),
+            PlanOperationKind::Squash => Style::new().magenta(),
+            PlanOperationKind::Drop => Style::new().red(),
+        };
+
+        let op_idx = format!(
+            "[{}]",
+            op.commit_index
+                .style(Style::new().dimmed())
+        );
+
+        let op_label = op
+            .operation
+            .to_owned()
+            .style(op_style)
+            .to_string();
+
+        let display = {
+            let preview = match (&op.operation, &op.new_message) {
+                (PlanOperationKind::Squash, _) => {
+                    "squashing commit with previous".to_string()
+                }
+                (_, Some(msg)) => {
+                    if msg.len() > 50 {
+                        format!("{}...", &msg[..50])
+                    } else {
+                        msg.clone()
+                    }
+                }
+                _ => String::new(),
+            };
+
+            format!("{op_idx} {op_label} {preview}",)
+        };
+
+        let item =
+            TreeItem::new(format!("op_{}", i), display, children)?
+                .style(op_style);
+
+        items.push(item);
+    }
+
+    Tree::new(&items)?.render();
+
+    Ok(())
 }
