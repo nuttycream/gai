@@ -110,7 +110,7 @@ where
             minreq::post("https://api.openai.com/v1/responses")
                 .with_header(
                     "Authorization",
-                    &format!("Bearer {}", self.api_key),
+                    format!("Bearer {}", self.api_key),
                 )
                 .with_header("Content-Type", "application/json")
                 .with_body(request_body.to_string())
