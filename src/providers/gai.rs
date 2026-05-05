@@ -1,7 +1,6 @@
 use llmao::{Provider, extract::Extract};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use ureq::Agent;
 
 use crate::cmd::auth::get_token;
 
@@ -9,8 +8,6 @@ use super::provider::ProviderError;
 
 #[derive(Debug)]
 pub struct GaiProvider {
-    agent: ureq::Agent,
-
     #[allow(dead_code)]
     config: GaiConfig,
     schema: Option<Value>,
@@ -35,7 +32,6 @@ impl Default for GaiConfig {
 impl GaiProvider {
     pub fn new() -> Self {
         Self {
-            agent: Agent::new_with_defaults(),
             config: GaiConfig::default(),
             schema: None,
         }
@@ -93,20 +89,25 @@ where
             content,
         };
 
+        let req_json = serde_json::to_value(request_body)?;
+
         let endpoint = "https://cli.gai.fyi/generate";
         let auth_token = get_token()
             .map_err(|_| ProviderError::NotAuthenticated)?;
 
-        let resp = self
-            .agent
-            .post(endpoint)
-            .header("Authorization", format!("Bearer {}", auth_token))
-            .header("Content-Type", "application/json")
-            .send_json(&request_body)?
-            .body_mut()
-            .read_json::<serde_json::Value>()?;
+        let resp = minreq::post(endpoint)
+            .with_header(
+                "Authorization",
+                format!("Bearer {}", auth_token),
+            )
+            .with_header("Content-Type", "application/json")
+            .with_body(req_json.to_string())
+            .send()?;
 
-        let generated_text = resp
+        let val: serde_json::Value =
+            serde_json::from_str(resp.as_str()?)?;
+
+        let generated_text = val
             .get("candidates")
             .and_then(|c| c.get(0))
             .and_then(|c| c.get("content"))

@@ -1,14 +1,11 @@
 use llmao::{Provider, extract::Extract};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use ureq::Agent;
 
 use super::provider::ProviderError;
 
 #[derive(Debug)]
 pub struct OpenAIProvider {
-    agent: ureq::Agent,
-
     config: OpenAIConfig,
     api_key: String,
 
@@ -34,7 +31,6 @@ impl OpenAIProvider {
         let api_key = std::env::var("OPENAI_API_KEY").unwrap();
 
         Self {
-            agent: Agent::new_with_defaults(),
             config: OpenAIConfig::default(),
             api_key,
             schema: None,
@@ -110,20 +106,19 @@ where
             serde_json::to_string_pretty(&request_body).unwrap()
         ); */
 
-        let response = self
-            .agent
-            .post("https://api.openai.com/v1/responses")
-            .header(
-                "Authorization",
-                &format!("Bearer {}", self.api_key),
-            )
-            .header("Content-Type", "application/json")
-            .send_json(&request_body)?
-            .body_mut()
-            .read_json()?;
+        let response =
+            minreq::post("https://api.openai.com/v1/responses")
+                .with_header(
+                    "Authorization",
+                    &format!("Bearer {}", self.api_key),
+                )
+                .with_header("Content-Type", "application/json")
+                .with_body(request_body.to_string())
+                .send()?;
 
         // converting the response into a valid serde_json Value
-        let response_json: serde_json::Value = response;
+        let response_json: serde_json::Value =
+            serde_json::from_str(response.as_str()?)?;
 
         //println!("{:#}", response_json);
 

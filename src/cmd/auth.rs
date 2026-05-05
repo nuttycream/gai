@@ -26,18 +26,18 @@ fn auth_status() -> Result<()> {
         expiration: u64,
     }
 
-    let resp = ureq::get("https://cli.gai.fyi/status")
-        .header("Authorization", &format!("Bearer {}", token))
-        .call()?
-        .body_mut()
-        .read_json::<Status>()?;
+    let resp = minreq::get("https://cli.gai.fyi/status")
+        .with_header("Authorization", format!("Bearer {}", token))
+        .send()?;
+
+    let val: Status = serde_json::from_str(resp.as_str()?)?;
 
     if let Some(date) = chrono::DateTime::from_timestamp(
-        resp.expiration
+        val.expiration
             .try_into()?,
         0,
     ) {
-        println!("Requests made: {}/10", resp.requests_made);
+        println!("Requests made: {}/10", val.requests_made);
         println!("Resets at {}", date);
     } else {
         println!("Failed to convert expiration to datetime");
