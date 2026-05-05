@@ -36,7 +36,7 @@ pub struct ProviderSettings {
 
 #[derive(Debug)]
 pub enum ProviderError {
-    HttpError(ureq::Error),
+    HttpError(minreq::Error),
     ParseError(serde_json::Error),
     NoContent,
     InvalidSchema,
@@ -81,8 +81,8 @@ impl Error for ProviderError {
     }
 }
 
-impl From<ureq::Error> for ProviderError {
-    fn from(e: ureq::Error) -> Self {
+impl From<minreq::Error> for ProviderError {
+    fn from(e: minreq::Error) -> Self {
         ProviderError::HttpError(e)
     }
 }

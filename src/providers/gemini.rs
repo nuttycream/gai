@@ -1,14 +1,11 @@
 use llmao::{Provider, extract::Extract};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use ureq::Agent;
 
 use super::provider::ProviderError;
 
 #[derive(Debug)]
 pub struct GeminiProvider {
-    agent: ureq::Agent,
-
     config: GeminiConfig,
     api_key: String,
 
@@ -34,7 +31,6 @@ impl GeminiProvider {
         let api_key = std::env::var("GEMINI_API_KEY").unwrap();
 
         Self {
-            agent: Agent::new_with_defaults(),
             config: GeminiConfig::default(),
             api_key,
             schema: None,
@@ -97,21 +93,19 @@ where
             self.config.model
         );
 
-        let response = self
-            .agent
-            .post(endpoint)
-            .header(
+        let response = minreq::post(endpoint)
+            .with_header(
                 "x-goog-api-key",
                 self.api_key
                     .to_owned(),
             )
-            .header("Content-Type", "application/json")
-            .send_json(&request_body)?
-            .body_mut()
-            .read_json()?;
+            .with_header("Content-Type", "application/json")
+            .with_body(request_body.to_string())
+            .send()?;
 
         // converting the response into a valid serde_json Value
-        let response_json: serde_json::Value = response;
+        let response_json: serde_json::Value =
+            serde_json::from_str(response.as_str()?)?;
 
         let generated_text = response_json
             .get("candidates")
