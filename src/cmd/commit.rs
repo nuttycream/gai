@@ -22,7 +22,6 @@ use crate::{
         },
     },
     settings::Settings,
-    state::State,
 };
 
 #[derive(Debug, Clone)]
@@ -67,29 +66,20 @@ pub fn run(
     args: &CommitArgs,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let mut state = State::new(
-        global
-            .config
-            .as_deref(),
-        global,
-    )?;
+    let mut settings = Settings::default();
+    let git = GitRepo::open(None)?;
 
-    state
-        .settings
-        .prompt
-        .hint = global
+    settings.prompt.hint = global
         .hint
         .to_owned();
 
     if args.staged {
-        state
-            .settings
+        settings
             .commit
             .only_staged = true;
     }
 
-    let status_strategy = if state
-        .settings
+    let status_strategy = if settings
         .commit
         .only_staged
     {
@@ -103,16 +93,14 @@ pub fn run(
         ..Default::default()
     };
 
-    if let Some(ref files_to_truncate) = state
-        .settings
+    if let Some(ref files_to_truncate) = settings
         .context
         .truncate_files
     {
         diff_strategy.truncated_files = files_to_truncate.to_owned();
     }
 
-    if let Some(ref files_to_ignore) = state
-        .settings
+    if let Some(ref files_to_ignore) = settings
         .context
         .ignore_files
     {
@@ -120,26 +108,21 @@ pub fn run(
     }
 
     print::status::provider_info(
-        &state
-            .settings
-            .provider,
-        &state
-            .settings
-            .providers,
+        &settings.provider,
+        &settings.providers,
     )?;
 
     let handle = SpinnerBuilder::new()
         .text("Generating request")
         .start();
 
-    state.diffs = get_diffs_from_statuses(
-        &state.git.repo,
-        &state.git.workdir,
+    let diffs = get_diffs_from_statuses(
+        &git.repo,
+        &git.workdir,
         &diff_strategy,
     )?;
 
-    if state
-        .diffs
+    if diffs
         .files
         .is_empty()
     {
@@ -153,42 +136,29 @@ pub fn run(
     }
 
     // openai seems like the only one that needs this
-    let schema_settings = if matches!(
-        state
-            .settings
-            .provider,
-        ProviderKind::OpenAI
-    ) {
-        SchemaSettings::default().additional_properties(false)
-    } else {
-        SchemaSettings::default()
-    };
+    let schema_settings =
+        if matches!(settings.provider, ProviderKind::OpenAI) {
+            SchemaSettings::default().additional_properties(false)
+        } else {
+            SchemaSettings::default()
+        };
 
     let schema = create_commit_response_schema(
         schema_settings,
-        &state.settings,
-        &state
-            .diffs
-            .as_files(),
-        &state
-            .diffs
-            .as_hunks(),
+        &settings,
+        &diffs.as_files(),
+        &diffs.as_hunks(),
     )?;
 
-    let req = create_commit_request(
-        &state.settings,
-        &state.git,
-        &state
-            .diffs
-            .to_string(),
-    );
+    let req =
+        create_commit_request(&settings, &git, &diffs.to_string());
 
     /* println!("{}", serde_json::to_string_pretty(&schema)?);
     println!("{:#?}", req); */
 
     handle.done();
 
-    run_commit(req, schema, state.settings, state.git, state.diffs)?;
+    run_commit(req, schema, settings, git, diffs)?;
 
     Ok(())
 }

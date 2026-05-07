@@ -1,19 +1,7 @@
 use anyhow::Result;
 use std::{fs, io::ErrorKind, path::PathBuf};
 
-use crate::args::Auth;
-
-pub fn run(auth: &Auth) -> Result<()> {
-    match auth {
-        Auth::Login => auth_login()?,
-        Auth::Status => auth_status()?,
-        Auth::Logout => clear_auth()?,
-    }
-
-    Ok(())
-}
-
-fn auth_login() -> Result<()> {
+pub fn run() -> Result<()> {
     Ok(())
 }
 

@@ -66,14 +66,8 @@ pub struct GlobalArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Authenticate with GitHub OAuth to use the Gai provider
-    Auth(AuthArgs),
-
     /// Print the current repository status
     Status(StatusArgs),
-
-    /// Print the commit logs to do Gai related operations
-    Log(LogArgs),
 
     /// Generate commits from the diffs in the working tree
     Commit(CommitArgs),

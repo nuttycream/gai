@@ -2,13 +2,13 @@ use serde_json::Value;
 
 use crate::{
     args::{FindArgs, GlobalArgs},
-    git::{checkout::checkout_commit, log::get_logs},
+    git::{GitRepo, checkout::checkout_commit, log::get_logs},
     print::{menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
     responses::find::parse_to_find_schema,
     schema::{SchemaSettings, find::create_find_schema},
-    state::State,
+    settings::Settings,
 };
 
 #[derive(Debug, Clone)]
@@ -32,12 +32,13 @@ pub fn run(
     args: &FindArgs,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let state = State::new(None, global)?;
-
     let count = args.number;
 
+    let settings = Settings::default();
+    let git = GitRepo::open(None)?;
+
     let logs = get_logs(
-        &state.git,
+        &git,
         args.files,
         args.diffs,
         count,
@@ -47,18 +48,14 @@ pub fn run(
         args.since,
     )?;
 
-    let schema_settings = if matches!(
-        state
-            .settings
-            .provider,
-        ProviderKind::OpenAI
-    ) {
-        SchemaSettings::default()
-            .additional_properties(false)
-            .allow_min_max_ints(true)
-    } else {
-        SchemaSettings::default().allow_min_max_ints(true)
-    };
+    let schema_settings =
+        if matches!(settings.provider, ProviderKind::OpenAI) {
+            SchemaSettings::default()
+                .additional_properties(false)
+                .allow_min_max_ints(true)
+        } else {
+            SchemaSettings::default().allow_min_max_ints(true)
+        };
 
     let mut log_strs = Vec::new();
 
@@ -121,7 +118,7 @@ pub fn run(
             .text("Searching through commits")
             .start();
 
-        let req = create_find_request(&state.settings, &log_strs, &q);
+        let req = create_find_request(&settings, &log_strs, &q);
 
         /* if args.since.is_some() {
             println!("{}", req);
@@ -129,9 +126,7 @@ pub fn run(
         } */
 
         let response: Value = match extract_from_provider(
-            &state
-                .settings
-                .provider,
+            &settings.provider,
             req.to_owned(),
             schema.to_owned(),
         ) {
@@ -165,7 +160,7 @@ pub fn run(
             .render()?
         {
             ResponseActions::Checkout => {
-                checkout_commit(&state.git.repo, &log.commit_hash)?;
+                checkout_commit(&git.repo, &log.commit_hash)?;
                 break;
             }
             ResponseActions::ReQuery => {

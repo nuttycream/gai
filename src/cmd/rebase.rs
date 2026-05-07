@@ -37,7 +37,6 @@ use crate::{
         rebase_plan::{PlanOperationKind, PlanOperationSchema},
     },
     settings::Settings,
-    state::State,
 };
 
 #[derive(Debug, Clone)]
@@ -84,34 +83,26 @@ pub fn run(
     // to rebase on top as commits
     // or merge commits?
 
-    let mut state = State::new(
-        global
-            .config
-            .as_deref(),
-        global,
-    )?;
+    let settings = Settings::default();
+    let git = GitRepo::open(None)?;
 
-    if !is_workdir_clean(&state.git.repo)? {
+    if !is_workdir_clean(&git.repo)? {
         return Err(anyhow::anyhow!(
             "Workdir is NOT clean, please save your changes"
         ));
     }
 
-    //println!("{:#?}", state.settings);
+    //println!("{:#?}", settings);
 
     print::status::provider_info(
-        &state
-            .settings
-            .provider,
-        &state
-            .settings
-            .providers,
+        &settings.provider,
+        &settings.providers,
     )?;
 
     // save the original point, in case
     // we need to revert back hard
     // used for reset_repo_hard
-    let original_head = get_head_repo(&state.git.repo)?.to_string();
+    let original_head = get_head_repo(&git.repo)?.to_string();
 
     let mut to_oid: Option<String> = None;
     let mut trailing_commits: Option<Vec<String>> = None;
@@ -123,14 +114,12 @@ pub fn run(
     let diverge_from = match &args.scope {
         RebaseScope::Branch { name } => {
             crate::git::branch::find_divergence_branch(
-                &state.git.repo,
-                name,
+                &git.repo, name,
             )?
         }
         RebaseScope::Last { count } => {
             let logs = crate::git::log::get_logs(
-                &state.git, false, false, *count, false, None, None,
-                None,
+                &git, false, false, *count, false, None, None, None,
             )?;
 
             if *count > logs.git_logs.len() {
@@ -155,26 +144,24 @@ pub fn run(
                 .unwrap();
 
             crate::git::commit::find_parent_commit(
-                &state.git.repo,
+                &git.repo,
                 &oldest_commit_hash,
             )?
         }
         RebaseScope::Range { from, to } => {
             let oid = crate::git::commit::find_parent_commit(
-                &state.git.repo,
-                from,
+                &git.repo, from,
             )?;
 
             if let Some(to) = to {
                 let trailing = crate::git::rebase::trailing_commits(
-                    &state.git.repo,
-                    to,
+                    &git.repo, to,
                 )?;
 
                 to_oid = Some(to.to_owned());
                 trailing_commits = Some(trailing);
             } else {
-                let head = get_head_repo(&state.git.repo)?;
+                let head = get_head_repo(&git.repo)?;
                 to_oid = Some(head.to_string());
             }
 
@@ -184,7 +171,7 @@ pub fn run(
 
     // collect logs
     let logs = get_logs(
-        &state.git,
+        &git,
         // FIXME: settings should override this
         true,
         // not going to include diffs, as
@@ -223,28 +210,24 @@ pub fn run(
         .as_deref()
         .map(Oid::from_str)
         .transpose()?
-        .unwrap_or(get_head_repo(&state.git.repo)?);
+        .unwrap_or(get_head_repo(&git.repo)?);
 
     // collect diffs from the diverging_commit
-    state.diffs = get_diffs_from_commits(
-        &state.git.repo,
-        &state.git.workdir,
+    let mut diffs = get_diffs_from_commits(
+        &git.repo,
+        &git.workdir,
         diverge_from,
         Some(to),
     )?;
 
-    let schema_settings = if matches!(
-        state
-            .settings
-            .provider,
-        ProviderKind::OpenAI
-    ) {
-        SchemaSettings::default()
-            .additional_properties(false)
-            .allow_min_max_ints(true)
-    } else {
-        SchemaSettings::default().allow_min_max_ints(true)
-    };
+    let schema_settings =
+        if matches!(settings.provider, ProviderKind::OpenAI) {
+            SchemaSettings::default()
+                .additional_properties(false)
+                .allow_min_max_ints(true)
+        } else {
+            SchemaSettings::default().allow_min_max_ints(true)
+        };
 
     // plan requires different schemas, and looping workflow
     if args.plan {
@@ -252,8 +235,8 @@ pub fn run(
 
         loop {
             match gen_plan(
-                &state.settings,
-                &state.diffs,
+                &settings,
+                &diffs,
                 &log_strs,
                 &schema_settings,
             ) {
@@ -272,12 +255,12 @@ pub fn run(
                             // im not using the diffs/changes
                             // but instead the existing commits
                             reset_repo_hard(
-                                &state.git.repo,
+                                &git.repo,
                                 &diverge_from.to_string(),
                             )?;
 
                             match apply_plan(
-                                &state.git,
+                                &git,
                                 &ops,
                                 &logs,
                                 trailing_commits.as_deref(),
@@ -290,7 +273,7 @@ pub fn run(
                                     );
 
                                     reset_repo_hard(
-                                        &state.git.repo,
+                                        &git.repo,
                                         &original_head,
                                     )?;
 
@@ -306,7 +289,7 @@ pub fn run(
                 }
 
                 Err(e) => {
-                    reset_repo_hard(&state.git.repo, &original_head)?;
+                    reset_repo_hard(&git.repo, &original_head)?;
                     eprintln!("error when gerating plan:\n{e}");
                     return Err(e);
                 }
@@ -315,24 +298,18 @@ pub fn run(
     }
 
     let request = create_rebase_request(
-        &state.settings,
+        &settings,
         &log_strs,
-        &state
-            .diffs
-            .to_string(),
+        &diffs.to_string(),
     );
 
     //println!("{request}");
 
     let schema = create_rebase_schema(
         schema_settings,
-        &state.settings,
-        &state
-            .diffs
-            .as_files(),
-        &state
-            .diffs
-            .as_hunks(),
+        &settings,
+        &diffs.as_files(),
+        &diffs.as_hunks(),
     )?;
 
     //println!("{:#}", schema);
@@ -341,7 +318,7 @@ pub fn run(
     // if the branch is ahead by LOTS of changes
     // in this case, setting a specific limit in terms
     // of the specific commit to go back from should be in place
-    //println!("{}", state.diffs);
+    //println!("{}", diffs);
 
     handle.done();
 
@@ -351,9 +328,7 @@ pub fn run(
             .start();
 
         let response: Value = match extract_from_provider(
-            &state
-                .settings
-                .provider,
+            &settings.provider,
             request.to_owned(),
             schema.to_owned(),
         ) {
@@ -367,21 +342,14 @@ pub fn run(
 
         let mut raw_commits = parse_from_rebase_schema(
             response,
-            &state
-                .settings
-                .staging_type,
+            &settings.staging_type,
         )?;
 
         handle.done();
 
         response_commits(
             &raw_commits,
-            matches!(
-                state
-                    .settings
-                    .staging_type,
-                StagingStrategy::Hunks
-            ),
+            matches!(settings.staging_type, StagingStrategy::Hunks),
         )?;
 
         let mut regenerate = false;
@@ -396,27 +364,25 @@ pub fn run(
                     let git_commits: Vec<GitCommit> = raw_commits
                         .iter()
                         .cloned()
-                        .map(|c| process_commit(c, &state.settings))
+                        .map(|c| process_commit(c, &settings))
                         .collect();
 
                     if let Some(ref to) = to_oid {
                         // reset hard to the TO commit
-                        reset_repo_hard(&state.git.repo, to)?;
+                        reset_repo_hard(&git.repo, to)?;
                     }
 
                     // do a mixed reset to the FROM commit
                     reset_repo_mixed(
-                        &state.git.repo,
+                        &git.repo,
                         &diverge_from.to_string(),
                     )?;
 
                     let oids = match apply(
-                        &state.git,
+                        &git,
                         &git_commits,
-                        &mut state.diffs.files,
-                        &state
-                            .settings
-                            .staging_type,
+                        &mut diffs.files,
+                        &settings.staging_type,
                         to_oid.as_deref(),
                         trailing_commits.as_deref(),
                     ) {
@@ -425,7 +391,7 @@ pub fn run(
                         Err(e) => {
                             // ideally restore on errors
                             reset_repo_hard(
-                                &state.git.repo,
+                                &git.repo,
                                 &original_head,
                             )?;
                             return Err(e);
@@ -441,7 +407,7 @@ pub fn run(
                             files_changed,
                             insertions,
                             deletions,
-                        ) = get_commit_stats(&state.git.repo, oid)?;
+                        ) = get_commit_stats(&git.repo, oid)?;
 
                         let commit_msg = git_commits[i]
                             .message
@@ -475,9 +441,7 @@ pub fn run(
                     print::commits::response_commits(
                         &raw_commits,
                         matches!(
-                            state
-                                .settings
-                                .staging_type,
+                            settings.staging_type,
                             StagingStrategy::Hunks
                         ),
                     )?;

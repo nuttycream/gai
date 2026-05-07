@@ -1,43 +1,32 @@
 use crate::{
     args::{GlobalArgs, StatusArgs},
     git::{
-        DiffStrategy, StatusStrategy, diffs::get_diffs_from_statuses,
-        status::get_status,
+        DiffStrategy, GitRepo, StatusStrategy,
+        diffs::get_diffs_from_statuses, status::get_status,
     },
     print::status,
     requests::tokens::estimate_token_count,
-    state::State,
+    settings::Settings,
 };
 
 pub fn run(
     args: &StatusArgs,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let state = State::new(
-        global
-            .config
-            .as_deref(),
-        global,
-    )?;
+    let git = GitRepo::open(None)?;
+    let settings = Settings::default();
 
     // todo impl something for this
     // so we dont have to pass in two vectors
     // into print
     // likely gonna be handled within git::GitStatus
-    let staged = get_status(&state.git.repo, &StatusStrategy::Stage)?;
+    let staged = get_status(&git.repo, &StatusStrategy::Stage)?;
     let working_dir =
-        get_status(&state.git.repo, &StatusStrategy::WorkingDir)?;
+        get_status(&git.repo, &StatusStrategy::WorkingDir)?;
 
-    let provider = state
-        .settings
-        .provider;
+    let provider = settings.provider;
 
-    status::provider_info(
-        &provider,
-        &state
-            .settings
-            .providers,
-    )?;
+    status::provider_info(&provider, &settings.providers)?;
 
     status::repo_status(
         &staged.branch_name,
@@ -51,8 +40,7 @@ pub fn run(
             ..Default::default()
         };
 
-        if let Some(ref files_to_truncate) = state
-            .settings
+        if let Some(ref files_to_truncate) = settings
             .context
             .truncate_files
         {
@@ -60,8 +48,7 @@ pub fn run(
                 files_to_truncate.to_owned();
         }
 
-        if let Some(ref files_to_ignore) = state
-            .settings
+        if let Some(ref files_to_ignore) = settings
             .context
             .ignore_files
         {
@@ -69,8 +56,8 @@ pub fn run(
         }
 
         let diffs = get_diffs_from_statuses(
-            &state.git.repo,
-            &state.git.workdir,
+            &git.repo,
+            &git.workdir,
             &diff_strategy,
         )?;
 

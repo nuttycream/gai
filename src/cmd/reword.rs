@@ -20,27 +20,23 @@ use crate::{
         parse_to_reword_commit_schema, process_reword_commit_message,
     },
     schema::{SchemaSettings, reword::create_reword_schema},
-    state::State,
+    settings::Settings,
 };
 
 pub fn run(
     args: &RewordArgs,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let state = State::new(
-        global
-            .config
-            .as_deref(),
-        global,
-    )?;
+    let settings = Settings::default();
+    let git = GitRepo::open(None)?;
 
-    if !is_workdir_clean(&state.git.repo)? {
+    if !is_workdir_clean(&git.repo)? {
         return Err(anyhow::anyhow!(
             "Workdir is NOT clean, please save your changes"
         ));
     }
 
-    let original_head = get_head_repo(&state.git.repo)?.to_string();
+    let original_head = get_head_repo(&git.repo)?.to_string();
 
     let mut handle = SpinnerBuilder::new()
         .text("Gathering logs")
@@ -52,10 +48,10 @@ pub fn run(
         RewordScope::Commit { ref hash } => {
             // we need the parent commit, to get the root since
             // from is exclusive
-            let parent = find_parent_commit(&state.git.repo, hash)?;
+            let parent = find_parent_commit(&git.repo, hash)?;
 
             let logs = get_logs(
-                &state.git,
+                &git,
                 true,
                 false,
                 0,
@@ -65,14 +61,13 @@ pub fn run(
                 None,
             )?;
 
-            let trails = trailing_commits(&state.git.repo, hash)?;
+            let trails = trailing_commits(&git.repo, hash)?;
 
             (logs, trails)
         }
         RewordScope::Last { count } => {
             let mut logs = get_logs(
-                &state.git, true, false, count, false, None, None,
-                None,
+                &git, true, false, count, false, None, None, None,
             )?;
 
             // if logs are reversed
@@ -87,7 +82,7 @@ pub fn run(
         }
         RewordScope::Range { ref from, ref to } => {
             let logs = get_logs(
-                &state.git,
+                &git,
                 true,
                 false,
                 0,
@@ -99,11 +94,9 @@ pub fn run(
 
             let to_hash = to
                 .to_owned()
-                .unwrap_or(
-                    get_head_repo(&state.git.repo)?.to_string(),
-                );
+                .unwrap_or(get_head_repo(&git.repo)?.to_string());
 
-            let trails = trailing_commits(&state.git.repo, &to_hash)?;
+            let trails = trailing_commits(&git.repo, &to_hash)?;
 
             (logs, trails)
         }
@@ -132,24 +125,18 @@ pub fn run(
         .text("Generating request")
         .start();
 
-    let schema_settings = if matches!(
-        state
-            .settings
-            .provider,
-        ProviderKind::OpenAI
-    ) {
-        SchemaSettings::default()
-            .additional_properties(false)
-            .allow_min_max_ints(true)
-    } else {
-        SchemaSettings::default().allow_min_max_ints(true)
-    };
+    let schema_settings =
+        if matches!(settings.provider, ProviderKind::OpenAI) {
+            SchemaSettings::default()
+                .additional_properties(false)
+                .allow_min_max_ints(true)
+        } else {
+            SchemaSettings::default().allow_min_max_ints(true)
+        };
 
-    let schema =
-        create_reword_schema(schema_settings, &state.settings)?;
+    let schema = create_reword_schema(schema_settings, &settings)?;
 
-    let request =
-        create_reword_request(&state.settings, &state.git, &log_strs);
+    let request = create_reword_request(&settings, &git, &log_strs);
 
     handle.done();
 
@@ -159,9 +146,7 @@ pub fn run(
             .start();
 
         let response: serde_json::Value = match extract_from_provider(
-            &state
-                .settings
-                .provider,
+            &settings.provider,
             request.to_owned(),
             schema.to_owned(),
         ) {
@@ -194,14 +179,13 @@ pub fn run(
                         .cloned()
                         .map(|c| {
                             process_reword_commit_message(
-                                c,
-                                &state.settings,
+                                c, &settings,
                             )
                         })
                         .collect();
 
                     let oids = match apply(
-                        &state.git,
+                        &git,
                         &logs,
                         &commit_messages,
                         &trailing_commits,
@@ -209,7 +193,7 @@ pub fn run(
                         Ok(oids) => oids,
                         Err(e) => {
                             reset_repo_hard(
-                                &state.git.repo,
+                                &git.repo,
                                 &original_head,
                             )?;
 
@@ -226,7 +210,7 @@ pub fn run(
                             files_changed,
                             insertions,
                             deletions,
-                        ) = get_commit_stats(&state.git.repo, oid)?;
+                        ) = get_commit_stats(&git.repo, oid)?;
 
                         let commit_msg =
                             commit_messages[i].to_owned();
@@ -257,9 +241,7 @@ pub fn run(
                     print::commits::response_commits(
                         &raw_commits,
                         matches!(
-                            state
-                                .settings
-                                .staging_type,
+                            settings.staging_type,
                             StagingStrategy::Hunks
                         ),
                     )?;
