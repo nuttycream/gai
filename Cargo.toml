@@ -8,8 +8,8 @@ repository = "https://github.com/cube-cult/gai"
 [dependencies]
 anstream = { version = "1.0.0", default-features = false, features = ["auto"] }
 anyhow = "1.0.100"
+bpaf = { version = "0.9.25", default-features = false, features = ["autocomplete"] }
 chrono = { version = "0.4.42", default-features = false, features = ["alloc", "now"] }
-clap = { version = "4.5.48", default-features = false, features = ["derive", "std", "help", "color", "usage", "suggestions", "error-context"] }
 config = { version = "0.15.19", default-features = false, features = ["toml"] }
 directories = { version = "6.0.0", default-features = false }
 dotenv = "0.15.0"
