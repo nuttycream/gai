@@ -1,9 +1,9 @@
+use bpaf::{Parser, construct, short};
 use owo_colors::OwoColorize;
 use serde_json::Value;
 use strum::{IntoEnumIterator, VariantNames};
 
 use crate::{
-    args::{CommitArgs, GlobalArgs},
     git::{
         DiffStrategy, Diffs, GitRepo, StagingStrategy,
         StatusStrategy,
@@ -11,6 +11,7 @@ use crate::{
         diffs::get_diffs_from_statuses,
         status::get_commit_stats,
     },
+    opts::Commands,
     print::{self, menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::{Request, commit::create_commit_request},
@@ -23,6 +24,40 @@ use crate::{
     },
     settings::Settings,
 };
+
+#[derive(Debug, Clone)]
+pub struct CommitArgs {
+    pub skip_confirmation: bool,
+    pub staged: bool,
+}
+
+pub fn commit() -> impl Parser<Commands> {
+    let skip_confirmation = short('y')
+        .long("skip-confirmation")
+        .help("Apply generated commits without the confirmation menu")
+        .switch();
+
+    let staged = short('s')
+        .long("staged")
+        .help("Only consider staged changes (overrides config)")
+        .switch();
+
+    let msg = "\
+Generate commits from working tree changes using your chosen LLM provider.
+Analyzes staged and/or unstaged diffs, asks the configured provider to
+produce one or more conventional commits, then opens an interactive
+menu to apply, regenerate, or edit them before committing.";
+
+    construct!(CommitArgs {
+        skip_confirmation,
+        staged,
+    })
+    .to_options()
+    .descr(msg)
+    .command("commit")
+    .help("Generate commits using an LLM")
+    .map(Commands::Commit)
+}
 
 #[derive(Debug, Clone)]
 pub enum ResponseActions {
@@ -62,22 +97,9 @@ pub const EDIT_OPTS: [(EditActions, char, &str); 8] = [
     (EditActions::Quit, 'q', "quit"),
 ];
 
-pub fn run(
-    args: &CommitArgs,
-    global: &GlobalArgs,
-) -> anyhow::Result<()> {
+pub fn run(args: &CommitArgs) -> anyhow::Result<()> {
     let mut settings = Settings::default();
     let git = GitRepo::open(None)?;
-
-    settings.prompt.hint = global
-        .hint
-        .to_owned();
-
-    if args.staged {
-        settings
-            .commit
-            .only_staged = true;
-    }
 
     let status_strategy = if settings
         .commit

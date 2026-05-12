@@ -18,7 +18,6 @@ use super::{
     Display,
     Serialize,
     Deserialize,
-    clap::ValueEnum,
 )]
 pub enum ProviderKind {
     OpenAI,

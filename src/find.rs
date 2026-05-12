@@ -1,7 +1,6 @@
 use serde_json::Value;
 
 use crate::{
-    args::{FindArgs, GlobalArgs},
     git::{GitRepo, checkout::checkout_commit, log::get_logs},
     print::{menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
@@ -28,11 +27,20 @@ const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
     (ResponseActions::Quit, 'q', "quit"),
 ];
 
-pub fn run(
-    args: &FindArgs,
-    global: &GlobalArgs,
-) -> anyhow::Result<()> {
-    let count = args.number;
+#[derive(Debug, Clone, Default)]
+pub struct Find {
+    count: usize,
+    files: bool,
+    diffs: bool,
+    reverse: bool,
+    range: Option<String>,
+    since: Option<String>,
+}
+// todo fix
+
+pub fn run() -> anyhow::Result<()> {
+    let args = Find::default();
+    let count = args.count;
 
     let settings = Settings::default();
     let git = GitRepo::open(None)?;
@@ -43,9 +51,9 @@ pub fn run(
         args.diffs,
         count,
         args.reverse,
-        args.from.as_deref(),
-        args.to.as_deref(),
-        args.since,
+        None,
+        None,
+        None,
     )?;
 
     let schema_settings =

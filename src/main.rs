@@ -1,30 +1,27 @@
-use clap::Parser;
+use crate::opts::{Commands, cli};
 
-pub mod args;
-pub mod cmd;
+pub mod auth;
+pub mod commit;
+pub mod find;
 pub mod git;
+pub mod opts;
 pub mod print;
 pub mod providers;
+pub mod rebase;
 pub mod requests;
 pub mod responses;
+pub mod reword;
 pub mod schema;
 pub mod settings;
+pub mod status;
 pub mod utils;
-
-use crate::args::Commands::{Commit, Find, Rebase, Reword, Status};
 
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
-    let args = args::Cli::parse();
+    let opts = cli().run();
 
-    match &args.command {
-        Status(a) => cmd::status::run(a, &args.global)?,
-        Commit(a) => cmd::commit::run(a, &args.global)?,
-        Find(a) => cmd::find::run(a, &args.global)?,
-        Rebase(a) => cmd::rebase::run(a, &args.global)?,
-        Reword(a) => cmd::reword::run(a, &args.global)?,
-    };
-
-    Ok(())
+    match opts.commands {
+        Commands::Commit(a) => commit::run(&a),
+    }
 }

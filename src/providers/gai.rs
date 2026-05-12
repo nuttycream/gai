@@ -2,7 +2,7 @@ use llmao::{Provider, extract::Extract};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
-use crate::cmd::auth::get_token;
+use crate::auth::get_token;
 
 use super::provider::ProviderError;
 
