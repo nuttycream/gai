@@ -19,6 +19,7 @@ use crate::{
         status::{get_commit_stats, is_workdir_clean},
         utils::get_head_repo,
     },
+    opts::Commands,
     print::{
         self,
         commits::response_commits,
@@ -40,7 +41,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct Rebase {
+pub struct RebaseArgs {
     pub plan: bool,
     pub scope: RebaseScope,
 }
@@ -65,36 +66,60 @@ const PLAN_ACTIONS: [(PlanActions, char, &str); 3] = [
     (PlanActions::Quit, 'q', "quit"),
 ];
 
-pub fn rebase() -> impl Parser<Rebase> {
+const REBASE_DESC: &str = "\
+Rewrite a span of commits using an LLM. The selected commits and
+their combined diff are sent to the configured provider, which
+returns a new sequence of conventional commits to apply on top of
+the divergence point.";
+
+const REBASE_HEADER: &str = "\
+With --plan, the provider instead returns a
+rebase plan (pick / reword / squash / drop) over the existing
+commits, which can be reviewed and applied interactively.
+The span is chosen with exactly one of: a RANGE positional
+(e.g. HEAD~3..HEAD), --last N for the most recent N commits, or
+--branch BRANCH to rebase everything since divergence from BRANCH.";
+
+pub fn rebase() -> impl Parser<Commands> {
     let plan = short('p')
         .long("plan")
+        .help(
+            "Generate a rebase plan (pick/reword/squash/drop) over existing commits \
+             instead of rewriting them as new commits",
+        )
         .switch();
 
     let range = positional::<String>("RANGE")
-        .help("commit range like HEAD~3..HEAD")
+        .help("Commit range to rebase, e.g. HEAD~3..HEAD or <from>..<to>")
         .map(RebaseScope::Range);
 
     let last = short('l')
         .long("last")
         .argument::<usize>("N")
-        .help("last N commits")
+        .help("Rebase the last N commits reachable from HEAD")
         .map(RebaseScope::Last);
 
     let branch = short('b')
         .long("branch")
         .argument::<String>("BRANCH")
-        .help("since diverged from branch")
+        .help("Rebase all commits since divergence from BRANCH (e.g. main)")
         .map(RebaseScope::Branch);
 
     let scope = construct!([range, last, branch]);
 
-    construct!(Rebase { plan, scope })
+    construct!(RebaseArgs { plan, scope })
         .to_options()
+        .descr(REBASE_DESC)
+        .header(REBASE_HEADER)
         .command("rebase")
-        .help("rebase commits")
+        .help("Rewrite or replan a span of commits using a LLM provider")
+        .map(Commands::Rebase)
 }
 
-pub fn run() -> anyhow::Result<()> {
+pub fn run(
+    args: &RebaseArgs,
+    settings: &Settings,
+) -> anyhow::Result<()> {
     // get from branch name
     // get onto branch , defaults to head
     // get list of commits from the branch
@@ -122,383 +147,382 @@ pub fn run() -> anyhow::Result<()> {
     // to rebase on top as commits
     // or merge commits?
 
-    // let settings = Settings::default();
-    // let git = GitRepo::open(None)?;
-    //
-    // if !is_workdir_clean(&git.repo)? {
-    //     return Err(anyhow::anyhow!(
-    //         "Workdir is NOT clean, please save your changes"
-    //     ));
-    // }
-    //
-    // //println!("{:#?}", settings);
-    //
-    // print::status::provider_info(
-    //     &settings.provider,
-    //     &settings.providers,
-    // )?;
-    //
-    // // save the original point, in case
-    // // we need to revert back hard
-    // // used for reset_repo_hard
-    // let original_head = get_head_repo(&git.repo)?.to_string();
-    //
-    // let mut to_oid: Option<String> = None;
-    // let mut trailing_commits: Option<Vec<String>> = None;
-    //
-    // let handle = SpinnerBuilder::new()
-    //     .text("Gathering logs")
-    //     .start();
-    //
-    // let diverge_from = match &args.scope {
-    //     RebaseScope::Branch { name } => {
-    //         crate::git::branch::find_divergence_branch(
-    //             &git.repo, name,
-    //         )?
-    //     }
-    //     RebaseScope::Last { count } => {
-    //         let logs = crate::git::log::get_logs(
-    //             &git, false, false, *count, false, None, None, None,
-    //         )?;
-    //
-    //         if *count > logs.git_logs.len() {
-    //             eprintln!(
-    //                 "Warning: Only {} commits exist in history but you requested {}",
-    //                 logs.git_logs.len(),
-    //                 count
-    //             );
-    //         }
-    //
-    //         // this should get the last logged commit
-    //         // if the count exceeds, get_logs()
-    //         // will handle that and return or "take"
-    //         // the last commit
-    //         let oldest_commit_hash = logs
-    //             .git_logs
-    //             .last()
-    //             .map(|l| {
-    //                 l.commit_hash
-    //                     .to_owned()
-    //             })
-    //             .unwrap();
-    //
-    //         crate::git::commit::find_parent_commit(
-    //             &git.repo,
-    //             &oldest_commit_hash,
-    //         )?
-    //     }
-    //     RebaseScope::Range { from, to } => {
-    //         let oid = crate::git::commit::find_parent_commit(
-    //             &git.repo, from,
-    //         )?;
-    //
-    //         if let Some(to) = to {
-    //             let trailing = crate::git::rebase::trailing_commits(
-    //                 &git.repo, to,
-    //             )?;
-    //
-    //             to_oid = Some(to.to_owned());
-    //             trailing_commits = Some(trailing);
-    //         } else {
-    //             let head = get_head_repo(&git.repo)?;
-    //             to_oid = Some(head.to_string());
-    //         }
-    //
-    //         oid
-    //     }
-    // };
-    //
-    // // collect logs
-    // let logs = get_logs(
-    //     &git,
-    //     // FIXME: settings should override this
-    //     true,
-    //     // not going to include diffs, as
-    //     // they should be unified diff
-    //     false,
-    //     // count limits specified
-    //     // from hash ranges
-    //     0,
-    //     // should be oldest first
-    //     true,
-    //     Some(&diverge_from.to_string()),
-    //     to_oid.as_deref(),
-    //     None,
-    // )?;
-    //
-    // //println!("{:#?}", logs);
-    //
-    // let mut log_strs = Vec::new();
-    //
-    // for (idx, log) in logs
-    //     .git_logs
-    //     .iter()
-    //     .enumerate()
-    // {
-    //     let files: String = log.files.join(",");
-    //
-    //     let item = format!(
-    //         "CommitID:[{}]\nCommitMessage:{}\nFiles:{}",
-    //         idx, log.raw, files
-    //     );
-    //
-    //     log_strs.push(item);
-    // }
-    //
-    // let to = to_oid
-    //     .as_deref()
-    //     .map(Oid::from_str)
-    //     .transpose()?
-    //     .unwrap_or(get_head_repo(&git.repo)?);
-    //
-    // // collect diffs from the diverging_commit
-    // let mut diffs = get_diffs_from_commits(
-    //     &git.repo,
-    //     &git.workdir,
-    //     diverge_from,
-    //     Some(to),
-    // )?;
-    //
-    // let schema_settings =
-    //     if matches!(settings.provider, ProviderKind::OpenAI) {
-    //         SchemaSettings::default()
-    //             .additional_properties(false)
-    //             .allow_min_max_ints(true)
-    //     } else {
-    //         SchemaSettings::default().allow_min_max_ints(true)
-    //     };
-    //
-    // // plan requires different schemas, and looping workflow
-    // if args.plan {
-    //     handle.done();
-    //
-    //     loop {
-    //         match gen_plan(
-    //             &settings,
-    //             &diffs,
-    //             &log_strs,
-    //             &schema_settings,
-    //         ) {
-    //             Ok(ops) => {
-    //                 let selected = Menu::new(
-    //                     "What do you want to do?",
-    //                     &PLAN_ACTIONS,
-    //                 )
-    //                 .render()?;
-    //
-    //                 match selected {
-    //                     PlanActions::Apply => {
-    //                         // reset to the from commit
-    //                         // since, compared to the
-    //                         // commit generation apply()
-    //                         // im not using the diffs/changes
-    //                         // but instead the existing commits
-    //                         reset_repo_hard(
-    //                             &git.repo,
-    //                             &diverge_from.to_string(),
-    //                         )?;
-    //
-    //                         match apply_plan(
-    //                             &git,
-    //                             &ops,
-    //                             &logs,
-    //                             trailing_commits.as_deref(),
-    //                         ) {
-    //                             Ok(_) => return Ok(()),
-    //                             Err(e) => {
-    //                                 eprintln!(
-    //                                     "couldnt apply plan: {}\nresetting",
-    //                                     e
-    //                                 );
-    //
-    //                                 reset_repo_hard(
-    //                                     &git.repo,
-    //                                     &original_head,
-    //                                 )?;
-    //
-    //                                 return Err(e);
-    //                             }
-    //                         }
-    //                     }
-    //                     PlanActions::Regen => {
-    //                         continue;
-    //                     }
-    //                     PlanActions::Quit => return Ok(()),
-    //                 }
-    //             }
-    //
-    //             Err(e) => {
-    //                 reset_repo_hard(&git.repo, &original_head)?;
-    //                 eprintln!("error when gerating plan:\n{e}");
-    //                 return Err(e);
-    //             }
-    //         }
-    //     }
-    // }
-    //
-    // let request = create_rebase_request(
-    //     &settings,
-    //     &log_strs,
-    //     &diffs.to_string(),
-    // );
-    //
-    // //println!("{request}");
-    //
-    // let schema = create_rebase_schema(
-    //     schema_settings,
-    //     &settings,
-    //     &diffs.as_files(),
-    //     &diffs.as_hunks(),
-    // )?;
-    //
-    // //println!("{:#}", schema);
-    //
-    // // an huge chunk of diffs are generated here
-    // // if the branch is ahead by LOTS of changes
-    // // in this case, setting a specific limit in terms
-    // // of the specific commit to go back from should be in place
-    // //println!("{}", diffs);
-    //
-    // handle.done();
-    //
-    // loop {
-    //     let handle = SpinnerBuilder::new()
-    //         .text("Generating commits")
-    //         .start();
-    //
-    //     let response: Value = match extract_from_provider(
-    //         &settings.provider,
-    //         request.to_owned(),
-    //         schema.to_owned(),
-    //     ) {
-    //         Ok(r) => r,
-    //         Err(e) => {
-    //             eprintln!("error from the provider:\n{:#}", e);
-    //
-    //             break;
-    //         }
-    //     };
-    //
-    //     let mut raw_commits = parse_from_rebase_schema(
-    //         response,
-    //         &settings.staging_type,
-    //     )?;
-    //
-    //     handle.done();
-    //
-    //     response_commits(
-    //         &raw_commits,
-    //         matches!(settings.staging_type, StagingStrategy::Hunks),
-    //     )?;
-    //
-    //     let mut regenerate = false;
-    //
-    //     loop {
-    //         let selected =
-    //             Menu::new("What do you want to do?", &RESPONSE_OPTS)
-    //                 .render()?;
-    //
-    //         match selected {
-    //             ResponseActions::Apply => {
-    //                 let git_commits: Vec<GitCommit> = raw_commits
-    //                     .iter()
-    //                     .cloned()
-    //                     .map(|c| process_commit(c, &settings))
-    //                     .collect();
-    //
-    //                 if let Some(ref to) = to_oid {
-    //                     // reset hard to the TO commit
-    //                     reset_repo_hard(&git.repo, to)?;
-    //                 }
-    //
-    //                 // do a mixed reset to the FROM commit
-    //                 reset_repo_mixed(
-    //                     &git.repo,
-    //                     &diverge_from.to_string(),
-    //                 )?;
-    //
-    //                 let oids = match apply(
-    //                     &git,
-    //                     &git_commits,
-    //                     &mut diffs.files,
-    //                     &settings.staging_type,
-    //                     to_oid.as_deref(),
-    //                     trailing_commits.as_deref(),
-    //                 ) {
-    //                     // done
-    //                     Ok(oids) => oids,
-    //                     Err(e) => {
-    //                         // ideally restore on errors
-    //                         reset_repo_hard(
-    //                             &git.repo,
-    //                             &original_head,
-    //                         )?;
-    //                         return Err(e);
-    //                     }
-    //                 };
-    //
-    //                 for (i, oid) in oids
-    //                     .iter()
-    //                     .enumerate()
-    //                 {
-    //                     let (
-    //                         branch_name,
-    //                         files_changed,
-    //                         insertions,
-    //                         deletions,
-    //                     ) = get_commit_stats(&git.repo, oid)?;
-    //
-    //                     let commit_msg = git_commits[i]
-    //                         .message
-    //                         .to_owned();
-    //
-    //                     print::commits::completed_commit(
-    //                         &branch_name,
-    //                         oid,
-    //                         &commit_msg,
-    //                         files_changed,
-    //                         insertions,
-    //                         deletions,
-    //                     )?;
-    //                 }
-    //
-    //                 break;
-    //             }
-    //             ResponseActions::Regen => {
-    //                 regenerate = true;
-    //                 break;
-    //             }
-    //             ResponseActions::Edit => {
-    //                 raw_commits = crate::cmd::commit::edit_commits(
-    //                     &raw_commits,
-    //                 )?;
-    //
-    //                 if raw_commits.is_empty() {
-    //                     break;
-    //                 }
-    //
-    //                 print::commits::response_commits(
-    //                     &raw_commits,
-    //                     matches!(
-    //                         settings.staging_type,
-    //                         StagingStrategy::Hunks
-    //                     ),
-    //                 )?;
-    //
-    //                 continue;
-    //             }
-    //             ResponseActions::Quit => {
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //
-    //     if regenerate {
-    //         continue;
-    //     }
-    //
-    //     break;
-    // }
+    let git = GitRepo::open(None)?;
+
+    if !is_workdir_clean(&git.repo)? {
+        return Err(anyhow::anyhow!(
+            "Workdir is NOT clean, please save your changes"
+        ));
+    }
+
+    //println!("{:#?}", settings);
+
+    print::status::provider_info(
+        &settings.provider,
+        &settings.providers,
+    )?;
+
+    // save the original point, in case
+    // we need to revert back hard
+    // used for reset_repo_hard
+    let original_head = get_head_repo(&git.repo)?.to_string();
+
+    let mut to_oid: Option<String> = None;
+    let mut trailing_commits: Option<Vec<String>> = None;
+
+    let handle = SpinnerBuilder::new()
+        .text("Gathering logs")
+        .start();
+
+    let diverge_from = match &args.scope {
+        RebaseScope::Branch(name) => {
+            crate::git::branch::find_divergence_branch(
+                &git.repo, name,
+            )?
+        }
+        RebaseScope::Last(count) => {
+            let logs = crate::git::log::get_logs(
+                &git, false, false, *count, false, None, None, None,
+            )?;
+
+            if *count > logs.git_logs.len() {
+                eprintln!(
+                    "Warning: Only {} commits exist in history but you requested {}",
+                    logs.git_logs.len(),
+                    count
+                );
+            }
+
+            // this should get the last logged commit
+            // if the count exceeds, get_logs()
+            // will handle that and return or "take"
+            // the last commit
+            let oldest_commit_hash = logs
+                .git_logs
+                .last()
+                .map(|l| {
+                    l.commit_hash
+                        .to_owned()
+                })
+                .unwrap();
+
+            crate::git::commit::find_parent_commit(
+                &git.repo,
+                &oldest_commit_hash,
+            )?
+        }
+        RebaseScope::Range(range) => {
+            todo!()
+            // let oid = crate::git::commit::find_parent_commit(
+            //     &git.repo, from,
+            // )?;
+            //
+            // if let Some(to) = to {
+            //     let trailing = crate::git::rebase::trailing_commits(
+            //         &git.repo, to,
+            //     )?;
+            //
+            //     to_oid = Some(to.to_owned());
+            //     trailing_commits = Some(trailing);
+            // } else {
+            //     let head = get_head_repo(&git.repo)?;
+            //     to_oid = Some(head.to_string());
+            // }
+            //
+            // oid
+        }
+    };
+
+    // collect logs
+    let logs = get_logs(
+        &git,
+        // FIXME: settings should override this
+        true,
+        // not going to include diffs, as
+        // they should be unified diff
+        false,
+        // count limits specified
+        // from hash ranges
+        0,
+        // should be oldest first
+        true,
+        Some(&diverge_from.to_string()),
+        to_oid.as_deref(),
+        None,
+    )?;
+
+    //println!("{:#?}", logs);
+
+    let mut log_strs = Vec::new();
+
+    for (idx, log) in logs
+        .git_logs
+        .iter()
+        .enumerate()
+    {
+        let files: String = log.files.join(",");
+
+        let item = format!(
+            "CommitID:[{}]\nCommitMessage:{}\nFiles:{}",
+            idx, log.raw, files
+        );
+
+        log_strs.push(item);
+    }
+
+    let to = to_oid
+        .as_deref()
+        .map(Oid::from_str)
+        .transpose()?
+        .unwrap_or(get_head_repo(&git.repo)?);
+
+    // collect diffs from the diverging_commit
+    let mut diffs = get_diffs_from_commits(
+        &git.repo,
+        &git.workdir,
+        diverge_from,
+        Some(to),
+    )?;
+
+    let schema_settings =
+        if matches!(settings.provider, ProviderKind::OpenAI) {
+            SchemaSettings::default()
+                .additional_properties(false)
+                .allow_min_max_ints(true)
+        } else {
+            SchemaSettings::default().allow_min_max_ints(true)
+        };
+
+    // plan requires different schemas, and looping workflow
+    if args.plan {
+        handle.done();
+
+        loop {
+            match gen_plan(
+                &settings,
+                &diffs,
+                &log_strs,
+                &schema_settings,
+            ) {
+                Ok(ops) => {
+                    let selected = Menu::new(
+                        "What do you want to do?",
+                        &PLAN_ACTIONS,
+                    )
+                    .render()?;
+
+                    match selected {
+                        PlanActions::Apply => {
+                            // reset to the from commit
+                            // since, compared to the
+                            // commit generation apply()
+                            // im not using the diffs/changes
+                            // but instead the existing commits
+                            reset_repo_hard(
+                                &git.repo,
+                                &diverge_from.to_string(),
+                            )?;
+
+                            match apply_plan(
+                                &git,
+                                &ops,
+                                &logs,
+                                trailing_commits.as_deref(),
+                            ) {
+                                Ok(_) => return Ok(()),
+                                Err(e) => {
+                                    eprintln!(
+                                        "couldnt apply plan: {}\nresetting",
+                                        e
+                                    );
+
+                                    reset_repo_hard(
+                                        &git.repo,
+                                        &original_head,
+                                    )?;
+
+                                    return Err(e);
+                                }
+                            }
+                        }
+                        PlanActions::Regen => {
+                            continue;
+                        }
+                        PlanActions::Quit => return Ok(()),
+                    }
+                }
+
+                Err(e) => {
+                    reset_repo_hard(&git.repo, &original_head)?;
+                    eprintln!("error when gerating plan:\n{e}");
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    let request = create_rebase_request(
+        &settings,
+        &log_strs,
+        &diffs.to_string(),
+    );
+
+    //println!("{request}");
+
+    let schema = create_rebase_schema(
+        schema_settings,
+        &settings,
+        &diffs.as_files(),
+        &diffs.as_hunks(),
+    )?;
+
+    //println!("{:#}", schema);
+
+    // an huge chunk of diffs are generated here
+    // if the branch is ahead by LOTS of changes
+    // in this case, setting a specific limit in terms
+    // of the specific commit to go back from should be in place
+    //println!("{}", diffs);
+
+    handle.done();
+
+    loop {
+        let handle = SpinnerBuilder::new()
+            .text("Generating commits")
+            .start();
+
+        let response: Value = match extract_from_provider(
+            &settings.provider,
+            request.to_owned(),
+            schema.to_owned(),
+        ) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("error from the provider:\n{:#}", e);
+
+                break;
+            }
+        };
+
+        let mut raw_commits = parse_from_rebase_schema(
+            response,
+            &settings.staging_type,
+        )?;
+
+        handle.done();
+
+        response_commits(
+            &raw_commits,
+            matches!(settings.staging_type, StagingStrategy::Hunks),
+        )?;
+
+        let mut regenerate = false;
+
+        loop {
+            let selected =
+                Menu::new("What do you want to do?", &RESPONSE_OPTS)
+                    .render()?;
+
+            match selected {
+                ResponseActions::Apply => {
+                    let git_commits: Vec<GitCommit> = raw_commits
+                        .iter()
+                        .cloned()
+                        .map(|c| process_commit(c, &settings))
+                        .collect();
+
+                    if let Some(ref to) = to_oid {
+                        // reset hard to the TO commit
+                        reset_repo_hard(&git.repo, to)?;
+                    }
+
+                    // do a mixed reset to the FROM commit
+                    reset_repo_mixed(
+                        &git.repo,
+                        &diverge_from.to_string(),
+                    )?;
+
+                    let oids = match apply(
+                        &git,
+                        &git_commits,
+                        &mut diffs.files,
+                        &settings.staging_type,
+                        to_oid.as_deref(),
+                        trailing_commits.as_deref(),
+                    ) {
+                        // done
+                        Ok(oids) => oids,
+                        Err(e) => {
+                            // ideally restore on errors
+                            reset_repo_hard(
+                                &git.repo,
+                                &original_head,
+                            )?;
+                            return Err(e);
+                        }
+                    };
+
+                    for (i, oid) in oids
+                        .iter()
+                        .enumerate()
+                    {
+                        let (
+                            branch_name,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        ) = get_commit_stats(&git.repo, oid)?;
+
+                        let commit_msg = git_commits[i]
+                            .message
+                            .to_owned();
+
+                        print::commits::completed_commit(
+                            &branch_name,
+                            oid,
+                            &commit_msg,
+                            files_changed,
+                            insertions,
+                            deletions,
+                        )?;
+                    }
+
+                    break;
+                }
+                ResponseActions::Regen => {
+                    regenerate = true;
+                    break;
+                }
+                ResponseActions::Edit => {
+                    raw_commits =
+                        crate::commit::edit_commits(&raw_commits)?;
+
+                    if raw_commits.is_empty() {
+                        break;
+                    }
+
+                    print::commits::response_commits(
+                        &raw_commits,
+                        matches!(
+                            settings.staging_type,
+                            StagingStrategy::Hunks
+                        ),
+                    )?;
+
+                    continue;
+                }
+                ResponseActions::Quit => {
+                    break;
+                }
+            }
+        }
+
+        if regenerate {
+            continue;
+        }
+
+        break;
+    }
 
     Ok(())
 }
