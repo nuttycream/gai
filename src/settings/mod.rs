@@ -10,6 +10,7 @@ use crate::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct Settings {
     /// current active provider
     pub provider: ProviderKind,
@@ -42,6 +43,7 @@ pub struct Settings {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct PromptSettings {
     /// this is what tells the llm
     /// how to behave
@@ -73,6 +75,7 @@ pub struct PromptSettings {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct PromptRules {
     /// group related files into logical commits based on the type of prefix
     pub group_related_files: bool,
@@ -104,6 +107,7 @@ pub struct PromptRules {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct ContextSettings {
     /// include commit convention v1
     /// this is different from commit_convetion field
@@ -150,6 +154,7 @@ pub struct ContextSettings {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct CommitSettings {
     /// only generate commits for staged files
     /// for DiffStrategy

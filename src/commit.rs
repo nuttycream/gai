@@ -25,6 +25,12 @@ use crate::{
     settings::Settings,
 };
 
+const COMMIT_DESC: &str = "\
+Generate commits from working tree changes using an LLM.
+Diffs from the working tree are sent to the configured provider,
+which returns one or more conventional commits. Each commit can be
+reviewed, edited, regenerated, or applied from an interactive menu.";
+
 #[derive(Debug, Clone)]
 pub struct CommitArgs {
     pub skip_confirmation: bool,
@@ -42,20 +48,14 @@ pub fn commit() -> impl Parser<Commands> {
         .help("Only consider staged changes (overrides config)")
         .switch();
 
-    let msg = "\
-Generate commits from working tree changes using your chosen LLM provider.
-Analyzes staged and/or unstaged diffs, asks the configured provider to
-produce one or more conventional commits, then opens an interactive
-menu to apply, regenerate, or edit them before committing.";
-
     construct!(CommitArgs {
         skip_confirmation,
         staged,
     })
     .to_options()
-    .descr(msg)
+    .descr(COMMIT_DESC)
     .command("commit")
-    .help("Generate commits using an LLM")
+    .help("Generate conventional commits using a LLM provider")
     .map(Commands::Commit)
 }
 
@@ -97,8 +97,10 @@ pub const EDIT_OPTS: [(EditActions, char, &str); 8] = [
     (EditActions::Quit, 'q', "quit"),
 ];
 
-pub fn run(args: &CommitArgs) -> anyhow::Result<()> {
-    let mut settings = Settings::default();
+pub fn run(
+    args: &CommitArgs,
+    settings: &Settings,
+) -> anyhow::Result<()> {
     let git = GitRepo::open(None)?;
 
     let status_strategy = if settings
@@ -188,7 +190,7 @@ pub fn run(args: &CommitArgs) -> anyhow::Result<()> {
 fn run_commit(
     req: Request,
     schema: Value,
-    cfg: Settings,
+    cfg: &Settings,
     git: GitRepo,
     mut diffs: Diffs,
 ) -> anyhow::Result<()> {

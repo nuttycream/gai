@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use bpaf::{OptionParser, Parser, construct, long};
+use bpaf::{OptionParser, Parser, construct, long, short};
 
 #[derive(Debug, Clone)]
 pub enum Commands {
@@ -20,6 +20,7 @@ pub enum ColorAlways {
 pub struct Options {
     pub verbose: bool,
     pub color: ColorAlways,
+    pub config: Option<Vec<String>>,
     pub commands: Commands,
 }
 
@@ -39,12 +40,25 @@ impl FromStr for ColorAlways {
 }
 
 pub fn cli() -> OptionParser<Options> {
-    let verbose = long("verbose").switch();
+    let verbose = short('v')
+        .long("verbose")
+        .switch();
 
     let color = long("color")
         .help("Allow color: auto, always, or never")
         .argument::<ColorAlways>("WHEN")
         .fallback(ColorAlways::Auto);
+
+    let config = short('c')
+        .long("config")
+        .help("Override gai config value, separated by ','")
+        .argument::<String>("KEY=VALUE")
+        .map(|s| {
+            s.split(',')
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
+        .optional();
 
     let commands = {
         let commit = crate::commit::commit();
@@ -54,8 +68,10 @@ pub fn cli() -> OptionParser<Options> {
     construct!(Options {
         verbose,
         color,
+        config,
         commands,
     })
     .to_options()
+    .fallback_to_usage()
     .version(env!("CARGO_PKG_VERSION"))
 }

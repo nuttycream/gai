@@ -1,5 +1,3 @@
-use crate::opts::{Commands, cli};
-
 pub mod auth;
 pub mod commit;
 pub mod find;
@@ -16,12 +14,19 @@ pub mod settings;
 pub mod status;
 pub mod utils;
 
+use crate::{
+    opts::{Commands, cli},
+    settings::load::load,
+};
+
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
     let opts = cli().run();
 
+    let settings = load(opts.config)?;
+
     match opts.commands {
-        Commands::Commit(a) => commit::run(&a),
+        Commands::Commit(a) => commit::run(&a, &settings),
     }
 }

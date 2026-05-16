@@ -1,10 +1,11 @@
+use anyhow::bail;
 use config::{Config, ConfigError, File};
 use directories::ProjectDirs;
 
 use super::Settings;
 
 pub fn load(
-    overrides: Option<&[String]>
+    overrides: Option<Vec<String>>
 ) -> anyhow::Result<Settings> {
     let mut builder = Config::builder();
 
@@ -21,7 +22,16 @@ pub fn load(
     if let Some(overrides) = overrides {
         for override_str in overrides {
             if let Some((key, value)) = override_str.split_once('=') {
-                builder = builder.set_override(key, value)?;
+                builder = match builder.set_override(key, value) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        bail!(
+                            "{override_str} is not a valid override\n{e}"
+                        );
+                    }
+                }
+            } else {
+                bail!("{override_str} is not a valid override");
             }
         }
     }
