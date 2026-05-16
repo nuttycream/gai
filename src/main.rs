@@ -28,5 +28,8 @@ fn main() -> anyhow::Result<()> {
 
     match opts.commands {
         Commands::Commit(a) => commit::run(&a, &settings),
+        Commands::Rebase(a) => rebase::run(&a, &settings),
+        Commands::Find(a) => find::run(&a, &settings),
+        Commands::Status(a) => status::run(&a, &settings),
     }
 }

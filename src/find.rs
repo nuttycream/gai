@@ -1,7 +1,9 @@
+use bpaf::{Parser, construct, long, short};
 use serde_json::Value;
 
 use crate::{
     git::{GitRepo, checkout::checkout_commit, log::get_logs},
+    opts::Commands,
     print::{menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
@@ -27,8 +29,16 @@ const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
     (ResponseActions::Quit, 'q', "quit"),
 ];
 
+const FIND_DESC: &str = "\
+Search through commit history using an LLM to locate a commit
+matching a natural-language query. Commit logs (and optionally the
+files and diffs they touch) are sent to the configured provider,
+which returns the best match along with reasoning and a confidence
+score. From the interactive menu the result can be checked out,
+inspected in full, re-queried, or retried.";
+
 #[derive(Debug, Clone, Default)]
-pub struct Find {
+pub struct FindArgs {
     count: usize,
     files: bool,
     diffs: bool,
@@ -36,13 +46,60 @@ pub struct Find {
     range: Option<String>,
     since: Option<String>,
 }
-// todo fix
 
-pub fn run() -> anyhow::Result<()> {
-    let args = Find::default();
+pub fn find() -> impl Parser<Commands> {
+    let count = short('n')
+        .long("count")
+        .help("Maximum number of commits to consider from history")
+        .argument::<usize>("N")
+        .fallback(0);
+
+    let files = short('f')
+        .long("files")
+        .help("Include the list of files touched by each commit in the context")
+        .switch();
+
+    let diffs = short('d')
+        .long("diffs")
+        .help("Include the diffs of each commit in the context (implies --files)")
+        .switch();
+
+    let reverse = short('R')
+        .long("reverse")
+        .help("Walk history from oldest to newest instead of newest to oldest")
+        .switch();
+
+    let range = long("range")
+        .help("Restrict the search to a commit range, e.g. HEAD~20..HEAD")
+        .argument::<String>("RANGE")
+        .optional();
+
+    let since = long("since")
+        .help("Restrict the search to commits more recent than DATE, e.g. '2 weeks ago'")
+        .argument::<String>("DATE")
+        .optional();
+
+    construct!(FindArgs {
+        count,
+        files,
+        diffs,
+        reverse,
+        range,
+        since,
+    })
+    .to_options()
+    .descr(FIND_DESC)
+    .command("find")
+    .help("Find a commit by natural-language description using a LLM provider")
+    .map(Commands::Find)
+}
+
+pub fn run(
+    args: &FindArgs,
+    settings: &Settings,
+) -> anyhow::Result<()> {
     let count = args.count;
 
-    let settings = Settings::default();
     let git = GitRepo::open(None)?;
 
     let logs = get_logs(

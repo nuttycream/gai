@@ -7,6 +7,9 @@ use bpaf::{OptionParser, Parser, construct, long, short};
 #[derive(Debug, Clone)]
 pub enum Commands {
     Commit(crate::commit::CommitArgs),
+    Rebase(crate::rebase::RebaseArgs),
+    Find(crate::find::FindArgs),
+    Status(crate::status::StatusArgs),
 }
 
 #[derive(Debug, Clone)]
@@ -62,7 +65,10 @@ pub fn cli() -> OptionParser<Options> {
 
     let commands = {
         let commit = crate::commit::commit();
-        construct!([commit])
+        let rebase = crate::rebase::rebase();
+        let find = crate::find::find();
+        let status = crate::status::status();
+        construct!([commit, rebase, find, status])
     };
 
     construct!(Options {
