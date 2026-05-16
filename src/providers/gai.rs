@@ -2,8 +2,6 @@ use llmao::{Provider, extract::Extract};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
-use crate::auth::get_token;
-
 use super::provider::ProviderError;
 
 #[derive(Debug)]
@@ -92,14 +90,9 @@ where
         let req_json = serde_json::to_value(request_body)?;
 
         let endpoint = "https://cli.gai.fyi/generate";
-        let auth_token = get_token()
-            .map_err(|_| ProviderError::NotAuthenticated)?;
 
         let resp = minreq::post(endpoint)
-            .with_header(
-                "Authorization",
-                format!("Bearer {}", auth_token),
-            )
+            .with_header("Authorization", "Bearer")
             .with_header("Content-Type", "application/json")
             .with_body(req_json.to_string())
             .send()?;
