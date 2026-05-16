@@ -25,7 +25,6 @@ pub fn repo_status(
     branch: &str,
     staged_statuses: &[FileStatus],
     working_dir_statuses: &[FileStatus],
-    compact: bool,
 ) -> anyhow::Result<()> {
     let mut out = stdout();
 
@@ -140,9 +139,7 @@ pub fn repo_status(
     writeln!(out, "On branch: {}", branch,)?;
 
     if !root_items.is_empty() {
-        Tree::new(&root_items)?
-            .collapsed(compact)
-            .render();
+        Tree::new(&root_items)?.render();
     }
 
     Ok(())
