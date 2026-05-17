@@ -174,18 +174,21 @@ pub fn run(
         .text("Gathering logs")
         .start();
 
-    let diverge_from = match &args.scope {
+    let diverge_from = match args
+        .scope
+        .to_owned()
+    {
         RebaseScope::Branch(name) => {
             crate::git::branch::find_divergence_branch(
-                &git.repo, name,
+                &git.repo, &name,
             )?
         }
         RebaseScope::Last(count) => {
             let logs = crate::git::log::get_logs(
-                &git, false, false, *count, false, None, None, None,
+                &git, false, false, count, false, None, None, None,
             )?;
 
-            if *count > logs.git_logs.len() {
+            if count > logs.git_logs.len() {
                 eprintln!(
                     "Warning: Only {} commits exist in history but you requested {}",
                     logs.git_logs.len(),
@@ -212,24 +215,30 @@ pub fn run(
             )?
         }
         RebaseScope::Range(range) => {
-            todo!()
-            // let oid = crate::git::commit::find_parent_commit(
-            //     &git.repo, from,
-            // )?;
-            //
-            // if let Some(to) = to {
-            //     let trailing = crate::git::rebase::trailing_commits(
-            //         &git.repo, to,
-            //     )?;
-            //
-            //     to_oid = Some(to.to_owned());
-            //     trailing_commits = Some(trailing);
-            // } else {
-            //     let head = get_head_repo(&git.repo)?;
-            //     to_oid = Some(head.to_string());
-            // }
-            //
-            // oid
+            let old_new =
+                crate::git::commit::parse_range(&git.repo, &range)?;
+
+            // old_new.new is the tip of the range
+            // anything between that and the HEAD is trailing and needs to
+            // be cherrypicked back on top after the rewrite
+            let trailing = crate::git::rebase::trailing_commits(
+                &git.repo,
+                &old_new
+                    .new
+                    .to_string(),
+            )?;
+
+            to_oid = Some(
+                old_new
+                    .new
+                    .to_string(),
+            );
+
+            if !trailing.is_empty() {
+                trailing_commits = Some(trailing);
+            }
+
+            old_new.old
         }
     };
 

@@ -35,11 +35,44 @@ impl fmt::Display for GitCommit {
 
 /// struct containing a new and an old version
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub(super) struct OldNew<T> {
-    /// The old version
+pub struct OldNew<T> {
+    /// The old version, or from..
     pub old: T,
-    /// The new version
+    /// The new version, or to..
     pub new: T,
+}
+
+/// parses a range from specified string
+/// should support:
+/// HEAD~3..HEAD
+/// commit_hash..commit_hash
+pub fn parse_range(
+    repo: &Repository,
+    range: &str,
+) -> anyhow::Result<OldNew<Oid>> {
+    let revspec = repo.revparse(range)?;
+
+    let from = revspec
+        .from()
+        .ok_or_else(|| {
+            GitError::Generic(format!(
+                "could not parse 'from' in range: {}",
+                range
+            ))
+        })?
+        .id();
+
+    let to = revspec
+        .to()
+        .ok_or_else(|| {
+            GitError::Generic(format!(
+                "'{}' is not a range (missing '..')",
+                range
+            ))
+        })?
+        .id();
+
+    Ok(OldNew { old: from, new: to })
 }
 
 /// returns the parent commit
