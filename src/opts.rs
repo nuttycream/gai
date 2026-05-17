@@ -21,7 +21,10 @@ pub enum ColorAlways {
 
 #[derive(Debug, Clone)]
 pub struct Options {
+    //FIXME: unused
     pub verbose: bool,
+    //FIXME: unused
+    pub quiet: bool,
     pub color: ColorAlways,
     pub config: Option<Vec<String>>,
     pub commands: Commands,
@@ -45,6 +48,14 @@ impl FromStr for ColorAlways {
 pub fn cli() -> OptionParser<Options> {
     let verbose = short('v')
         .long("verbose")
+        .help("Show detailed information when running commands")
+        .switch();
+
+    let quiet = short('q')
+        .long("quiet")
+        .help(
+            "Suppress all print statements, and confirmation prompts",
+        )
         .switch();
 
     let color = long("color")
@@ -73,6 +84,7 @@ pub fn cli() -> OptionParser<Options> {
 
     construct!(Options {
         verbose,
+        quiet,
         color,
         config,
         commands,
