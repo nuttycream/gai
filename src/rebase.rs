@@ -185,7 +185,7 @@ pub fn run(
         }
         RebaseScope::Last(count) => {
             let logs = crate::git::log::get_logs(
-                &git, false, false, count, false, None, None, None,
+                &git, false, false, count, false, None, None,
             )?;
 
             if count > logs.git_logs.len() {
@@ -242,6 +242,12 @@ pub fn run(
         }
     };
 
+    // lol
+    let range = match to_oid.as_deref() {
+        Some(to) => format!("{diverge_from}..{to}"),
+        None => format!("{diverge_from}..HEAD"),
+    };
+
     // collect logs
     let logs = get_logs(
         &git,
@@ -255,8 +261,7 @@ pub fn run(
         0,
         // should be oldest first
         true,
-        Some(&diverge_from.to_string()),
-        to_oid.as_deref(),
+        Some(range),
         None,
     )?;
 

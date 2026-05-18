@@ -1,4 +1,5 @@
 use bpaf::{Parser, construct, long, short};
+use humantime::parse_duration;
 use serde_json::Value;
 
 use crate::{
@@ -102,15 +103,21 @@ pub fn run(
 
     let git = GitRepo::open(None)?;
 
+    let since = if let Some(since) = &args.since {
+        Some(parse_duration(since)?)
+    } else {
+        None
+    };
+
     let logs = get_logs(
         &git,
         args.files,
         args.diffs,
         count,
         args.reverse,
-        None,
-        None,
-        None,
+        args.range
+            .to_owned(),
+        since,
     )?;
 
     let schema_settings =
@@ -183,7 +190,7 @@ pub fn run(
             .text("Searching through commits")
             .start();
 
-        let req = create_find_request(&settings, &log_strs, &q);
+        let req = create_find_request(settings, &log_strs, &q);
 
         /* if args.since.is_some() {
             println!("{}", req);
