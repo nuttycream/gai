@@ -14,7 +14,7 @@ use crate::{
     opts::Commands,
     print::{self, menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
-    requests::{Request, commit::create_commit_request},
+    requests::commit::create_commit_request,
     responses::commit::{parse_to_commit_schema, process_commit},
     schema::{
         SchemaSettings,
@@ -31,10 +31,37 @@ Diffs from the working tree are sent to the configured provider,
 which returns one or more conventional commits. Each commit can be
 reviewed, edited, regenerated, or applied from an interactive menu.";
 
+pub const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
+    (ResponseActions::Apply, 'y', "apply all commit/s"),
+    (ResponseActions::Regen, 'r', "regenerate commits"),
+    (ResponseActions::Edit, 'e', "edit a commit"),
+    (ResponseActions::Quit, 'q', "quit"),
+];
+
 #[derive(Debug, Clone)]
 pub struct CommitArgs {
     pub skip_confirmation: bool,
     pub staged: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum ResponseActions {
+    Apply,
+    Regen,
+    Edit,
+    Quit,
+}
+
+#[derive(Debug, Clone)]
+pub enum EditActions {
+    Next,
+    Previous,
+    Remove,
+    Prefix,
+    Scope,
+    Header,
+    Body,
+    Quit,
 }
 
 pub fn commit() -> impl Parser<Commands> {
@@ -59,33 +86,6 @@ pub fn commit() -> impl Parser<Commands> {
     .map(Commands::Commit)
 }
 
-#[derive(Debug, Clone)]
-pub enum ResponseActions {
-    Apply,
-    Regen,
-    Edit,
-    Quit,
-}
-
-#[derive(Debug, Clone)]
-pub enum EditActions {
-    Next,
-    Previous,
-    Remove,
-    Prefix,
-    Scope,
-    Header,
-    Body,
-    Quit,
-}
-
-pub const RESPONSE_OPTS: [(ResponseActions, char, &str); 4] = [
-    (ResponseActions::Apply, 'y', "apply all commit/s"),
-    (ResponseActions::Regen, 'r', "regenerate commits"),
-    (ResponseActions::Edit, 'e', "edit a commit"),
-    (ResponseActions::Quit, 'q', "quit"),
-];
-
 pub const EDIT_OPTS: [(EditActions, char, &str); 8] = [
     (EditActions::Next, 'n', "next commit"),
     (EditActions::Previous, 'r', "return to previous commit"),
@@ -106,6 +106,7 @@ pub fn run(
     let status_strategy = if settings
         .commit
         .only_staged
+        || args.staged
     {
         StatusStrategy::Stage
     } else {
@@ -140,7 +141,7 @@ pub fn run(
         .text("Generating request")
         .start();
 
-    let diffs = get_diffs_from_statuses(
+    let mut diffs = get_diffs_from_statuses(
         &git.repo,
         &git.workdir,
         &diff_strategy,
@@ -169,38 +170,26 @@ pub fn run(
 
     let schema = create_commit_response_schema(
         schema_settings,
-        &settings,
+        settings,
         &diffs.as_files(),
         &diffs.as_hunks(),
     )?;
 
     let req =
-        create_commit_request(&settings, &git, &diffs.to_string());
+        create_commit_request(settings, &git, &diffs.to_string());
 
     /* println!("{}", serde_json::to_string_pretty(&schema)?);
     println!("{:#?}", req); */
 
     handle.done();
 
-    run_commit(req, schema, settings, git, diffs)?;
-
-    Ok(())
-}
-
-fn run_commit(
-    req: Request,
-    schema: Value,
-    cfg: &Settings,
-    git: GitRepo,
-    mut diffs: Diffs,
-) -> anyhow::Result<()> {
     loop {
         let handle = SpinnerBuilder::new()
             .text("Generating commits")
             .start();
 
         let result: Value = match extract_from_provider(
-            &cfg.provider,
+            &settings.provider,
             req.to_owned(),
             schema.to_owned(),
         ) {
@@ -215,14 +204,23 @@ fn run_commit(
         };
 
         let mut raw_commits =
-            parse_to_commit_schema(result, &cfg.staging_type)?;
+            parse_to_commit_schema(result, &settings.staging_type)?;
 
         handle.done();
 
         print::commits::response_commits(
             &raw_commits,
-            matches!(cfg.staging_type, StagingStrategy::Hunks),
+            matches!(settings.staging_type, StagingStrategy::Hunks),
         )?;
+
+        if args.skip_confirmation {
+            if let Err(e) =
+                apply(&raw_commits, settings, &git, &mut diffs)
+            {
+                eprintln!("failed to apply commits:\n{e}");
+            }
+            break;
+        }
 
         let mut regenerate = false;
 
@@ -233,53 +231,14 @@ fn run_commit(
 
             match selected {
                 ResponseActions::Apply => {
-                    let git_commits: Vec<GitCommit> = raw_commits
-                        .iter()
-                        .cloned()
-                        .map(|c| process_commit(c, &cfg))
-                        .collect();
-
-                    let oids = match apply_commits(
-                        &git.repo,
-                        &git_commits,
-                        &mut diffs.files,
-                        &cfg.staging_type,
+                    if let Err(e) = apply(
+                        &raw_commits,
+                        settings,
+                        &git,
+                        &mut diffs,
                     ) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            eprintln!(
-                                "failed to apply commits:\n{e}",
-                            );
-
-                            break;
-                        }
-                    };
-
-                    for (i, oid) in oids
-                        .iter()
-                        .enumerate()
-                    {
-                        let (
-                            branch_name,
-                            files_changed,
-                            insertions,
-                            deletions,
-                        ) = get_commit_stats(&git.repo, oid)?;
-
-                        let commit_msg = git_commits[i]
-                            .message
-                            .to_owned();
-
-                        print::commits::completed_commit(
-                            &branch_name,
-                            oid,
-                            &commit_msg,
-                            files_changed,
-                            insertions,
-                            deletions,
-                        )?;
+                        eprintln!("failed to apply commits:\n{e}");
                     }
-
                     break;
                 }
                 ResponseActions::Regen => {
@@ -296,7 +255,7 @@ fn run_commit(
                     print::commits::response_commits(
                         &raw_commits,
                         matches!(
-                            cfg.staging_type,
+                            settings.staging_type,
                             StagingStrategy::Hunks
                         ),
                     )?;
@@ -314,6 +273,49 @@ fn run_commit(
         }
 
         break;
+    }
+
+    Ok(())
+}
+
+fn apply(
+    raw_commits: &[CommitSchema],
+    cfg: &Settings,
+    git: &GitRepo,
+    diffs: &mut Diffs,
+) -> anyhow::Result<()> {
+    let git_commits: Vec<GitCommit> = raw_commits
+        .iter()
+        .cloned()
+        .map(|c| process_commit(c, cfg))
+        .collect();
+
+    let oids = apply_commits(
+        &git.repo,
+        &git_commits,
+        &mut diffs.files,
+        &cfg.staging_type,
+    )?;
+
+    for (i, oid) in oids
+        .iter()
+        .enumerate()
+    {
+        let (branch_name, files_changed, insertions, deletions) =
+            get_commit_stats(&git.repo, oid)?;
+
+        let commit_msg = git_commits[i]
+            .message
+            .to_owned();
+
+        print::commits::completed_commit(
+            &branch_name,
+            oid,
+            &commit_msg,
+            files_changed,
+            insertions,
+            deletions,
+        )?;
     }
 
     Ok(())
