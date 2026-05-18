@@ -1,14 +1,16 @@
+use bpaf::{Parser, construct, long, short};
+use humantime::parse_duration;
 use serde_json::Value;
 
 use crate::{
-    args::{FindArgs, GlobalArgs},
-    git::{checkout::checkout_commit, log::get_logs},
+    git::{GitRepo, checkout::checkout_commit, log::get_logs},
+    opts::Commands,
     print::{menu::Menu, spinner::SpinnerBuilder},
     providers::{extract_from_provider, provider::ProviderKind},
     requests::find::create_find_request,
     responses::find::parse_to_find_schema,
     schema::{SchemaSettings, find::create_find_schema},
-    state::State,
+    settings::Settings,
 };
 
 #[derive(Debug, Clone)]
@@ -28,37 +30,104 @@ const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
     (ResponseActions::Quit, 'q', "quit"),
 ];
 
+const FIND_DESC: &str = "\
+Search through commit history using an LLM to locate a commit
+matching a natural-language query. Commit logs (and optionally the
+files and diffs they touch) are sent to the configured provider,
+which returns the best match along with reasoning and a confidence
+score. From the interactive menu the result can be checked out,
+inspected in full, re-queried, or retried.";
+
+#[derive(Debug, Clone, Default)]
+pub struct FindArgs {
+    count: usize,
+    files: bool,
+    diffs: bool,
+    reverse: bool,
+    range: Option<String>,
+    since: Option<String>,
+}
+
+pub fn find() -> impl Parser<Commands> {
+    let count = short('n')
+        .long("count")
+        .help("Maximum number of commits to consider from history")
+        .argument::<usize>("N")
+        .fallback(0);
+
+    let files = short('f')
+        .long("files")
+        .help("Include the list of files touched by each commit in the context")
+        .switch();
+
+    let diffs = short('d')
+        .long("diffs")
+        .help("Include the diffs of each commit in the context (implies --files)")
+        .switch();
+
+    let reverse = short('R')
+        .long("reverse")
+        .help("Walk history from oldest to newest instead of newest to oldest")
+        .switch();
+
+    let range = long("range")
+        .help("Restrict the search to a commit range, e.g. HEAD~20..HEAD")
+        .argument::<String>("RANGE")
+        .optional();
+
+    let since = long("since")
+        .help("Restrict the search to commits more recent than DATE, e.g. '2 weeks ago'")
+        .argument::<String>("DATE")
+        .optional();
+
+    construct!(FindArgs {
+        count,
+        files,
+        diffs,
+        reverse,
+        range,
+        since,
+    })
+    .to_options()
+    .descr(FIND_DESC)
+    .command("find")
+    .help("Find a commit by natural-language description using a LLM provider")
+    .map(Commands::Find)
+}
+
 pub fn run(
     args: &FindArgs,
-    global: &GlobalArgs,
+    settings: &Settings,
 ) -> anyhow::Result<()> {
-    let state = State::new(None, global)?;
+    let count = args.count;
 
-    let count = args.number;
+    let git = GitRepo::open(None)?;
+
+    let since = if let Some(since) = &args.since {
+        Some(parse_duration(since)?)
+    } else {
+        None
+    };
 
     let logs = get_logs(
-        &state.git,
+        &git,
         args.files,
         args.diffs,
         count,
         args.reverse,
-        args.from.as_deref(),
-        args.to.as_deref(),
-        args.since,
+        args.range
+            .to_owned(),
+        since,
     )?;
 
-    let schema_settings = if matches!(
-        state
-            .settings
-            .provider,
-        ProviderKind::OpenAI
-    ) {
-        SchemaSettings::default()
-            .additional_properties(false)
-            .allow_min_max_ints(true)
-    } else {
-        SchemaSettings::default().allow_min_max_ints(true)
-    };
+    let schema_settings =
+        if matches!(settings.provider, ProviderKind::OpenAI) {
+            SchemaSettings::default()
+                .additional_properties(false)
+                .allow_min_max_ints(true)
+        } else {
+            SchemaSettings::default().allow_min_max_ints(true)
+        };
 
     let mut log_strs = Vec::new();
 
@@ -121,7 +190,7 @@ pub fn run(
             .text("Searching through commits")
             .start();
 
-        let req = create_find_request(&state.settings, &log_strs, &q);
+        let req = create_find_request(settings, &log_strs, &q);
 
         /* if args.since.is_some() {
             println!("{}", req);
@@ -129,9 +198,7 @@ pub fn run(
         } */
 
         let response: Value = match extract_from_provider(
-            &state
-                .settings
-                .provider,
+            &settings.provider,
             req.to_owned(),
             schema.to_owned(),
         ) {
@@ -165,7 +232,7 @@ pub fn run(
             .render()?
         {
             ResponseActions::Checkout => {
-                checkout_commit(&state.git.repo, &log.commit_hash)?;
+                checkout_commit(&git.repo, &log.commit_hash)?;
                 break;
             }
             ResponseActions::ReQuery => {

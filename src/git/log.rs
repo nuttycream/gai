@@ -266,15 +266,13 @@ pub fn get_log(
     Ok(log)
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn get_logs(
     git_repo: &GitRepo,
     files: bool,
     diffs: bool,
     count: usize,
     reverse: bool,
-    from_hash: Option<&str>,
-    to_hash: Option<&str>,
+    range: Option<String>,
     since: Option<std::time::Duration>,
 ) -> anyhow::Result<Logs> {
     let repo = &git_repo.repo;
@@ -284,30 +282,13 @@ pub fn get_logs(
         revwalk.set_sorting(git2::Sort::REVERSE)?;
     }
 
-    match (from_hash, to_hash) {
-        // range exists
-        (Some(from), Some(to)) => {
-            revwalk.push_range(&format!("{}..{}", from, to))?;
-        }
-
-        // from: hide it, walk from HEAD
-        (Some(from), None) => {
-            let oid = Oid::from_str(from)?;
-            revwalk.hide(oid)?;
-            revwalk.push_head()?;
-        }
-
-        // to: walk from that commit
-        (None, Some(to)) => {
-            let oid = Oid::from_str(to)?;
-            revwalk.push(oid)?;
-        }
-
-        // if none just walk from HEAD
-        (None, None) => {
-            revwalk.push_head()?;
-        }
-    }
+    if let Some(range) = range {
+        // not using parse_range here since
+        // were walkin here
+        revwalk.push_range(&range)?;
+    } else {
+        revwalk.push_head()?;
+    };
 
     let cont = if count == 0 { !0 } else { count };
     let revwalk = revwalk.take(cont);

@@ -18,8 +18,8 @@ use super::{
     Display,
     Serialize,
     Deserialize,
-    clap::ValueEnum,
 )]
+#[serde(rename_all = "lowercase")]
 pub enum ProviderKind {
     OpenAI,
     Gemini,

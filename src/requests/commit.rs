@@ -117,7 +117,6 @@ fn build_prompt(
             false,
             None,
             None,
-            None,
         )
         .unwrap_or_default();
 
