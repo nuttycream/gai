@@ -313,7 +313,7 @@ pub fn run(
 
         loop {
             match gen_plan(
-                &settings,
+                settings,
                 &diffs,
                 &log_strs,
                 &schema_settings,
@@ -376,7 +376,7 @@ pub fn run(
     }
 
     let request = create_rebase_request(
-        &settings,
+        settings,
         &log_strs,
         &diffs.to_string(),
     );
@@ -385,7 +385,7 @@ pub fn run(
 
     let schema = create_rebase_schema(
         schema_settings,
-        &settings,
+        settings,
         &diffs.as_files(),
         &diffs.as_hunks(),
     )?;
@@ -442,7 +442,7 @@ pub fn run(
                     let git_commits: Vec<GitCommit> = raw_commits
                         .iter()
                         .cloned()
-                        .map(|c| process_commit(c, &settings))
+                        .map(|c| process_commit(c, settings))
                         .collect();
 
                     if let Some(ref to) = to_oid {
