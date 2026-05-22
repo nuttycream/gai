@@ -28,7 +28,9 @@ use crate::{
         tree::{Tree, TreeItem},
     },
     providers::{extract_from_provider, provider::ProviderKind},
-    requests::rebase::create_rebase_request,
+    requests::{
+        rebase::create_rebase_request, reword::create_reword_request,
+    },
     responses::{
         commit::process_commit, rebase::parse_from_rebase_schema,
     },
@@ -36,6 +38,7 @@ use crate::{
         SchemaSettings,
         rebase::create_rebase_schema,
         rebase_plan::{PlanOperationKind, PlanOperationSchema},
+        reword::create_reword_schema,
     },
     settings::Settings,
 };
@@ -43,6 +46,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct RebaseArgs {
     pub plan: bool,
+    pub reword: bool,
     pub scope: RebaseScope,
 }
 
@@ -89,6 +93,11 @@ pub fn rebase() -> impl Parser<Commands> {
         )
         .switch();
 
+    let reword = short('r')
+        .long("reword")
+        .help("Only reword commit messages")
+        .switch();
+
     let range = positional::<String>("RANGE")
         .help("Commit range to rebase, e.g. HEAD~3..HEAD or <from>..<to>")
         .map(RebaseScope::Range);
@@ -107,13 +116,17 @@ pub fn rebase() -> impl Parser<Commands> {
 
     let scope = construct!([range, last, branch]);
 
-    construct!(RebaseArgs { plan, scope })
-        .to_options()
-        .descr(REBASE_DESC)
-        .header(REBASE_HEADER)
-        .command("rebase")
-        .help("Rewrite or replan a span of commits using a LLM provider")
-        .map(Commands::Rebase)
+    construct!(RebaseArgs {
+        plan,
+        reword,
+        scope
+    })
+    .to_options()
+    .descr(REBASE_DESC)
+    .header(REBASE_HEADER)
+    .command("rebase")
+    .help("Rewrite or replan a span of commits using a LLM provider")
+    .map(Commands::Rebase)
 }
 
 pub fn run(
@@ -375,20 +388,24 @@ pub fn run(
         }
     }
 
-    let request = create_rebase_request(
-        settings,
-        &log_strs,
-        &diffs.to_string(),
-    );
+    let request = if args.reword {
+        create_reword_request(settings, &git, &log_strs)
+    } else {
+        create_rebase_request(settings, &log_strs, &diffs.to_string())
+    };
 
     //println!("{request}");
 
-    let schema = create_rebase_schema(
-        schema_settings,
-        settings,
-        &diffs.as_files(),
-        &diffs.as_hunks(),
-    )?;
+    let schema = if args.reword {
+        create_reword_schema(schema_settings, settings)?
+    } else {
+        create_rebase_schema(
+            schema_settings,
+            settings,
+            &diffs.as_files(),
+            &diffs.as_hunks(),
+        )?
+    };
 
     //println!("{:#}", schema);
 
@@ -456,23 +473,48 @@ pub fn run(
                         &diverge_from.to_string(),
                     )?;
 
-                    let oids = match apply(
-                        &git,
-                        &git_commits,
-                        &mut diffs.files,
-                        &settings.staging_type,
-                        to_oid.as_deref(),
-                        trailing_commits.as_deref(),
-                    ) {
-                        // done
-                        Ok(oids) => oids,
-                        Err(e) => {
-                            // ideally restore on errors
-                            reset_repo_hard(
-                                &git.repo,
-                                &original_head,
-                            )?;
-                            return Err(e);
+                    let oids = if args.reword {
+                        let commit_messages: Vec<String> =
+                            git_commits
+                                .iter()
+                                .cloned()
+                                .map(|g| g.message)
+                                .collect();
+
+                        match apply_reword(
+                            &git,
+                            &logs,
+                            &commit_messages,
+                            trailing_commits.as_deref(),
+                        ) {
+                            Ok(oids) => oids,
+                            Err(e) => {
+                                reset_repo_hard(
+                                    &git.repo,
+                                    &original_head,
+                                )?;
+                                return Err(e);
+                            }
+                        }
+                    } else {
+                        match apply(
+                            &git,
+                            &git_commits,
+                            &mut diffs.files,
+                            &settings.staging_type,
+                            to_oid.as_deref(),
+                            trailing_commits.as_deref(),
+                        ) {
+                            // done
+                            Ok(oids) => oids,
+                            Err(e) => {
+                                // ideally restore on errors
+                                reset_repo_hard(
+                                    &git.repo,
+                                    &original_head,
+                                )?;
+                                return Err(e);
+                            }
                         }
                     };
 
@@ -654,6 +696,57 @@ fn apply(
             Err(anyhow::anyhow!("failed to apply commits:\n{e}"))
         }
     }
+}
+
+fn apply_reword(
+    git: &GitRepo,
+    logs: &Logs,
+    new_commit_messages: &[String],
+    trailing: Option<&[String]>,
+) -> anyhow::Result<Vec<String>> {
+    // for the range and everything to work
+    // when applying, gonna need to quickly
+    // mimic the reset flow from rebase
+    // reset to -> parent of from commit
+    let oldest = &logs.git_logs[0].commit_hash;
+
+    let parent =
+        crate::git::commit::find_parent_commit(&git.repo, oldest)?;
+
+    let mut oids = Vec::new();
+
+    reset_repo_hard(&git.repo, &parent.to_string())?;
+
+    for (idx, log) in logs
+        .git_logs
+        .iter()
+        .enumerate()
+    {
+        let commit = log
+            .commit_hash
+            .to_owned();
+
+        if let Some(message) = new_commit_messages.get(idx) {
+            let oid =
+                cherry_pick_reword(&git.repo, &commit, message)?;
+            oids.push(oid);
+        } else {
+            return Err(anyhow::anyhow!("bad index"));
+        }
+    }
+
+    // testdis
+    if let Some(trails) = trailing {
+        let cherry_picked = cherry_pick_commits(&git.repo, trails)?;
+
+        oids.extend(cherry_picked);
+    }
+    // readd the trailing commits if any
+
+    // then sync it
+    force_checkout_head(&git.repo)?;
+
+    Ok(oids)
 }
 
 /// a gai rebase --plan will operate significantly
