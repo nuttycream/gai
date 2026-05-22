@@ -7,9 +7,6 @@ pub mod providers;
 pub mod rebase;
 pub mod requests;
 pub mod responses;
-//FIXME: this will be removed and integrated into
-//rebase
-//pub mod reword;
 pub mod schema;
 pub mod settings;
 pub mod status;
