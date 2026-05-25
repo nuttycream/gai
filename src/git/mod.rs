@@ -9,6 +9,7 @@ pub mod patches;
 pub mod rebase;
 pub mod repo;
 pub mod reset;
+pub mod revert;
 pub mod staging;
 pub mod status;
 pub mod utils;
