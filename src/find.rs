@@ -16,14 +16,16 @@ use crate::{
 #[derive(Debug, Clone)]
 enum ResponseActions {
     Checkout,
+    Revert,
     ReQuery,
     Full,
     Retry,
     Quit,
 }
 
-const RESPONSE_OPTS: [(ResponseActions, char, &str); 5] = [
+const RESPONSE_OPTS: [(ResponseActions, char, &str); 6] = [
     (ResponseActions::Checkout, 'c', "checkout the commit"),
+    (ResponseActions::Revert, 'u', "revert to this commit"),
     (ResponseActions::Full, 'f', "see full commit information"),
     (ResponseActions::ReQuery, 'a', "retry with another query"),
     (ResponseActions::Retry, 'r', "retry with the same query"),
@@ -35,8 +37,7 @@ Search through commit history using an LLM to locate a commit
 matching a natural-language query. Commit logs (and optionally the
 files and diffs they touch) are sent to the configured provider,
 which returns the best match along with reasoning and a confidence
-score. From the interactive menu the result can be checked out,
-inspected in full, re-queried, or retried.";
+score.";
 
 #[derive(Debug, Clone, Default)]
 pub struct FindArgs {
@@ -44,6 +45,9 @@ pub struct FindArgs {
     files: bool,
     diffs: bool,
     reverse: bool,
+    undo: bool,
+    checkout: bool,
+    query: Option<String>,
     range: Option<String>,
     since: Option<String>,
 }
@@ -80,11 +84,38 @@ pub fn find() -> impl Parser<Commands> {
         .argument::<String>("DATE")
         .optional();
 
+    let undo = short('u')
+        .long("undo")
+        .help(
+            "Skip the interactive menu and immediately revert to the matched commit."
+        )
+        .switch();
+
+    let checkout = long("checkout")
+        .help(
+            "Skip the interactive menu and immediately check out the matched commit. \
+             Useful for scripting non-interactive workflows, combine with --query to \
+             avoid the search prompt as well.",
+        )
+        .switch();
+
+    let query = short('Q')
+        .long("query")
+        .help(
+            "Search query to use, skipping the interactive prompt. \
+             Combine with --undo or --checkout for a fully non-interactive run.",
+        )
+        .argument::<String>("QUERY")
+        .optional();
+
     construct!(FindArgs {
         count,
         files,
         diffs,
         reverse,
+        undo,
+        checkout,
+        query,
         range,
         since,
     })
@@ -174,16 +205,24 @@ pub fn run(
 
     let schema = create_find_schema(schema_settings, count)?;
 
-    let query = String::new();
+    let mut query = args
+        .query
+        .to_owned();
     let mut should_retry = false;
 
     loop {
         let q = if should_retry {
-            query.to_owned()
+            query
+                .to_owned()
+                .unwrap_or_default()
+        } else if let Some(existing) = query.to_owned() {
+            existing
         } else {
-            crate::print::input::prompt(
+            let entere = crate::print::input::prompt(
                 "What do you want to search for? ",
-            )?
+            )?;
+            query = Some(entere.to_owned());
+            entere
         };
 
         let handle = SpinnerBuilder::new()
@@ -228,6 +267,19 @@ pub fn run(
             result.confidence,
         )?;
 
+        if args.undo {
+            crate::git::revert::revert_commit(
+                &git.repo,
+                &log.commit_hash,
+            )?;
+            break;
+        }
+
+        if args.checkout {
+            checkout_commit(&git.repo, &log.commit_hash)?;
+            break;
+        }
+
         match Menu::new("What do you want to do? ", &RESPONSE_OPTS)
             .render()?
         {
@@ -235,10 +287,19 @@ pub fn run(
                 checkout_commit(&git.repo, &log.commit_hash)?;
                 break;
             }
+            ResponseActions::Revert => {
+                crate::git::revert::revert_commit(
+                    &git.repo,
+                    &log.commit_hash,
+                )?;
+                break;
+            }
             ResponseActions::ReQuery => {
                 should_retry = false;
+                query = None;
                 continue;
             }
+            // TODO: might delete who knows
             ResponseActions::Full => todo!(),
             ResponseActions::Retry => {
                 should_retry = true;
