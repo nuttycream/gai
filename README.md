@@ -19,7 +19,7 @@ version control with the added benefit of a clean commit history.
 - [x] Per Hunk Staging [#5](https://github.com/cube-cult/gai/issues/5)
 - [x] Magic Rebasing [#6](https://github.com/cube-cult/gai/issues/6)
 - [x] Magic Find [#12](https://github.com/cube-cult/gai/issues/12)
-- [ ] Magic Undo [#72](https://github.com/cube-cult/gai/issues/72)
+- [x] Magic Undo [#72](https://github.com/cube-cult/gai/issues/72)
 - [ ] Magic Blame [#73](https://github.com/cube-cult/gai/issues/73)
 - [x] Recreate/Amend Existing Commits
       [#7](https://github.com/cube-cult/gai/issues/7)
