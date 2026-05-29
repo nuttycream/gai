@@ -11,6 +11,7 @@ pub mod schema;
 pub mod settings;
 pub mod status;
 pub mod utils;
+pub mod who;
 
 use crate::{
     opts::{Commands, cli},
@@ -29,5 +30,6 @@ fn main() -> anyhow::Result<()> {
         Commands::Rebase(a) => rebase::run(&a, &settings),
         Commands::Find(a) => find::run(&a, &settings),
         Commands::Status(a) => status::run(&a, &settings),
+        Commands::Who(a) => who::run(&a, &settings),
     }
 }
