@@ -12,6 +12,7 @@ pub enum GitError {
     Generic(String),
     PatchError,
     RebaseConflict,
+    NoBlameOnBinary,
 }
 
 impl std::fmt::Display for GitError {
@@ -34,6 +35,9 @@ impl std::fmt::Display for GitError {
             GitError::PatchError => write!(f, "Patch Error"),
             GitError::RebaseConflict => {
                 write!(f, "Conflict exists, aborting")
+            }
+            GitError::NoBlameOnBinary => {
+                write!(f, "Cannot run blame on a binary")
             }
         }
     }
