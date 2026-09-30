@@ -6,7 +6,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             provider:
-                crate::providers::provider::ProviderKind::Claude,
+                crate::providers::provider::ProviderKind::Gemini,
             providers: Default::default(),
             staging_type: Default::default(),
             status_type: Default::default(),
