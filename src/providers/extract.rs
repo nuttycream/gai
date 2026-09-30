@@ -5,7 +5,6 @@ use serde_json::Value;
 use crate::requests::Request;
 
 use super::{
-    gai::GaiProvider,
     gemini::GeminiProvider,
     openai::OpenAIProvider,
     provider::{ProviderError, ProviderKind},
@@ -25,9 +24,6 @@ where
     let content = request.get_content_as_str();
 
     match provider {
-        ProviderKind::Gai => GaiProvider::new()
-            .schema(schema)
-            .extract(prompt, content),
         ProviderKind::OpenAI => OpenAIProvider::new()
             .schema(schema)
             .extract(prompt, content),
