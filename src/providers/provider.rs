@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use strum::{Display, EnumIter};
 
-use super::{
-    gai::GaiConfig, gemini::GeminiConfig, openai::OpenAIConfig,
-};
+use super::{gemini::GeminiConfig, openai::OpenAIConfig};
 
 #[derive(
     Clone,
@@ -24,12 +22,10 @@ pub enum ProviderKind {
     OpenAI,
     Gemini,
     Claude,
-    Gai,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ProviderSettings {
-    pub gai: GaiConfig,
     pub openai: OpenAIConfig,
     pub gemini: GeminiConfig,
 }
@@ -102,7 +98,6 @@ impl ProviderSettings {
             ProviderKind::OpenAI => &self.openai.model,
             ProviderKind::Gemini => &self.gemini.model,
             ProviderKind::Claude => "not yet implemented",
-            ProviderKind::Gai => &self.gai.model,
         }
     }
 }
