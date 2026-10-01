@@ -10,6 +10,7 @@ pub enum Commands {
     Rebase(crate::rebase::RebaseArgs),
     Find(crate::find::FindArgs),
     Status(crate::status::StatusArgs),
+    Config(crate::config::ConfigSubCommands),
 }
 
 #[derive(Debug, Clone)]
@@ -79,7 +80,8 @@ pub fn cli() -> OptionParser<Options> {
         let rebase = crate::rebase::rebase();
         let find = crate::find::find();
         let status = crate::status::status();
-        construct!([commit, rebase, find, status])
+        let config = crate::config::config();
+        construct!([commit, rebase, find, status, config])
     };
 
     construct!(Options {

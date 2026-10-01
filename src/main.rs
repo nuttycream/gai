@@ -1,4 +1,5 @@
 pub mod commit;
+pub mod config;
 pub mod find;
 pub mod git;
 pub mod opts;
@@ -22,12 +23,11 @@ fn main() -> anyhow::Result<()> {
 
     let opts = cli().run();
 
-    let settings = load(opts.config)?;
-
     match opts.commands {
-        Commands::Commit(a) => commit::run(&a, &settings),
-        Commands::Rebase(a) => rebase::run(&a, &settings),
-        Commands::Find(a) => find::run(&a, &settings),
-        Commands::Status(a) => status::run(&a, &settings),
+        Commands::Commit(a) => commit::run(&a, &load(opts.config)?),
+        Commands::Rebase(a) => rebase::run(&a, &load(opts.config)?),
+        Commands::Find(a) => find::run(&a, &load(opts.config)?),
+        Commands::Status(a) => status::run(&a, &load(opts.config)?),
+        Commands::Config(a) => config::run(&a, opts.config),
     }
 }
